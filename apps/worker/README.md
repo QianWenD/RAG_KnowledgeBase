@@ -9,3 +9,8 @@
 
 The first worker implementation should extract the data-processing flow currently
 living inside the stage-based RAG entrypoints.
+
+Current workers:
+
+- `index_documents.py`
+- `faq_import.py`
