@@ -14,10 +14,12 @@ RAGPro is a staged Chinese RAG question-answering project that is being formaliz
 - `docs/rag-project-analysis.md`
 - `docs/planning-design.md`
 - `docs/current-code-structure-summary.md`
-- `docs/code-migration-map.md`
 - `docs/formalization-progress.md`
+- `docs/frontend-page-architecture.md`
 - `docs/frontend-e2e-verification.md`
 - `docs/local-startup-runbook.md`
+- `docs/milvus-feasibility-report.md`
+- `docs/milvus-lite-wsl-setup.md`
 
 ## Current Formal Entrypoint
 
@@ -35,6 +37,20 @@ python -m venv .venv
 ```
 
 ### 2. Start the API and frontend in one process
+
+Recommended launcher:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1
+```
+
+For full local RAG startup with Milvus in WSL:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -StartMilvus -UseMilvus -InstallRag
+```
+
+Manual command:
 
 ```powershell
 .venv\Scripts\python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8000 --reload

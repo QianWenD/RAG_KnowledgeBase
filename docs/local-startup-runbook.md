@@ -35,6 +35,14 @@ Install optional RAG ingestion/runtime dependencies when you need PDF/OCR/docume
 
 ## 2. Start Backend And Frontend
 
+Recommended local launcher:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1
+```
+
+This starts the API and native frontend from the repo root in a new PowerShell window, waits for `/health`, and opens `http://127.0.0.1:8000/`.
+
 Start FastAPI and the frontend together from the repo root:
 
 ```powershell
@@ -129,6 +137,14 @@ Force the API to prefer Milvus:
 $env:RAGPRO_VECTOR_BACKEND = "milvus"
 ```
 
+One-command local RAG stack startup:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -StartMilvus -UseMilvus -InstallRag
+```
+
+This runs the Milvus prerequisite report, starts Milvus in WSL, starts the API/frontend in a new PowerShell window with `RAGPRO_VECTOR_BACKEND=milvus`, waits for `/health`, and opens the browser.
+
 If Milvus is unavailable, development can fall back to the local vector store at `runtime/local_vector_store.pkl`.
 
 ## 5. Indexing And Evaluation Workers
@@ -176,6 +192,12 @@ Run browser-level mocked frontend smoke tests:
 
 ```powershell
 npm run test:e2e
+```
+
+Run the local launcher and browser smoke tests together when the API is already running or can be started by the launcher:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -RunE2ESmoke
 ```
 
 Run the opt-in live permission and audit flow. This creates temporary `e2e_*` accounts and cleans them up after the run:
