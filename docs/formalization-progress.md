@@ -1,6 +1,6 @@
-﻿# 正式化收敛进度
+# 正式化收敛进度
 
-更新时间：2026-04-08
+更新时间：2026-04-09
 
 ## 本轮完成
 
@@ -24,17 +24,273 @@
   - `src/ragpro/generation/prompts.py`
   - `src/ragpro/generation/service.py`
   - `src/ragpro/generation/llm.py`
+- 建立 routing 正式模块：
+  - `src/ragpro/routing/schemas.py`
+  - `src/ragpro/routing/rules.py`
+  - `src/ragpro/routing/prompts.py`
+  - `src/ragpro/routing/service.py`
+- 建立 conversation 正式模块：
+  - `src/ragpro/conversation/repository.py`
+  - `src/ragpro/conversation/service.py`
+- 建立 evaluation 正式模块：
+  - `src/ragpro/evaluation/dataset.py`
+  - `src/ragpro/evaluation/models.py`
+  - `src/ragpro/evaluation/runner.py`
+- 建立前端正式页面：
+  - `apps/web/index.html`
+  - `apps/web/styles.css`
+  - `apps/web/app.js`
+- 建立启动与依赖文件：
+  - `requirements.txt`
+  - `requirements-rag.txt`
+  - `scripts/start-api.ps1`
+  - `scripts/start-milvus-wsl.ps1`
+  - `scripts/stop-milvus-wsl.ps1`
+- 建立离线评测入口：
+  - `apps/worker/run_evaluation.py`
+  - `packages/data/evaluation/phase_one_smoke.json`
+  - `packages/data/evaluation/phase_one_regression.json`
+  - `packages/data/evaluation/current_domain_regression.json`
+  - 可对 `route / keywords / citations / retrieval_backend` 做基础回归
+  - 默认输出到 `runtime/evaluation/*.report.json`
+- 扩充离线评测数据集与指标：
+  - `src/ragpro/evaluation/models.py` 增加 `tags / expected_faq_matched_question / expected_min_faq_score / expected_retrieval_strategy / expected_citation_sources / expected_primary_citation_source / expected_topk_citation_snippets / expected_topk_limit / expected_top1_citation_snippets / expected_min_context_count / expected_answer_snippets / forbidden_answer_snippets / expected_fallback`
+  - `src/ragpro/evaluation/dataset.py` 支持扩展字段加载与校验
+  - `src/ragpro/evaluation/runner.py` 增加 `faq_hit_rate / faq_exact_question_hit_rate / faq_score_pass_rate / strategy_accuracy / citation_source_hit_rate / top_citation_hit_rate / topk_retrieval_hit_rate / rerank_top1_accuracy / context_coverage_rate / answer_fidelity_rate / answer_safety_rate / fallback_accuracy`
+  - 评测报告新增 `check_summary / category_breakdown / tag_breakdown / failure_breakdown`
+  - 回归集已覆盖 `general / faq / rag / source_filter / conversation / fallback`
+  - 新增通用模板：`packages/data/evaluation/domain_regression_template.json`
+  - 新增当前业务扩展集：`packages/data/evaluation/current_domain_regression.json`（`10` 个样例）
+- 增强 `/query` 契约：
+  - `src/ragpro/routing/service.py` 新增统一的 `confidence` 与 `debug_info` 组装逻辑
+  - `confidence` 统一输出 `score / label`
+  - `debug_info` 统一输出 `source_filter / faq / routing / retrieval / fallback_used`
+  - 非流式 `/query` 与流式 SSE 的 `start / end` 元数据现在保持同一套调试结构
+- 整理运行时健康检查职责：
+  - `src/ragpro/runtime/preflight.py` 新增轻量 `run_healthcheck()`
+  - `/health` 现在只返回轻量 `service / status / readiness / dependencies`
+  - `/diagnostics` 保留详细 `services / service_summary / environment`
+- 建立运行诊断与本地后备检索：
+  - `src/ragpro/runtime/preflight.py`
+  - `runtime/local_vector_store.pkl`（运行时生成）
+- 优化本地后备检索质量：
+  - 本地检索按父文档聚合排序，不再只返回零散子块
+  - 返回 `retrieval_backend`、`retrieval_score`、`matched_chunks` 元数据
+  - RAG citations 增加去重与摘要 excerpt
+- 增强多轮问答质量：
+  - 会话历史增加压缩摘要逻辑，长历史保留最近重点
+  - 短追问会结合最近两轮上下文自动改写检索 query
+  - 前端控制台新增 `retrieval_backend` 展示并修复中文乱码
+- 增强答案质量稳定性：
+  - 检索不到资料时，RAG 分支直接返回受控降级答案，不再继续调用 LLM 生成高风险回答
+  - citations 按 `retrieval_score` 和 `matched_chunks` 排序，优先展示更强证据
+  - 会话与生成层内部中文提示文案进一步清理
+- 清理旧 Milvus 痕迹：
+  - 已删除 `D:\database\Milvus` 下未使用的旧 `docker-compose.yml`
+  - 新增本机预检脚本：`scripts/check-milvus-prereqs.ps1`
+  - 新增可行性报告：`docs/milvus-feasibility-report.md`
+- 完成 WSL 轻量 Milvus 验证：
+  - 已在 `WSL Ubuntu 24.04.1` 中创建隔离环境 `/root/milvus-lite-env`
+  - 已安装 `pymilvus 2.6.11` 和 `milvus-lite 2.5.1`
+  - 已完成本地建库/插入/检索最小验证
+  - 已记录兼容性注意事项：`setuptools` 需固定为 `<81`
+- 完成 WSL 正式 Milvus 联调：
+  - 已通过 `WSL Ubuntu + Docker Engine + Milvus Standalone` 启动正式服务
+  - Windows 侧已验证 `127.0.0.1:19530` 和 `127.0.0.1:9091` 端口可访问
+  - 已创建 `itcast.edurag_final` collection
+  - 已将 `packages/data/ai_data` 成功写入 `65` 个 chunk 到 Milvus
+  - `/query` 已验证返回 `retrieval_backend: milvus`
+- 修复 Milvus 稀疏向量兼容问题：
+  - `BGEM3` 返回 `csr_array` 时不再因 `getrow()` 缺失而入库失败
+  - 新增回归测试：`tests/test_vector_store.py`
+- 增强文档加载与 OCR 兜底：
+  - `src/ragpro/ingestion/loaders/registry.py` 改为按文件类型独立降级，不再因为某个可选依赖缺失导致整组 loader 失效
+  - 新增 `pypdf` 文本 PDF 提取路径
+  - 新增 `PyMuPDF + rapidocr-onnxruntime` OCR fallback 路径
+  - 新增 `docx2txt` 的 `.docx` 支持
+  - 当 `pypdf` 提取结果疑似为低质量部件字/乱码时，会自动切换到 OCR
+  - `packages/data/ai_data/LLM基础知识.pdf` 已成功加载
+  - `packages/data/ai_data` 当前可处理为 `105` 个 child chunk
+  - 新增回归测试：`tests/test_ingestion_loaders.py`
+- 增强索引重建一致性：
+  - `VectorStore` 新增按 `source` 删除旧向量能力
+  - `apps/worker/index_documents.py` 默认先删除同来源旧索引，再写入新 chunk
+  - 可通过 `--append` 显式改为追加模式
+  - 重新构建 `ai` 数据后，Milvus 中该来源当前稳定为 `105` 条记录
+- 增强概念问句检索质量：
+  - `src/ragpro/routing/rules.py` 为概念型问句增加轻量 query expansion
+  - 例如 `什么是大语言模型` 会自动扩展为 `什么是大语言模型 大语言模型 LLM 大模型 定义 背景`
+  - 这类问题的检索策略会稳定落到 `hyde`，便于命中 `LLM基础知识.pdf`
+- 清理生成层上下文与引用噪声：
+  - `src/ragpro/generation/service.py` 在拼装 prompt 前清洗 HTML 标签、异常空白和 OCR 项目符号噪声
+  - citations excerpt 现在会输出更干净的摘要，不再直接暴露原始 `<html>` 标签
+- 新增文档上传接口：
+  - `apps/api/main.py` 新增 `POST /documents/upload`
+  - `src/ragpro/ingestion/upload_service.py` 新增正式上传服务
+  - 支持 `multipart/form-data` 多文件上传并立即进入现有 ingestion + retrieval 链路
+  - 支持 `.pdf`、`.docx`、`.txt`、`.md`、`.html`、`.pptx` 等白名单类型
+  - 上传文件会保存在 `runtime/uploads/<source>/...`
+  - 增加文件扩展名白名单、大小限制、文件名净化，避免路径穿越和脏文件名问题
+  - 支持 `replace_source`，可在上传时选择是否先删除同来源旧向量
+- 新增索引重建接口：
+  - `apps/api/main.py` 新增 `POST /reindex`
+  - 复用 `apps/worker/index_documents.py` 的正式索引链路
+  - 仅允许从 `packages/data/<source>_data` 或 `runtime/uploads/<source>` 重建
+  - 支持 `append=false` 时先删除同来源旧向量再重建
+  - 支持显式 `directory` 覆盖，但仍受来源目录白名单约束
+- 新增前端上传面板：
+  - `apps/web/index.html` 左侧新增 `Knowledge Upload / 文档上传` 面板
+  - `apps/web/app.js` 新增文件选择、上传提交、结果回显和状态提示逻辑
+  - `apps/web/styles.css` 新增上传面板、文件列表和结果卡片样式
+  - 上传成功后会在前端自动展示文件数、chunk 数、后端类型和最近一次上传结果
+  - 新增拖拽上传交互
+  - 新增真实上传进度条（`XMLHttpRequest.upload`）
+  - 新增最近上传记录列表，使用浏览器本地存储保留最近 8 条记录
+- 清理中文提示文案乱码：
+  - `src/ragpro/generation/prompts.py`
+  - `src/ragpro/generation/llm.py`
+  - `src/ragpro/routing/rules.py`
+  - `src/ragpro/routing/prompts.py`
+  - `src/ragpro/routing/service.py`
 - 建立 worker 说明：`apps/worker/README.md`
 - 建立旧代码到新结构的映射文档：`docs/code-migration-map.md`
 - 建立当前代码结构整理文档：`docs/current-code-structure-summary.md`
 
 ## 当前状态
 
-正式结构已经不是空壳，FAQ、ingestion、retrieval、generation 和 API 统一入口都已有第一版代码。
+正式结构已经不是空壳，FAQ、ingestion、retrieval、generation、routing、conversation、frontend 和 API 统一入口都已有第一版代码。当前既支持本地后备检索，也已经在本机完成了 `WSL + Milvus Standalone` 的正式联调。
+
+## 当前验证
+
+- `.venv\Scripts\python -m unittest tests.test_ingestion_loaders tests.test_vector_store tests.test_routing tests.test_generation tests.test_conversation tests.test_api_surface`
+- `.venv\Scripts\python -m unittest tests.test_faq_service tests.test_document_upload tests.test_evaluation tests.test_ingestion_loaders tests.test_vector_store tests.test_generation tests.test_conversation tests.test_routing tests.test_api_surface`
+- 共 `79` 个测试通过
+- 本地接口验证通过：
+  - `/`
+  - `/health`
+  - `/diagnostics`
+  - `/sources`
+  - `/reindex`
+  - `/query`（FAQ / general_llm / rag）
+  - `/documents/upload`
+  - `/static/app.js`
+  - `apps/worker/run_evaluation.py --dataset packages\data\evaluation\phase_one_smoke.json --mode app`
+  - `apps/worker/run_evaluation.py --dataset packages\data\evaluation\phase_one_regression.json --mode app`
+  - `phase-one-regression` 当前真实回归结果为 `6/6` 通过，`faq_hit / faq_question / faq_score / route / strategy / citations / top_citation / topk_retrieval / rerank_top1 / answer_fidelity / answer_safety / fallback` 全部达到 `1.0`
+  - `apps/worker/run_evaluation.py --dataset packages\data\evaluation\current_domain_regression.json --mode app`
+  - `current-domain-regression` 当前真实回归结果为 `10/10` 通过，覆盖 `general / faq / rag / source_filter / conversation / fallback`
+- WSL 侧验证通过：
+  - `Milvus Lite` 建库
+  - 插入向量
+  - 搜索命中
+  - `Milvus Standalone` 健康启动
+  - Windows 侧 `pymilvus` 直连
+  - `VectorStore` 使用 `milvus` backend
+  - 文档入库成功
+  - `LLM基础知识.pdf` 文本抽取成功
+  - `LLM基础知识.pdf` 在低质量文本时会自动切换到 OCR
+  - `ai_data` 目录重新入库成功（`105` chunks）
+  - `/query` 对“大语言模型”类问题的 RAG 回答已明显改善
+  - `/query` 对概念问句会返回扩展后的 `retrieval_query`
+  - citations 摘要已去掉 HTML 标签和明显 OCR 噪声
+  - 通过 `POST /documents/upload` 上传 `test` 来源文档后，Milvus 检索可立即看到新文档
+  - 前端首页已验证包含上传表单与上传脚本入口
+  - 前端首页已验证包含拖拽区、进度条和上传历史列表
+  - `phase-one-smoke` 离线评测已跑通，并生成 JSON 报告
+  - `/health` 与 `/diagnostics` 接口职责已通过单测收口
 
 ## 下一步建议
 
-1. 为 ingestion / retrieval 增加最小可运行验证脚本
-2. 引入 routing 正式模块
-3. 为 `/query` 增加会话历史与引用增强
-4. 补 worker 任务和离线评测入口
+1. 扩充更深的答案忠实度与检索质量指标
+2. 将轻量路由升级为可插拔分类器（规则/Prompt/BERT）
+3. 继续补充更多真实业务问答样本
+4. 增加更多面向生产联调的接口回归样例
+## 新增进展：认证与权限
+
+- 新增认证模块：
+  - `src/ragpro/auth/models.py`
+  - `src/ragpro/auth/permissions.py`
+  - `src/ragpro/auth/repository.py`
+  - `src/ragpro/auth/service.py`
+- 新增认证接口：
+  - `POST /auth/register`
+  - `POST /auth/login`
+  - `POST /auth/logout`
+  - `GET /auth/me`
+  - `POST /auth/change-password`
+  - `POST /auth/users`
+  - `GET /auth/users`
+  - `PATCH /auth/users/{user_id}/access`
+  - `POST /auth/users/{user_id}/reset-password`
+  - `DELETE /auth/users/{user_id}`
+- 新增权限规则：
+  - 普通用户仅能看到自己被授权的 `source`
+  - 普通用户访问未授权来源时返回 `403`
+  - 单来源普通用户自动收口到唯一来源
+  - 多来源普通用户进行专业问答时需要显式选择来源
+- 新增管理员权限收口：
+  - `/documents/upload`
+  - `/reindex`
+  - `/diagnostics`
+  - `/faq/query`
+- 新增用户级会话隔离：
+  - `conversations` 表增加 `user_id`
+  - 会话历史按 `user_id + session_id` 读取与清理
+- 新增前端工作台能力：
+  - 登录/注册面板
+  - 当前身份与可访问来源展示
+  - 用户自助修改密码入口
+  - 管理员创建用户表单
+  - 管理员用户授权面板
+  - 管理员重置密码入口
+  - 管理员删除用户入口
+
+## 认证与权限验证
+
+- 真实注册验证通过：第一个注册账号自动成为管理员
+- 真实登录验证通过：`/auth/me` 能返回当前身份
+- 真实来源授权验证通过：管理员把第二个用户限制为仅 `ai`
+- 真实拦截验证通过：受限用户访问 `java` 来源时返回 `403`
+- 真实用户管理验证通过：管理员已成功创建新用户并重置密码，新密码可正常登录
+- 认证增强验证通过：自助修改密码会立即失效旧会话，管理员可删除非本人用户
+- 当前 Python 自动化测试总数已达到 `99`
+
+## 新增进展：前端重构与 E2E 验证
+
+- 前端已按多页面后台工作台继续重构，核心页面保持原生 `HTML/CSS/JS + FastAPI 静态挂载`：
+  - `/qa`
+  - `/knowledge`
+  - `/users/audit`
+  - `/users/access`
+  - `/users/security`
+  - `/login`
+  - `/register`
+- 新增问答页输入遥测：
+  - 输入字数提示
+  - 当前来源筛选提示
+  - 发送中按钮状态
+- 新增知识运营上传流程条：
+  - 选择文件
+  - 准备上传
+  - 上传中
+  - 入库处理
+  - 完成
+- 新增审计日志快捷时间范围筛选：
+  - 今天
+  - 最近 7 天
+  - 最近 30 天
+  - 清空时间
+- 新增前端 smoke 单测：
+  - `tests/test_frontend_smoke.py`
+  - 覆盖页面路由、静态资源、JS 语法检查、UTF-8 replacement 字符检查
+- 新增 Playwright 浏览器 E2E：
+  - `tests/e2e/frontend-smoke.spec.js`
+  - 默认使用 mock API，不写数据库
+  - 覆盖 QA、知识上传、审计筛选、用户授权、安全操作、登录、注册
+- 新增真实权限审计链路 E2E：
+  - `tests/e2e/live-permissions.spec.js`
+  - 默认跳过
+  - 可通过 `RAGPRO_E2E_LIVE=1` 与 `RAGPRO_E2E_CREATE_ADMIN=1` 开启
+  - 测试会创建并清理 `e2e_*` 临时账号和审计记录
+- 新增验证说明文档：
+  - `docs/frontend-e2e-verification.md`

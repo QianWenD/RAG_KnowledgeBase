@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAGPro 知识运营 · 上传入库</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="console-page" data-page="knowledge" data-page-view="knowledge-upload" data-page-label="上传入库">
+  <div class="scene-grid" aria-hidden="true"></div>
+  <div class="scene-glow" aria-hidden="true"></div>
+
+  <div class="shell">
+    <aside class="rail">
+      <section class="brand dossier">
+        <div class="brand-topline">
+          <p class="brand-kicker">RAGPro 后台</p>
+          <span class="brand-stamp">知识运营</span>
+        </div>
+        <h1>上传入库页</h1>
+        <p class="brand-copy">这个子页专门处理文档上传、入库进度和最近结果。需要重建索引或查看数据源时，请切到右侧子模块导航。</p>
+        <div class="brand-strip">
+          <span>上传</span>
+          <span>入库</span>
+          <span>切块</span>
+          <span>向量化</span>
+        </div>
+      </section>
+
+      <section class="panel nav-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">主导航</p>
+            <h2>页面入口</h2>
+          </div>
+        </div>
+        <div class="nav-links nav-links-single">
+          <a class="nav-link" data-nav="dashboard" href="/">总览</a>
+          <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
+          <a class="nav-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限管理</a>
+        </div>
+      </section>
+
+      <section id="auth-panel" class="panel auth-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">当前账号</p>
+            <h2>登录状态</h2>
+          </div>
+          <span id="auth-badge" class="status-chip">检查中</span>
+        </div>
+        <div id="auth-summary" class="auth-summary">
+          <p class="note">系统正在检查当前会话和可见来源范围。</p>
+        </div>
+        <div id="auth-user-card" class="auth-card hidden">
+          <div class="stack">
+            <strong id="auth-username">-</strong>
+            <span id="auth-role" class="subtle">-</span>
+          </div>
+          <div class="stack">
+            <span class="label">可见来源</span>
+            <div id="auth-source-tags" class="tag-list"></div>
+          </div>
+          <div class="session-actions">
+            <button id="auth-refresh-btn" class="ghost-btn" type="button">刷新状态</button>
+            <button id="change-password-btn" class="ghost-btn" type="button">修改密码</button>
+            <button id="logout-btn" class="ghost-btn danger" type="button">退出登录</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="board page-board">
+      <header class="topbar">
+        <div class="topbar-main">
+          <div class="breadcrumb-row" aria-label="面包屑">
+            <a class="breadcrumb-link" href="/">后台</a>
+            <span class="breadcrumb-sep">/</span>
+            <a class="breadcrumb-link" href="/knowledge">知识运营</a>
+            <span class="breadcrumb-sep">/</span>
+            <span id="page-breadcrumb-current">上传入库</span>
+          </div>
+          <p class="panel-kicker">知识运营 · 上传入库</p>
+          <h2>上传资料并写入检索链路</h2>
+          <p class="topbar-copy">这里专门处理文档进入知识库的第一步。上传成功后，系统会立即写入当前来源，便于你马上回到问答页验证效果。</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="page-status" class="status-badge">等待操作</span>
+        </div>
+      </header>
+
+      <div class="page-utility-bar">
+        <div class="page-utility-links">
+          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
+          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
+          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
+        </div>
+        <p class="page-utility-note">上传完成后，最推荐立刻回到问答工作台做回测，这样最容易判断新资料有没有真正进入召回结果。</p>
+      </div>
+
+      <nav class="module-nav-bar" aria-label="知识运营子导航">
+        <a class="module-nav-link" data-module-nav="knowledge-upload" href="/knowledge">上传入库</a>
+        <a class="module-nav-link" data-module-nav="knowledge-reindex" href="/knowledge/reindex">重建索引</a>
+        <a class="module-nav-link" data-module-nav="knowledge-sources" href="/knowledge/sources">数据源管理</a>
+      </nav>
+
+      <nav class="section-nav-bar" aria-label="页内导航">
+        <a class="section-link" data-section-link href="#knowledge-panel">上传表单</a>
+        <a class="section-link" data-section-link href="#upload-ledger">最近记录</a>
+        <a class="section-link" data-section-link href="#ops-guide">运营建议</a>
+      </nav>
+
+      <section class="page-summary-strip">
+        <article class="summary-card">
+          <span>当前角色</span>
+          <strong id="knowledge-summary-role">检查中</strong>
+          <p>只有管理员可以上传和入库，普通用户只保留查看说明。</p>
+        </article>
+        <article class="summary-card">
+          <span>可用来源</span>
+          <strong id="knowledge-summary-source-count">0</strong>
+          <p>来源越清晰，后续做权限和回测就越容易收口。</p>
+        </article>
+        <article class="summary-card">
+          <span>最近记录数</span>
+          <strong id="knowledge-summary-history-count">0</strong>
+          <p>最近的上传结果会保留在本地，方便你快速回看。</p>
+        </article>
+        <article class="summary-card">
+          <span>入库模式</span>
+          <strong id="knowledge-summary-mode">增量补充</strong>
+          <p>默认建议走增量补充，只有确定整源替换时才做覆盖重建。</p>
+        </article>
+      </section>
+
+      <section class="split-panel-grid">
+        <section class="panel upload-panel" id="knowledge-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">上传入库</p>
+              <h2>文档上传</h2>
+            </div>
+            <span class="status-chip">管理员可用</span>
+          </div>
+
+          <div id="knowledge-access-note" class="section-banner hidden">
+            <strong>当前无权限</strong>
+            <p>你可以查看这一页的说明，但没有文档上传和入库权限。如需操作，请使用管理员账号。</p>
+          </div>
+
+          <form id="upload-form" class="upload-form">
+            <div class="upload-grid">
+              <label class="control-field stacked" for="upload-source">
+                <span>目标来源</span>
+                <select id="upload-source" name="source">
+                  <option value="">请选择来源</option>
+                </select>
+              </label>
+              <label class="toggle">
+                <input id="upload-replace-source" name="replace_source" type="checkbox">
+                <span>覆盖旧索引</span>
+              </label>
+            </div>
+
+            <label id="upload-drop-zone" class="file-drop" for="upload-file-input">
+              <input id="upload-file-input" name="files" type="file" multiple accept=".txt,.md,.markdown,.html,.htm,.pdf,.docx,.ppt,.pptx">
+              <strong>点击选择文件或直接拖拽到这里</strong>
+              <span>支持 PDF、DOCX、TXT、Markdown、HTML、PPT 和 PPTX。</span>
+              <small>支持按来源批量上传。推荐每次只处理一个来源，方便后续验证和权限控制。</small>
+            </label>
+
+            <div id="upload-file-list" class="file-list">
+              <div class="note">当前还没有选择文件。</div>
+            </div>
+
+            <div class="upload-progress" aria-live="polite">
+              <div class="upload-progress-head">
+                <strong id="upload-progress-label">等待上传</strong>
+                <span id="upload-progress-value" class="subtle">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="upload-progress-fill" class="progress-fill"></div>
+              </div>
+            </div>
+
+            <div class="upload-pipeline" aria-label="上传入库步骤">
+              <span class="upload-step is-active" data-upload-step="select">选择文件</span>
+              <span class="upload-step" data-upload-step="prepare">准备请求</span>
+              <span class="upload-step" data-upload-step="upload">上传传输</span>
+              <span class="upload-step" data-upload-step="process">服务处理</span>
+              <span class="upload-step" data-upload-step="done">完成入库</span>
+            </div>
+
+            <div class="upload-actions">
+              <button id="upload-submit-btn" class="send-btn" type="submit">上传并入库</button>
+              <p class="hint">如果你是从“数据源管理”页跳过来的，来源会自动帮你选好。</p>
+            </div>
+          </form>
+
+          <div id="upload-result" class="upload-result note">暂时还没有上传结果。</div>
+        </section>
+
+        <section class="panel guide-panel" id="upload-ledger">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">上传记录</p>
+              <h2>最近入库结果</h2>
+            </div>
+          </div>
+          <div id="upload-history-list" class="upload-history-list">
+            <div class="note">最近上传记录会显示在这里。</div>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel guide-panel" id="ops-guide">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">运营建议</p>
+            <h2>推荐做法</h2>
+          </div>
+        </div>
+        <div class="guide-list guide-list-three">
+          <div class="guide-item">
+            <strong>按来源拆文档</strong>
+            <p>课程、FAQ、制度、行业资料最好分开上传，后续检索和权限都更容易控制。</p>
+          </div>
+          <div class="guide-item">
+            <strong>覆盖重建要谨慎</strong>
+            <p>确认要整源替换时再勾选“覆盖旧索引”，否则优先走增量补充。</p>
+          </div>
+          <div class="guide-item">
+            <strong>上传后回测问答</strong>
+            <p>最稳的做法是立刻回到问答页确认答案是否引用了刚刚上传的资料。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/knowledge.js"></script>
+</body>
+</html>

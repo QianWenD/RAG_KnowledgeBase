@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAGPro 总览</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="console-page" data-page="dashboard">
+  <div class="scene-grid" aria-hidden="true"></div>
+  <div class="scene-glow" aria-hidden="true"></div>
+
+  <div class="shell">
+    <aside class="rail">
+      <section class="brand dossier">
+        <div class="brand-topline">
+          <p class="brand-kicker">RAGPro 后台</p>
+          <span class="brand-stamp">总览</span>
+        </div>
+        <h1>后台导航中心</h1>
+        <p class="brand-copy">总览页只负责讲清楚页面入口、账号状态和推荐操作路径，不承载重交互。真正的问答、知识运营和权限治理都拆到了各自独立页面。</p>
+        <div class="brand-strip">
+          <span>总览</span>
+          <span>问答</span>
+          <span>知识运营</span>
+          <span>权限管理</span>
+        </div>
+      </section>
+
+      <section class="panel nav-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">主导航</p>
+            <h2>页面入口</h2>
+          </div>
+        </div>
+        <div class="nav-links nav-links-single">
+          <a class="nav-link" data-nav="dashboard" href="/">总览</a>
+          <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
+          <a class="nav-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限管理</a>
+        </div>
+      </section>
+
+      <section id="auth-panel" class="panel auth-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">当前账号</p>
+            <h2>登录状态</h2>
+          </div>
+          <span id="auth-badge" class="status-chip">检查中</span>
+        </div>
+        <div id="auth-summary" class="auth-summary">
+          <p class="note">系统正在检查当前会话和可见来源范围。</p>
+        </div>
+        <div id="auth-user-card" class="auth-card hidden">
+          <div class="stack">
+            <strong id="auth-username">-</strong>
+            <span id="auth-role" class="subtle">-</span>
+          </div>
+          <div class="stack">
+            <span class="label">可见来源</span>
+            <div id="auth-source-tags" class="tag-list"></div>
+          </div>
+          <div class="session-actions">
+            <button id="auth-refresh-btn" class="ghost-btn" type="button">刷新状态</button>
+            <button id="change-password-btn" class="ghost-btn" type="button">修改密码</button>
+            <button id="logout-btn" class="ghost-btn danger" type="button">退出登录</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="board page-board">
+      <header class="topbar">
+        <div class="topbar-main">
+          <div class="breadcrumb-row" aria-label="面包屑">
+            <a class="breadcrumb-link" href="/">后台</a>
+            <span class="breadcrumb-sep">/</span>
+            <span id="page-breadcrumb-current">总览</span>
+          </div>
+          <p class="panel-kicker">后台首页</p>
+          <h2>把复杂能力拆成清晰页面</h2>
+          <p class="topbar-copy">从这里进入问答、知识运营和权限治理。每一类任务都有自己的独立页面，不再在一张页面上堆满所有功能。</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="page-status" class="status-badge">等待操作</span>
+        </div>
+      </header>
+
+      <div class="page-utility-bar">
+        <div class="page-utility-links">
+          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
+          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
+          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
+        </div>
+        <p class="page-utility-note">先判断当前账号范围，再进入具体业务页操作，可以明显减少误点和误配。</p>
+      </div>
+
+      <nav class="section-nav-bar" aria-label="页内导航">
+        <a class="section-link" data-section-link href="#entry-cards">功能入口</a>
+        <a class="section-link" data-section-link href="#recommended-flow">推荐流程</a>
+        <a class="section-link" data-section-link href="#design-principles">设计原则</a>
+      </nav>
+
+      <section class="overview-strip" id="entry-cards">
+        <article class="overview-card">
+          <span>当前角色</span>
+          <strong id="dashboard-role-text">-</strong>
+          <p id="dashboard-admin-hint">正在加载账号信息。</p>
+        </article>
+        <article class="overview-card">
+          <span>可见来源数</span>
+          <strong id="dashboard-source-count">0</strong>
+          <p id="dashboard-source-scope">正在加载来源范围。</p>
+        </article>
+        <article class="overview-card">
+          <span>当前模式</span>
+          <strong id="dashboard-quick-status">加载中</strong>
+          <p>总览页只做导航和状态提示，不承载上传、提问和授权等重操作。</p>
+        </article>
+      </section>
+
+      <section class="split-panel-grid split-panel-grid-3">
+        <article class="panel guide-panel link-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">页面一</p>
+              <h2>问答工作台</h2>
+            </div>
+          </div>
+          <div class="guide-list">
+            <div class="guide-item">
+              <strong>适合做什么</strong>
+              <p>提问、看路由、看引用证据、管理当前会话和最近历史。</p>
+            </div>
+          </div>
+          <a class="panel-link-btn" href="/qa">进入问答页</a>
+        </article>
+
+        <article class="panel guide-panel link-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">页面二</p>
+              <h2>知识运营</h2>
+            </div>
+          </div>
+          <div class="guide-list">
+            <div class="guide-item">
+              <strong>适合做什么</strong>
+              <p>上传 PDF、Word、Markdown 等资料，查看入库结果和最近上传记录。</p>
+            </div>
+          </div>
+          <a class="panel-link-btn" href="/knowledge">进入知识运营页</a>
+        </article>
+
+        <article class="panel guide-panel link-panel" data-admin-nav>
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">页面三</p>
+              <h2>权限管理</h2>
+            </div>
+          </div>
+          <div class="guide-list">
+            <div class="guide-item">
+              <strong>适合做什么</strong>
+              <p>创建用户、分配角色、控制来源可见范围、重置密码和停用账号。</p>
+            </div>
+          </div>
+          <a class="panel-link-btn" href="/users">进入权限页</a>
+        </article>
+      </section>
+
+      <section class="split-panel-grid">
+        <section class="panel guide-panel" id="recommended-flow">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">推荐路径</p>
+              <h2>常用操作流程</h2>
+            </div>
+          </div>
+          <div class="guide-list">
+            <div class="guide-item">
+              <strong>1. 先进入问答页验证现状</strong>
+              <p>先问几个代表性问题，确认当前知识库的回答情况，再决定是否需要补资料。</p>
+            </div>
+            <div class="guide-item">
+              <strong>2. 再去知识运营页补资料</strong>
+              <p>管理员上传新文档后，马上回到问答页复测，确认引用是否命中新资料。</p>
+            </div>
+            <div class="guide-item">
+              <strong>3. 最后在权限页收口访问范围</strong>
+              <p>当某些成员只应看到部分内容时，再按来源收紧或放开权限。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel guide-panel" id="design-principles">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">设计原则</p>
+              <h2>为什么拆成多页</h2>
+            </div>
+          </div>
+          <div class="guide-list">
+            <div class="guide-item">
+              <strong>降低认知负担</strong>
+              <p>提问、上传和授权的操作复杂度完全不同，拆页后更符合真实后台使用习惯。</p>
+            </div>
+            <div class="guide-item">
+              <strong>减少误操作</strong>
+              <p>管理员不会在提问时误点上传，普通用户也不会总看到一整块与自己无关的管理功能。</p>
+            </div>
+            <div class="guide-item">
+              <strong>后续更容易扩展</strong>
+              <p>后面要加来源管理、系统诊断、离线评测时，也能继续作为独立页面扩展。</p>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

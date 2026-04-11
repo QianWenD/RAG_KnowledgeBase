@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>注册 | RAGPro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="auth-page" data-auth-mode="register">
+  <div class="scene-grid" aria-hidden="true"></div>
+  <div class="scene-glow" aria-hidden="true"></div>
+
+  <main class="auth-shell">
+    <section class="auth-stage">
+      <article class="auth-intro">
+        <p class="brand-kicker">账号创建</p>
+        <h1 class="auth-display-title">注册新的系统账号</h1>
+        <p class="auth-display-copy">系统中的第一个注册账号会自动成为管理员。后续可以由管理员按来源分配可见范围，让不同人员只看到自己应该接触的知识内容。</p>
+        <div class="auth-stats">
+          <div class="stat-tile">
+            <span>页面</span>
+            <strong>/register</strong>
+          </div>
+          <div class="stat-tile">
+            <span>首个角色</span>
+            <strong>管理员</strong>
+          </div>
+          <div class="stat-tile">
+            <span>授权</span>
+            <strong>来源级控制</strong>
+          </div>
+          <div class="stat-tile">
+            <span>进入方式</span>
+            <strong>注册后直接可用</strong>
+          </div>
+        </div>
+      </article>
+
+      <section class="auth-card-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">身份认证</p>
+            <h2>创建账号</h2>
+          </div>
+          <span class="status-chip">/register</span>
+        </div>
+        <p class="auth-lead">请设置用户名和密码。注册成功后会自动登录，并跳转到主工作台。</p>
+        <div id="auth-status" class="upload-result auth-notice" role="status" aria-live="polite">请输入用户名和密码创建账号。</div>
+
+        <form id="register-form" class="auth-form auth-form-solo">
+          <label class="field-block" for="register-username">
+            <span>用户名</span>
+            <input id="register-username" type="text" autocomplete="username" placeholder="支持字母、数字或下划线">
+          </label>
+          <label class="field-block" for="register-password">
+            <span>密码</span>
+            <input id="register-password" type="password" autocomplete="new-password" placeholder="建议至少 8 位">
+          </label>
+          <div class="auth-form-actions">
+            <button id="register-submit-btn" class="send-btn" type="submit">创建账号</button>
+          </div>
+        </form>
+
+        <div class="auth-link-row">
+          <span class="subtle">已经有账号？</span>
+          <a class="ghost-link" href="/login">去登录</a>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="/static/auth.js"></script>
+</body>
+</html>

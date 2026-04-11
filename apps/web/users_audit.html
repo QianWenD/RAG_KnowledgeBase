@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAGPro 权限管理 · 审计日志</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="console-page" data-page="users" data-page-view="users-audit" data-page-label="审计日志">
+  <div class="scene-grid" aria-hidden="true"></div>
+  <div class="scene-glow" aria-hidden="true"></div>
+
+  <div class="shell">
+    <aside class="rail">
+      <section class="brand dossier">
+        <div class="brand-topline">
+          <p class="brand-kicker">RAGPro 后台</p>
+          <span class="brand-stamp">权限管理</span>
+        </div>
+        <h1>审计日志</h1>
+        <p class="brand-copy">这一页用于回看权限域里的关键动作。管理员现在可以直接看到谁创建了账号、谁改了来源授权、谁重置了密码，以及这些动作发生在什么时候。</p>
+        <div class="brand-strip">
+          <span>追踪</span>
+          <span>回溯</span>
+          <span>敏感动作</span>
+          <span>治理闭环</span>
+        </div>
+      </section>
+
+      <section class="panel nav-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">主导航</p>
+            <h2>页面入口</h2>
+          </div>
+        </div>
+        <div class="nav-links nav-links-single">
+          <a class="nav-link" data-nav="dashboard" href="/">总览</a>
+          <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
+          <a class="nav-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限管理</a>
+        </div>
+      </section>
+
+      <section id="auth-panel" class="panel auth-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">当前账号</p>
+            <h2>登录状态</h2>
+          </div>
+          <span id="auth-badge" class="status-chip">检查中</span>
+        </div>
+        <div id="auth-summary" class="auth-summary">
+          <p class="note">系统正在检查当前会话和可见来源范围。</p>
+        </div>
+        <div id="auth-user-card" class="auth-card hidden">
+          <div class="stack">
+            <strong id="auth-username">-</strong>
+            <span id="auth-role" class="subtle">-</span>
+          </div>
+          <div class="stack">
+            <span class="label">可见来源</span>
+            <div id="auth-source-tags" class="tag-list"></div>
+          </div>
+          <div class="session-actions">
+            <button id="auth-refresh-btn" class="ghost-btn" type="button">刷新状态</button>
+            <button id="change-password-btn" class="ghost-btn" type="button">修改密码</button>
+            <button id="logout-btn" class="ghost-btn danger" type="button">退出登录</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="board page-board">
+      <header class="topbar">
+        <div class="topbar-main">
+          <div class="breadcrumb-row" aria-label="面包屑">
+            <a class="breadcrumb-link" href="/">后台</a>
+            <span class="breadcrumb-sep">/</span>
+            <a class="breadcrumb-link" href="/users">权限管理</a>
+            <span class="breadcrumb-sep">/</span>
+            <span id="page-breadcrumb-current">审计日志</span>
+          </div>
+          <p class="panel-kicker">权限管理 · 审计日志</p>
+          <h2>回看最近谁做了什么权限动作</h2>
+          <p class="topbar-copy">这一页适合用来定位两类问题：一类是“某个账号为什么突然看不到内容了”，另一类是“谁改了密码、谁删了用户”。</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="page-status" class="status-badge">等待操作</span>
+        </div>
+      </header>
+
+      <div class="page-utility-bar">
+        <div class="page-utility-links">
+          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
+          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
+          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
+        </div>
+        <p class="page-utility-note">建议在定位权限问题时，先在这里确认最近动作，再回到角色与授权或安全操作页做修正。</p>
+      </div>
+
+      <nav class="module-nav-bar" aria-label="权限管理子导航">
+        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户总览</a>
+        <a class="module-nav-link" data-module-nav="users-access" href="/users/access">角色与授权</a>
+        <a class="module-nav-link" data-module-nav="users-security" href="/users/security">安全操作</a>
+        <a class="module-nav-link" data-module-nav="users-audit" href="/users/audit">审计日志</a>
+      </nav>
+
+      <nav class="section-nav-bar" aria-label="页内导航">
+        <a class="section-link" data-section-link href="#audit-filter-panel">筛选器</a>
+        <a class="section-link" data-section-link href="#audit-today-panel">关键概览</a>
+        <a class="section-link" data-section-link href="#audit-log-panel">日志列表</a>
+        <a class="section-link" data-section-link href="#audit-guide">使用建议</a>
+      </nav>
+
+      <section class="page-summary-strip">
+        <article class="summary-card">
+          <span>当前角色</span>
+          <strong id="audit-summary-role">检查中</strong>
+          <p>只有管理员可以查看完整审计日志，普通用户只会看到说明。</p>
+        </article>
+        <article class="summary-card">
+          <span>当前结果数</span>
+          <strong id="audit-summary-total">0</strong>
+          <p>这里显示当前筛选条件下返回的日志数，方便你判断过滤是否过宽或过窄。</p>
+        </article>
+        <article class="summary-card">
+          <span>最近动作</span>
+          <strong id="audit-summary-latest">暂无</strong>
+          <p>帮助你快速判断最近发生的是授权类动作，还是密码/删号类动作。</p>
+        </article>
+        <article class="summary-card">
+          <span>高风险动作</span>
+          <strong id="audit-summary-sensitive">0</strong>
+          <p>重置密码、改密、删除账号和授权调整会被单独归为更高风险动作。</p>
+        </article>
+      </section>
+
+      <section id="users-audit-note" class="section-banner hidden">
+        <strong>当前无权限查看审计日志</strong>
+        <p>只有管理员可以查看权限域的审计记录。普通用户访问时只会看到说明，不会看到具体操作历史。</p>
+      </section>
+
+      <section class="panel section-panel" id="audit-filter-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">筛选器</p>
+            <h2>按动作和账号快速收缩范围</h2>
+          </div>
+        </div>
+        <form id="audit-filter-form" class="audit-filter-form">
+          <div class="audit-filter-grid">
+            <label class="field-block" for="audit-action-filter">
+              <span>动作类型</span>
+              <select id="audit-action-filter" name="action">
+                <option value="">全部动作</option>
+                <option value="register">用户注册</option>
+                <option value="login">用户登录</option>
+                <option value="logout">用户退出登录</option>
+                <option value="change_password">修改个人密码</option>
+                <option value="admin_create_user">管理员创建账号</option>
+                <option value="update_user_access">更新角色与授权</option>
+                <option value="reset_password">重置密码</option>
+                <option value="delete_user">删除账号</option>
+              </select>
+            </label>
+            <label class="field-block" for="audit-search-input">
+              <span>账号关键词</span>
+              <input id="audit-search-input" name="search" type="text" maxlength="64" placeholder="输入操作人或目标账号，例如 admin / member">
+            </label>
+            <label class="field-block" for="audit-start-at">
+              <span>开始时间</span>
+              <input id="audit-start-at" name="start_at" type="datetime-local" step="60">
+            </label>
+            <label class="field-block" for="audit-end-at">
+              <span>结束时间</span>
+              <input id="audit-end-at" name="end_at" type="datetime-local" step="60">
+            </label>
+            <label class="toggle" for="audit-sensitive-only">
+              <input id="audit-sensitive-only" name="sensitive_only" type="checkbox">
+              <span>只看高风险动作</span>
+            </label>
+          </div>
+          <div class="audit-preset-row" aria-label="时间快捷筛选">
+            <span class="label">快捷时间</span>
+            <button class="ghost-btn" type="button" data-audit-range="today">今天</button>
+            <button class="ghost-btn" type="button" data-audit-range="7">最近 7 天</button>
+            <button class="ghost-btn" type="button" data-audit-range="30">最近 30 天</button>
+            <button class="ghost-btn" type="button" data-audit-range="clear">清空时间</button>
+          </div>
+          <div class="audit-filter-actions">
+            <button id="audit-search-submit" class="send-btn" type="submit">应用筛选</button>
+            <button id="audit-reset-btn" class="ghost-btn" type="button">重置条件</button>
+            <span id="audit-filter-state" class="status-chip">当前未筛选</span>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel section-panel" id="audit-today-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">关键概览</p>
+            <h2>最近动作摘要</h2>
+          </div>
+          <button id="audit-refresh-btn" class="ghost-btn" type="button">刷新日志</button>
+        </div>
+        <div id="audit-highlights" class="source-card-grid">
+          <div class="note">管理员校验完成后，这里会显示最近操作的摘要。</div>
+        </div>
+      </section>
+
+      <section class="panel section-panel" id="audit-log-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">日志列表</p>
+            <h2>最近权限操作记录</h2>
+          </div>
+        </div>
+        <div id="audit-log-list" class="access-user-list">
+          <div class="note">日志列表会显示在这里。</div>
+        </div>
+      </section>
+
+      <section class="panel guide-panel" id="audit-guide">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">使用建议</p>
+            <h2>更适合实际排查的顺序</h2>
+          </div>
+        </div>
+        <div class="guide-list guide-list-three">
+          <div class="guide-item">
+            <strong>先筛动作，再看账号</strong>
+            <p>如果你已经知道问题大致来自授权、删号还是密码，优先先选动作类型，再用账号关键词缩小范围会更快。</p>
+          </div>
+          <div class="guide-item">
+            <strong>密码问题优先看高风险动作</strong>
+            <p>如果用户反馈登不上系统，先打开“只看高风险动作”，快速确认有没有重置密码、改密、删号或停用动作。</p>
+          </div>
+          <div class="guide-item">
+            <strong>排查完再回到操作页修正</strong>
+            <p>这里负责定位原因，不负责直接修配置。确认问题来源后，再回角色与授权或安全操作页做修复会更稳。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/users_audit.js"></script>
+</body>
+</html>

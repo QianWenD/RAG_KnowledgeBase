@@ -16,6 +16,7 @@ logs/
 venv/
 .env
 .env.*
+node_modules/
 
 # IDE / OS
 .idea/
@@ -28,4 +29,13 @@ packages/models/
 
 # Runtime caches
 .cache/
+runtime/*.pid
+runtime/*.log
+runtime/local_vector_store.pkl
+runtime/evaluation/*.report.json
+runtime/uploads/
+runtime/start-milvus-wsl.sh
 
+# Frontend test artifacts
+playwright-report/
+test-results/

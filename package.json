@@ -1,0 +1,13 @@
+{
+  "name": "ragpro",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test:e2e:install": "playwright install chromium",
+    "test:e2e": "playwright test tests/e2e/frontend-smoke.spec.js --project=chromium --reporter=line",
+    "test:e2e:live": "playwright test tests/e2e/live-permissions.spec.js --project=chromium --reporter=line"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}

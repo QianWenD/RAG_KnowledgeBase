@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAGPro 知识运营 · 重建索引</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="console-page" data-page="knowledge" data-page-view="knowledge-reindex" data-page-label="重建索引">
+  <div class="scene-grid" aria-hidden="true"></div>
+  <div class="scene-glow" aria-hidden="true"></div>
+
+  <div class="shell">
+    <aside class="rail">
+      <section class="brand dossier">
+        <div class="brand-topline">
+          <p class="brand-kicker">RAGPro 后台</p>
+          <span class="brand-stamp">知识运营</span>
+        </div>
+        <h1>重建索引页</h1>
+        <p class="brand-copy">这个子页专门处理已有来源的索引重建。适合资料大幅更新、切块策略变化，或者需要从本地目录重新写入向量库的场景。</p>
+        <div class="brand-strip">
+          <span>重建</span>
+          <span>覆盖</span>
+          <span>追加</span>
+          <span>校验</span>
+        </div>
+      </section>
+
+      <section class="panel nav-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">主导航</p>
+            <h2>页面入口</h2>
+          </div>
+        </div>
+        <div class="nav-links nav-links-single">
+          <a class="nav-link" data-nav="dashboard" href="/">总览</a>
+          <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
+          <a class="nav-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限管理</a>
+        </div>
+      </section>
+
+      <section id="auth-panel" class="panel auth-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">当前账号</p>
+            <h2>登录状态</h2>
+          </div>
+          <span id="auth-badge" class="status-chip">检查中</span>
+        </div>
+        <div id="auth-summary" class="auth-summary">
+          <p class="note">系统正在检查当前会话和可见来源范围。</p>
+        </div>
+        <div id="auth-user-card" class="auth-card hidden">
+          <div class="stack">
+            <strong id="auth-username">-</strong>
+            <span id="auth-role" class="subtle">-</span>
+          </div>
+          <div class="stack">
+            <span class="label">可见来源</span>
+            <div id="auth-source-tags" class="tag-list"></div>
+          </div>
+          <div class="session-actions">
+            <button id="auth-refresh-btn" class="ghost-btn" type="button">刷新状态</button>
+            <button id="change-password-btn" class="ghost-btn" type="button">修改密码</button>
+            <button id="logout-btn" class="ghost-btn danger" type="button">退出登录</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="board page-board">
+      <header class="topbar">
+        <div class="topbar-main">
+          <div class="breadcrumb-row" aria-label="面包屑">
+            <a class="breadcrumb-link" href="/">后台</a>
+            <span class="breadcrumb-sep">/</span>
+            <a class="breadcrumb-link" href="/knowledge">知识运营</a>
+            <span class="breadcrumb-sep">/</span>
+            <span id="page-breadcrumb-current">重建索引</span>
+          </div>
+          <p class="panel-kicker">知识运营 · 重建索引</p>
+          <h2>把某个来源重新写回检索库</h2>
+          <p class="topbar-copy">如果某个来源的资料已经发生大规模更新，或者你需要从指定目录重新写入索引，就在这里操作。</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="page-status" class="status-badge">等待操作</span>
+        </div>
+      </header>
+
+      <div class="page-utility-bar">
+        <div class="page-utility-links">
+          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
+          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
+          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
+        </div>
+        <p class="page-utility-note">重建索引建议在资料结构发生明显变化后再做，完成后最好立刻回问答页做回测。</p>
+      </div>
+
+      <nav class="module-nav-bar" aria-label="知识运营子导航">
+        <a class="module-nav-link" data-module-nav="knowledge-upload" href="/knowledge">上传入库</a>
+        <a class="module-nav-link" data-module-nav="knowledge-reindex" href="/knowledge/reindex">重建索引</a>
+        <a class="module-nav-link" data-module-nav="knowledge-sources" href="/knowledge/sources">数据源管理</a>
+      </nav>
+
+      <nav class="section-nav-bar" aria-label="页内导航">
+        <a class="section-link" data-section-link href="#reindex-panel">重建表单</a>
+        <a class="section-link" data-section-link href="#reindex-ledger">最近任务</a>
+        <a class="section-link" data-section-link href="#reindex-guide">适用场景</a>
+      </nav>
+
+      <section class="page-summary-strip">
+        <article class="summary-card">
+          <span>当前角色</span>
+          <strong id="reindex-summary-role">检查中</strong>
+          <p>只有管理员可以执行重建，普通用户仅保留说明和来源范围查看。</p>
+        </article>
+        <article class="summary-card">
+          <span>可用来源</span>
+          <strong id="reindex-summary-source-count">0</strong>
+          <p>来源列表来自当前系统配置，可直接选择已有知识域。</p>
+        </article>
+        <article class="summary-card">
+          <span>最近任务数</span>
+          <strong id="reindex-summary-history-count">0</strong>
+          <p>最近重建任务会保留在本地，方便快速回看是否覆盖旧索引。</p>
+        </article>
+        <article class="summary-card">
+          <span>当前模式</span>
+          <strong id="reindex-summary-mode">覆盖重建</strong>
+          <p>默认会替换同来源旧索引，只有需要并存时才建议切到追加模式。</p>
+        </article>
+      </section>
+
+      <section class="split-panel-grid">
+        <section class="panel" id="reindex-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">索引任务</p>
+              <h2>重建表单</h2>
+            </div>
+            <span class="status-chip">管理员可用</span>
+          </div>
+
+          <div id="reindex-access-note" class="section-banner hidden">
+            <strong>当前无权限</strong>
+            <p>你可以查看这一页的说明，但没有重建索引权限。如需操作，请使用管理员账号。</p>
+          </div>
+
+          <form id="reindex-form" class="upload-form">
+            <div class="upload-grid">
+              <label class="control-field stacked" for="reindex-source">
+                <span>目标来源</span>
+                <select id="reindex-source">
+                  <option value="">请选择来源</option>
+                </select>
+              </label>
+              <label class="toggle">
+                <input id="reindex-append" type="checkbox">
+                <span>追加模式</span>
+              </label>
+            </div>
+
+            <label class="field-block" for="reindex-directory">
+              <span>目录覆盖</span>
+              <input id="reindex-directory" type="text" placeholder="可选：packages/data/<source>_data 或 runtime/uploads/<source> 下的目录">
+            </label>
+
+            <div class="state-banner compact-banner">
+              <div class="state-banner-copy">
+                <span class="state-banner-label">执行说明</span>
+                <strong>默认会替换同来源旧索引</strong>
+                <p>如果只是补充少量资料，请优先走上传入库页；只有在结构变化或需要整源重写时，再使用这里。</p>
+              </div>
+            </div>
+
+            <div class="upload-actions">
+              <button id="reindex-submit-btn" class="send-btn" type="submit">开始重建</button>
+              <p class="hint">支持通过 `?source=ai` 这种方式从数据源管理页直接带来源跳转过来。</p>
+            </div>
+          </form>
+
+          <div id="reindex-result" class="upload-result note">暂时还没有重建结果。</div>
+        </section>
+
+        <section class="panel guide-panel" id="reindex-ledger">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">任务记录</p>
+              <h2>最近重建任务</h2>
+            </div>
+          </div>
+          <div id="reindex-history-list" class="upload-history-list">
+            <div class="note">最近重建任务会显示在这里。</div>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel guide-panel" id="reindex-guide">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">适用场景</p>
+            <h2>什么时候应该重建</h2>
+          </div>
+        </div>
+        <div class="guide-list guide-list-three">
+          <div class="guide-item">
+            <strong>文档结构大改</strong>
+            <p>当整批资料被替换、章节结构明显变化或切块策略升级时，重建比增量更稳。</p>
+          </div>
+          <div class="guide-item">
+            <strong>来源目录迁移</strong>
+            <p>如果你希望从上传目录改回数据目录，或从某个子目录重新写入，这里更合适。</p>
+          </div>
+          <div class="guide-item">
+            <strong>回测前做一次整库校准</strong>
+            <p>当你准备正式演示某个来源时，先重建一次再测试，可以降低旧索引残留带来的干扰。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/knowledge_reindex.js"></script>
+</body>
+</html>

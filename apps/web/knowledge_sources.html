@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAGPro 知识运营 · 数据源管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="console-page" data-page="knowledge" data-page-view="knowledge-sources" data-page-label="数据源管理">
+  <div class="scene-grid" aria-hidden="true"></div>
+  <div class="scene-glow" aria-hidden="true"></div>
+
+  <div class="shell">
+    <aside class="rail">
+      <section class="brand dossier">
+        <div class="brand-topline">
+          <p class="brand-kicker">RAGPro 后台</p>
+          <span class="brand-stamp">知识运营</span>
+        </div>
+        <h1>数据源管理页</h1>
+        <p class="brand-copy">这个子页用来理解当前有哪些来源、每个来源可以去哪里上传和重建，也适合作为后续扩业务时的入口清单。</p>
+        <div class="brand-strip">
+          <span>来源</span>
+          <span>范围</span>
+          <span>上传</span>
+          <span>重建</span>
+        </div>
+      </section>
+
+      <section class="panel nav-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">主导航</p>
+            <h2>页面入口</h2>
+          </div>
+        </div>
+        <div class="nav-links nav-links-single">
+          <a class="nav-link" data-nav="dashboard" href="/">总览</a>
+          <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
+          <a class="nav-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限管理</a>
+        </div>
+      </section>
+
+      <section id="auth-panel" class="panel auth-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">当前账号</p>
+            <h2>登录状态</h2>
+          </div>
+          <span id="auth-badge" class="status-chip">检查中</span>
+        </div>
+        <div id="auth-summary" class="auth-summary">
+          <p class="note">系统正在检查当前会话和可见来源范围。</p>
+        </div>
+        <div id="auth-user-card" class="auth-card hidden">
+          <div class="stack">
+            <strong id="auth-username">-</strong>
+            <span id="auth-role" class="subtle">-</span>
+          </div>
+          <div class="stack">
+            <span class="label">可见来源</span>
+            <div id="auth-source-tags" class="tag-list"></div>
+          </div>
+          <div class="session-actions">
+            <button id="auth-refresh-btn" class="ghost-btn" type="button">刷新状态</button>
+            <button id="change-password-btn" class="ghost-btn" type="button">修改密码</button>
+            <button id="logout-btn" class="ghost-btn danger" type="button">退出登录</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="board page-board">
+      <header class="topbar">
+        <div class="topbar-main">
+          <div class="breadcrumb-row" aria-label="面包屑">
+            <a class="breadcrumb-link" href="/">后台</a>
+            <span class="breadcrumb-sep">/</span>
+            <a class="breadcrumb-link" href="/knowledge">知识运营</a>
+            <span class="breadcrumb-sep">/</span>
+            <span id="page-breadcrumb-current">数据源管理</span>
+          </div>
+          <p class="panel-kicker">知识运营 · 数据源管理</p>
+          <h2>先看清来源，再决定上传还是重建</h2>
+          <p class="topbar-copy">这里不会直接做重操作，而是帮助你理解当前有哪些来源、当前账号能看到哪些来源，以及每个来源下一步该去哪里处理。</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="page-status" class="status-badge">等待操作</span>
+        </div>
+      </header>
+
+      <div class="page-utility-bar">
+        <div class="page-utility-links">
+          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
+          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
+          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
+        </div>
+        <p class="page-utility-note">建议先在这里确认来源边界，再进入上传或重建页面，这样更容易保持知识域和权限域一致。</p>
+      </div>
+
+      <nav class="module-nav-bar" aria-label="知识运营子导航">
+        <a class="module-nav-link" data-module-nav="knowledge-upload" href="/knowledge">上传入库</a>
+        <a class="module-nav-link" data-module-nav="knowledge-reindex" href="/knowledge/reindex">重建索引</a>
+        <a class="module-nav-link" data-module-nav="knowledge-sources" href="/knowledge/sources">数据源管理</a>
+      </nav>
+
+      <nav class="section-nav-bar" aria-label="页内导航">
+        <a class="section-link" data-section-link href="#source-overview">来源总览</a>
+        <a class="section-link" data-section-link href="#source-cards">来源卡片</a>
+        <a class="section-link" data-section-link href="#source-guidelines">管理建议</a>
+      </nav>
+
+      <section class="page-summary-strip">
+        <article class="summary-card">
+          <span>当前角色</span>
+          <strong id="sources-summary-role">检查中</strong>
+          <p>管理员适合从这里跳转到上传和重建，普通用户适合把这里当作来源范围说明页。</p>
+        </article>
+        <article class="summary-card">
+          <span>来源总数</span>
+          <strong id="sources-summary-count">0</strong>
+          <p>当前账号能够看到的来源总数会直接显示在这里。</p>
+        </article>
+        <article class="summary-card">
+          <span>默认入口</span>
+          <strong id="sources-summary-default">上传入库</strong>
+          <p>大多数场景先去上传页即可，只有整源更新或结构变化时才建议去重建。</p>
+        </article>
+        <article class="summary-card">
+          <span>操作建议</span>
+          <strong id="sources-summary-recommendation">先看来源</strong>
+          <p>同一个来源尽量在同一轮操作里完成上传、重建和问答回测。</p>
+        </article>
+      </section>
+
+      <section class="panel guide-panel" id="source-overview">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">来源总览</p>
+            <h2>当前来源范围</h2>
+          </div>
+        </div>
+        <div id="sources-overview-note" class="section-banner">
+          <strong>来源是权限和知识的共同边界</strong>
+          <p>后续不管换业务内容还是扩知识域，只要继续沿用来源模型，这里的结构都可以复用。</p>
+        </div>
+      </section>
+
+      <section class="panel section-panel" id="source-cards">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">来源卡片</p>
+            <h2>可操作来源</h2>
+          </div>
+        </div>
+        <div id="source-card-grid" class="source-card-grid">
+          <div class="note">当前来源卡片会显示在这里。</div>
+        </div>
+      </section>
+
+      <section class="panel guide-panel" id="source-guidelines">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">管理建议</p>
+            <h2>如何维护来源边界</h2>
+          </div>
+        </div>
+        <div class="guide-list guide-list-three">
+          <div class="guide-item">
+            <strong>来源名尽量稳定</strong>
+            <p>如果业务长期使用同一个知识域，来源名不要频繁变化，否则权限和评测都要跟着改。</p>
+          </div>
+          <div class="guide-item">
+            <strong>新来源先小范围验证</strong>
+            <p>先上传少量代表性文档并做问答回测，确认效果后再继续扩充这一来源。</p>
+          </div>
+          <div class="guide-item">
+            <strong>来源动作尽量成组完成</strong>
+            <p>看来源、上传资料、重建索引、回测问答最好在同一轮完成，避免中间状态不好追。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/knowledge_sources.js"></script>
+</body>
+</html>
