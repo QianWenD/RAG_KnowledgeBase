@@ -1,0 +1,10 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pymysql==1.1.1
+redis==5.2.1
+jieba==0.42.1
+rank-bm25==0.2.2
+ollama==0.4.7
+pandas==2.2.3
+numpy==2.2.4

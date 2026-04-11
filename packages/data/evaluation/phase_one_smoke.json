@@ -1,0 +1,24 @@
+{
+  "name": "phase-one-smoke",
+  "cases": [
+    {
+      "id": "general-greeting",
+      "category": "general",
+      "query": "你好",
+      "expected_route": "general_llm"
+    },
+    {
+      "id": "rag-llm-definition",
+      "category": "rag",
+      "query": "什么是大语言模型",
+      "source_filter": "ai",
+      "expected_route": "rag",
+      "expected_keywords": ["大语言模型", "人工智能"],
+      "expected_min_citations": 1,
+      "expected_backend": "milvus",
+      "expected_citation_sources": ["ai"],
+      "expected_min_context_count": 1,
+      "expected_fallback": false
+    }
+  ]
+}

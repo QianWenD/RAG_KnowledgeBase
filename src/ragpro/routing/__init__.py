@@ -1,6 +1,17 @@
-﻿"""Routing and intent-selection layer.
+"""Routing and intent-selection layer."""
 
-Primary legacy source:
-- packages/c_modular_rag/rag_qa/core/query_classifier.py
-- packages/c_modular_rag/rag_qa/core/strategy_selector.py
-"""
+from .rules import LightweightIntentClassifier, RetrievalStrategySelector, normalize_query
+from .schemas import IntentName, RetrievalStrategy, RouteName, RouterDecision, StrategyDecision
+from .service import UnifiedQueryRouter
+
+__all__ = [
+    "IntentName",
+    "LightweightIntentClassifier",
+    "RetrievalStrategy",
+    "RetrievalStrategySelector",
+    "RouteName",
+    "RouterDecision",
+    "StrategyDecision",
+    "UnifiedQueryRouter",
+    "normalize_query",
+]

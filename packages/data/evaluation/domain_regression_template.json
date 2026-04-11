@@ -1,0 +1,100 @@
+{
+  "name": "domain-regression-template",
+  "notes": [
+    "Copy this file and replace placeholders with your own business queries and expected evidence.",
+    "The evaluation runner is reusable across domains; only the dataset content needs to change."
+  ],
+  "cases": [
+    {
+      "id": "general-greeting",
+      "category": "general",
+      "tags": ["general", "baseline"],
+      "query": "<general greeting>",
+      "expected_route": "general_llm"
+    },
+    {
+      "id": "faq-exact-match",
+      "category": "faq",
+      "tags": ["faq", "exact-match"],
+      "query": "<faq user question>",
+      "expected_route": "faq_match",
+      "expected_faq_matched_question": "<faq canonical question>",
+      "expected_min_faq_score": 0.95,
+      "expected_answer_snippets": ["<faq answer keyword>"]
+    },
+    {
+      "id": "rag-concept",
+      "category": "rag",
+      "tags": ["rag", "concept", "<domain>"],
+      "query": "<concept question>",
+      "source_filter": "<source key>",
+      "expected_route": "rag",
+      "expected_retrieval_strategy": "hyde",
+      "expected_keywords": ["<keyword 1>", "<keyword 2>"],
+      "expected_min_citations": 1,
+      "expected_backend": "milvus",
+      "expected_citation_sources": ["<source key>"],
+      "expected_primary_citation_source": "<source key>",
+      "expected_topk_citation_snippets": ["<relevant excerpt marker>"],
+      "expected_topk_limit": 2,
+      "expected_top1_citation_snippets": ["<top-1 excerpt marker>"],
+      "expected_min_context_count": 1,
+      "expected_answer_snippets": ["<grounded answer phrase>"],
+      "expected_fallback": false
+    },
+    {
+      "id": "source-filter",
+      "category": "source_filter",
+      "tags": ["rag", "source-filter", "<domain>"],
+      "query": "<question that must stay inside one source>",
+      "source_filter": "<source key>",
+      "expected_route": "rag",
+      "expected_retrieval_strategy": "hyde",
+      "expected_min_citations": 1,
+      "expected_backend": "milvus",
+      "expected_citation_sources": ["<source key>"],
+      "expected_primary_citation_source": "<source key>",
+      "expected_topk_citation_snippets": ["<source-specific marker>"],
+      "expected_top1_citation_snippets": ["<source-specific marker>"],
+      "expected_min_context_count": 1,
+      "expected_answer_snippets": ["<source-specific answer phrase>"],
+      "expected_fallback": false
+    },
+    {
+      "id": "conversation-follow-up",
+      "category": "conversation",
+      "tags": ["conversation", "<domain>"],
+      "query": "<follow-up question>",
+      "source_filter": "<source key>",
+      "history": [
+        {
+          "question": "<previous question>",
+          "answer": "<previous answer>"
+        }
+      ],
+      "expected_route": "rag",
+      "expected_retrieval_strategy": "hyde",
+      "expected_min_citations": 1,
+      "expected_backend": "milvus",
+      "expected_citation_sources": ["<source key>"],
+      "expected_primary_citation_source": "<source key>",
+      "expected_topk_citation_snippets": ["<follow-up evidence marker>"],
+      "expected_top1_citation_snippets": ["<follow-up evidence marker>"],
+      "expected_min_context_count": 1,
+      "expected_answer_snippets": ["<follow-up grounded phrase>"],
+      "expected_fallback": false
+    },
+    {
+      "id": "fallback-no-context",
+      "category": "fallback",
+      "tags": ["fallback", "negative"],
+      "query": "<out-of-scope question>",
+      "source_filter": "<source key>",
+      "expected_route": "rag",
+      "expected_retrieval_strategy": "hyde",
+      "expected_backend": "milvus",
+      "forbidden_answer_snippets": ["<hallucinated phrase>"],
+      "expected_fallback": true
+    }
+  ]
+}

@@ -17,6 +17,7 @@ RAGPro is a staged Chinese RAG question-answering project that is being formaliz
 - `docs/code-migration-map.md`
 - `docs/formalization-progress.md`
 - `docs/frontend-e2e-verification.md`
+- `docs/local-startup-runbook.md`
 
 ## Current Formal Entrypoint
 
@@ -60,6 +61,8 @@ npm run test:e2e:live
 ```
 
 The live suite self-provisions temporary `e2e_*` accounts and cleans up matching users and audit logs after the run. More details are in `docs/frontend-e2e-verification.md`.
+
+For a consolidated local startup guide covering API/frontend, MySQL, Milvus, workers, and test commands, see `docs/local-startup-runbook.md`.
 
 ### 3. Optional RAG runtime dependencies
 

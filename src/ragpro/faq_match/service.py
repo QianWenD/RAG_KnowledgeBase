@@ -57,9 +57,26 @@ class FAQMatchService:
         if not isinstance(query, str) or not query.strip() or self.bm25 is None:
             return FAQMatchResult(answer=None, matched=False, score=0.0)
 
+        stripped_query = query.strip()
         cached_answer = self.cache.get_answer(query)
         if cached_answer:
-            return FAQMatchResult(answer=cached_answer, matched=True, score=1.0)
+            return FAQMatchResult(
+                answer=cached_answer,
+                matched=True,
+                score=1.0,
+                matched_question=stripped_query,
+            )
+
+        if stripped_query in self.original_questions:
+            answer = self.repository.fetch_answer(stripped_query)
+            if answer:
+                self.cache.set_answer(query, answer)
+                return FAQMatchResult(
+                    answer=answer,
+                    matched=True,
+                    score=1.0,
+                    matched_question=stripped_query,
+                )
 
         query_tokens = preprocess_text(query)
         scores = self.bm25.get_scores(query_tokens)

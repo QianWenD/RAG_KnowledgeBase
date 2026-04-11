@@ -19,13 +19,28 @@ def process_documents(
     child_chunk_size: int | None = None,
     chunk_overlap: int | None = None,
 ) -> list[Document]:
+    documents = load_directory(directory_path)
+    logger.info("Loaded %s raw documents from %s.", len(documents), directory_path)
+    child_chunks = process_loaded_documents(
+        documents,
+        parent_chunk_size=parent_chunk_size,
+        child_chunk_size=child_chunk_size,
+        chunk_overlap=chunk_overlap,
+    )
+    logger.info("Processed %s child chunks from %s.", len(child_chunks), directory_path)
+    return child_chunks
+
+
+def process_loaded_documents(
+    documents: list[Document],
+    parent_chunk_size: int | None = None,
+    child_chunk_size: int | None = None,
+    chunk_overlap: int | None = None,
+) -> list[Document]:
     settings = get_settings()
     parent_chunk_size = parent_chunk_size or settings.parent_chunk_size
     child_chunk_size = child_chunk_size or settings.child_chunk_size
     chunk_overlap = chunk_overlap or settings.chunk_overlap
-
-    documents = load_directory(directory_path)
-    logger.info("Loaded %s raw documents from %s.", len(documents), directory_path)
 
     parent_splitter = ChineseRecursiveTextSplitter(
         chunk_size=parent_chunk_size,
@@ -61,6 +76,4 @@ def process_documents(
                 child_chunk.metadata["parent_content"] = parent_doc.page_content
                 child_chunk.metadata["id"] = f"{parent_id}_child_{child_index}"
                 child_chunks.append(child_chunk)
-
-    logger.info("Processed %s child chunks from %s.", len(child_chunks), directory_path)
     return child_chunks

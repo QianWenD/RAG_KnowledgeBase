@@ -15,7 +15,7 @@ class AppSettings:
     mysql_database: str = "subjects_kg"
     redis_host: str = "localhost"
     redis_port: int = 6379
-    redis_password: str = "1234"
+    redis_password: str = ""
     redis_db: int = 0
     milvus_host: str = "localhost"
     milvus_port: str = "19530"
@@ -31,7 +31,19 @@ class AppSettings:
     valid_sources: tuple[str, ...] = ("ai", "java", "test", "ops", "bigdata")
     models_dir_name: str = "packages/models"
     data_dir_name: str = "packages/data"
+    runtime_dir_name: str = "runtime"
+    upload_dir_name: str = "runtime/uploads"
+    max_upload_file_size_bytes: int = 25 * 1024 * 1024
+    vector_backend: str = "auto"
+    local_vector_store_file: str = "local_vector_store.pkl"
     log_file: str = "logs/app.log"
+    auth_cookie_name: str = "ragpro_session"
+    auth_cookie_secure: bool = False
+    auth_cookie_samesite: str = "lax"
+    auth_session_ttl_days: int = 7
+    auth_password_iterations: int = 240000
+    auth_username_min_length: int = 3
+    auth_password_min_length: int = 8
 
     @property
     def log_path(self) -> Path:
@@ -45,6 +57,18 @@ class AppSettings:
     def data_dir(self) -> Path:
         return self.project_root / self.data_dir_name
 
+    @property
+    def runtime_dir(self) -> Path:
+        return self.project_root / self.runtime_dir_name
+
+    @property
+    def upload_dir(self) -> Path:
+        return self.project_root / self.upload_dir_name
+
+    @property
+    def local_vector_store_path(self) -> Path:
+        return self.runtime_dir / self.local_vector_store_file
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> AppSettings:
@@ -57,7 +81,7 @@ def get_settings() -> AppSettings:
         mysql_database=os.getenv("RAGPRO_MYSQL_DATABASE", "subjects_kg"),
         redis_host=os.getenv("RAGPRO_REDIS_HOST", "localhost"),
         redis_port=int(os.getenv("RAGPRO_REDIS_PORT", "6379")),
-        redis_password=os.getenv("RAGPRO_REDIS_PASSWORD", "1234"),
+        redis_password=os.getenv("RAGPRO_REDIS_PASSWORD", ""),
         redis_db=int(os.getenv("RAGPRO_REDIS_DB", "0")),
         milvus_host=os.getenv("RAGPRO_MILVUS_HOST", "localhost"),
         milvus_port=os.getenv("RAGPRO_MILVUS_PORT", "19530"),
@@ -80,5 +104,19 @@ def get_settings() -> AppSettings:
         ),
         models_dir_name=os.getenv("RAGPRO_MODELS_DIR", "packages/models"),
         data_dir_name=os.getenv("RAGPRO_DATA_DIR", "packages/data"),
+        runtime_dir_name=os.getenv("RAGPRO_RUNTIME_DIR", "runtime"),
+        upload_dir_name=os.getenv("RAGPRO_UPLOAD_DIR", "runtime/uploads"),
+        max_upload_file_size_bytes=int(
+            os.getenv("RAGPRO_MAX_UPLOAD_FILE_SIZE_BYTES", str(25 * 1024 * 1024))
+        ),
+        vector_backend=os.getenv("RAGPRO_VECTOR_BACKEND", "auto"),
+        local_vector_store_file=os.getenv("RAGPRO_LOCAL_VECTOR_STORE_FILE", "local_vector_store.pkl"),
         log_file=os.getenv("RAGPRO_LOG_FILE", "logs/app.log"),
+        auth_cookie_name=os.getenv("RAGPRO_AUTH_COOKIE_NAME", "ragpro_session"),
+        auth_cookie_secure=os.getenv("RAGPRO_AUTH_COOKIE_SECURE", "false").lower() == "true",
+        auth_cookie_samesite=os.getenv("RAGPRO_AUTH_COOKIE_SAMESITE", "lax"),
+        auth_session_ttl_days=int(os.getenv("RAGPRO_AUTH_SESSION_TTL_DAYS", "7")),
+        auth_password_iterations=int(os.getenv("RAGPRO_AUTH_PASSWORD_ITERATIONS", "240000")),
+        auth_username_min_length=int(os.getenv("RAGPRO_AUTH_USERNAME_MIN_LENGTH", "3")),
+        auth_password_min_length=int(os.getenv("RAGPRO_AUTH_PASSWORD_MIN_LENGTH", "8")),
     )

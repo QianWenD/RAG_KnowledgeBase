@@ -29,13 +29,20 @@ def run_import(csv_path: str | Path) -> dict:
         repository.close()
 
 
+def _resolve_default_csv(data_dir: Path) -> Path:
+    csv_files = sorted(data_dir.glob("*.csv"))
+    if csv_files:
+        return csv_files[0]
+    return data_dir / "faq.csv"
+
+
 def main() -> None:
     settings = get_settings()
     parser = argparse.ArgumentParser(description="Import FAQ CSV data into MySQL.")
     parser.add_argument(
         "--csv",
         type=str,
-        default=str(settings.data_dir / "JP学科知识问答.csv"),
+        default=str(_resolve_default_csv(settings.data_dir)),
         help="CSV file path for FAQ import.",
     )
     args = parser.parse_args()

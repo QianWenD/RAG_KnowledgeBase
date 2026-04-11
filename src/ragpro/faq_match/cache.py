@@ -12,13 +12,15 @@ logger = get_logger("ragpro.faq.cache")
 class FAQRedisCache:
     def __init__(self) -> None:
         settings = get_settings()
-        self.client = redis.StrictRedis(
+        connection_kwargs = dict(
             host=settings.redis_host,
             port=settings.redis_port,
-            password=settings.redis_password,
             db=settings.redis_db,
             decode_responses=True,
         )
+        if settings.redis_password:
+            connection_kwargs["password"] = settings.redis_password
+        self.client = redis.StrictRedis(**connection_kwargs)
         logger.info("Redis connection established.")
 
     def set_json(self, key: str, value: object) -> None:

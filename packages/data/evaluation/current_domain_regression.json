@@ -1,0 +1,143 @@
+{
+  "name": "current-domain-regression",
+  "cases": [
+    {
+      "id": "general-greeting",
+      "category": "general",
+      "tags": ["general", "baseline"],
+      "query": "你好",
+      "expected_route": "general_llm"
+    },
+    {
+      "id": "general-thanks",
+      "category": "general",
+      "tags": ["general", "polite"],
+      "query": "谢谢",
+      "expected_route": "general_llm"
+    },
+    {
+      "id": "faq-contextmanager",
+      "category": "faq",
+      "tags": ["faq", "python"],
+      "query": "用上下文管理器实现函数运行时间的计算?",
+      "expected_route": "faq_match",
+      "expected_faq_matched_question": "用上下文管理器实现函数运行时间的计算?",
+      "expected_min_faq_score": 1.0,
+      "expected_answer_snippets": ["contextlib.contextmanager", "time.time()"]
+    },
+    {
+      "id": "faq-correlated-subquery",
+      "category": "faq",
+      "tags": ["faq", "sql"],
+      "query": "关联子查询的执行顺序是什么",
+      "expected_route": "faq_match",
+      "expected_faq_matched_question": "关联子查询的执行顺序是什么",
+      "expected_min_faq_score": 1.0,
+      "expected_answer_snippets": ["外部查询", "每一行数据"]
+    },
+    {
+      "id": "faq-dict-override",
+      "category": "faq",
+      "tags": ["faq", "python"],
+      "query": "定义类字典对象(继承于dict类)，如何修改读写字典元素方法",
+      "expected_route": "faq_match",
+      "expected_faq_matched_question": "定义类字典对象(继承于dict类)，如何修改读写字典元素方法",
+      "expected_min_faq_score": 1.0,
+      "expected_answer_snippets": ["__getitem__", "__setitem__"]
+    },
+    {
+      "id": "rag-llm-definition",
+      "category": "rag",
+      "tags": ["rag", "concept", "ai"],
+      "query": "什么是大语言模型",
+      "source_filter": "ai",
+      "expected_route": "rag",
+      "expected_retrieval_strategy": "hyde",
+      "expected_keywords": ["大语言模型", "参数"],
+      "expected_min_citations": 1,
+      "expected_backend": "milvus",
+      "expected_citation_sources": ["ai"],
+      "expected_primary_citation_source": "ai",
+      "expected_topk_citation_snippets": ["LLM背景知识介绍", "什么是语言模型"],
+      "expected_topk_limit": 2,
+      "expected_top1_citation_snippets": ["LLM背景知识介绍"],
+      "expected_min_context_count": 1,
+      "expected_answer_snippets": ["大量文本数据"],
+      "expected_fallback": false
+    },
+    {
+      "id": "rag-course-version",
+      "category": "source_filter",
+      "tags": ["rag", "course", "ai"],
+      "query": "人工智能就业课的课程版本是什么？",
+      "source_filter": "ai",
+      "expected_route": "rag",
+      "expected_retrieval_strategy": "hyde",
+      "expected_keywords": ["V6.0"],
+      "expected_min_citations": 1,
+      "expected_backend": "milvus",
+      "expected_citation_sources": ["ai"],
+      "expected_primary_citation_source": "ai",
+      "expected_topk_citation_snippets": ["人工智能就业课", "大模型开发基础与项目"],
+      "expected_topk_limit": 2,
+      "expected_top1_citation_snippets": ["人工智能就业课"],
+      "expected_min_context_count": 1,
+      "expected_answer_snippets": ["V6.0"],
+      "expected_fallback": false
+    },
+    {
+      "id": "rag-course-scope",
+      "category": "rag",
+      "tags": ["rag", "course", "ai"],
+      "query": "AI课程主要覆盖哪些技术领域？",
+      "source_filter": "ai",
+      "expected_route": "rag",
+      "expected_retrieval_strategy": "direct",
+      "expected_min_citations": 1,
+      "expected_backend": "milvus",
+      "expected_citation_sources": ["ai"],
+      "expected_primary_citation_source": "ai",
+      "expected_min_context_count": 1,
+      "expected_answer_snippets": ["自然语言处理", "大模型"],
+      "expected_fallback": false
+    },
+    {
+      "id": "conversation-follow-up",
+      "category": "conversation",
+      "tags": ["conversation", "course", "ai"],
+      "query": "它适合AI行业入门者吗？",
+      "source_filter": "ai",
+      "history": [
+        {
+          "question": "人工智能就业课的课程版本是什么？",
+          "answer": "人工智能就业课的课程版本是V6.0。"
+        }
+      ],
+      "expected_route": "rag",
+      "expected_retrieval_strategy": "hyde",
+      "expected_keywords": ["适合", "入门"],
+      "expected_min_citations": 1,
+      "expected_backend": "milvus",
+      "expected_citation_sources": ["ai"],
+      "expected_primary_citation_source": "ai",
+      "expected_topk_citation_snippets": ["人工智能就业课"],
+      "expected_topk_limit": 2,
+      "expected_top1_citation_snippets": ["人工智能就业课"],
+      "expected_min_context_count": 1,
+      "expected_answer_snippets": ["适合AI行业"],
+      "expected_fallback": false
+    },
+    {
+      "id": "fallback-no-context",
+      "category": "fallback",
+      "tags": ["fallback", "negative"],
+      "query": "银河系外星招生政策第999条是什么？",
+      "source_filter": "ops",
+      "expected_route": "rag",
+      "expected_retrieval_strategy": "hyde",
+      "expected_backend": "milvus",
+      "forbidden_answer_snippets": ["根据资料", "V6.0"],
+      "expected_fallback": true
+    }
+  ]
+}

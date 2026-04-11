@@ -12,6 +12,9 @@ class RetrievalService:
     def add_documents(self, documents: list[Document]) -> None:
         self.vector_store.add_documents(documents)
 
+    def delete_source(self, source: str) -> int:
+        return self.vector_store.delete_source(source)
+
     def retrieve(
         self,
         query: str,

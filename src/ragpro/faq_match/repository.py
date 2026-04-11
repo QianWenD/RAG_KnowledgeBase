@@ -21,6 +21,7 @@ class FAQRecord:
 class FAQMySQLRepository:
     def __init__(self) -> None:
         self.settings = get_settings()
+        self._ensure_database()
         self.connection = pymysql.connect(
             host=self.settings.mysql_host,
             user=self.settings.mysql_user,
@@ -30,6 +31,23 @@ class FAQMySQLRepository:
         )
         self.cursor = self.connection.cursor()
         logger.info("MySQL connection established.")
+
+    def _ensure_database(self) -> None:
+        bootstrap = pymysql.connect(
+            host=self.settings.mysql_host,
+            user=self.settings.mysql_user,
+            password=self.settings.mysql_password,
+            charset="utf8mb4",
+        )
+        try:
+            with bootstrap.cursor() as cursor:
+                cursor.execute(
+                    f"CREATE DATABASE IF NOT EXISTS `{self.settings.mysql_database}` "
+                    "DEFAULT CHARACTER SET utf8mb4"
+                )
+            bootstrap.commit()
+        finally:
+            bootstrap.close()
 
     def ensure_table(self) -> None:
         self.cursor.execute(
