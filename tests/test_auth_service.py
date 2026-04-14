@@ -104,6 +104,19 @@ class QueryPermissionTests(unittest.TestCase):
         filtered = filter_sources_for_user(("ai", "java", "ops"), self.user_multi)
         self.assertEqual(filtered, ["ai", "java"])
 
+    def test_filter_sources_for_user_includes_custom_assigned_sources(self) -> None:
+        user = AuthenticatedUser(
+            id=5,
+            username="dora",
+            role="user",
+            allowed_sources=("ai", "policy_2026"),
+            is_active=True,
+        )
+
+        filtered = filter_sources_for_user(("ai", "java", "ops"), user)
+
+        self.assertEqual(filtered, ["ai", "policy_2026"])
+
     def test_filter_sources_for_admin_returns_all_values(self) -> None:
         filtered = filter_sources_for_user(("ai", "java", "ops"), self.admin)
         self.assertEqual(filtered, ["ai", "java", "ops"])

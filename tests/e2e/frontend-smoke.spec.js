@@ -108,6 +108,37 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator("#upload-file-list")).toContainText("frontend-smoke-upload.txt");
   });
 
+  test("knowledge upload supports custom source entry", async ({ page }) => {
+    let latestUploadBody = "";
+    await page.route("**/documents/upload", async (route) => {
+      latestUploadBody = route.request().postData() || "";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          source: "policy_2026",
+          replace_source: false,
+          file_count: 1,
+          raw_document_count: 1,
+          document_chunks: 1,
+          deleted_before_index: 0,
+          retrieval_backend: "local",
+          files: [],
+        }),
+      });
+    });
+
+    await page.goto(`${baseURL}/knowledge`);
+    await page.locator("#upload-source").selectOption("__custom_source__");
+    await page.locator("#upload-source-custom").fill("policy_2026");
+    await page.locator("#upload-file-input").setInputFiles(
+      path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
+    );
+    await page.locator("#upload-submit-btn").click();
+
+    await expect.poll(() => latestUploadBody).toContain("policy_2026");
+  });
+
   test("audit quick time presets write range filters into API request and URL", async ({ page }) => {
     let latestAuditRequestUrl = "";
     await page.route("**/auth/audit-logs**", async (route) => {
@@ -171,6 +202,7 @@ test.describe("RAGPro frontend smoke", () => {
 
     await analystCard.locator("[data-role-select]").selectOption("admin");
     await analystCard.locator('[data-user-source="java"]').check();
+    await analystCard.locator("[data-user-source-custom]").fill("policy_2026");
     await analystCard.locator("[data-active-toggle]").uncheck();
     await analystCard.locator("[data-save-access]").click();
 
@@ -178,7 +210,7 @@ test.describe("RAGPro frontend smoke", () => {
       .poll(() => savedPayload)
       .toMatchObject({
         role: "admin",
-        allowed_sources: ["ai", "java"],
+        allowed_sources: ["ai", "java", "policy_2026"],
         is_active: false,
       });
   });
@@ -254,6 +286,7 @@ test.describe("RAGPro frontend smoke", () => {
     await page.locator("#security-create-username").fill("ops_user");
     await page.locator("#security-create-password").fill("Password123");
     await page.locator('[data-create-source="ai"]').check();
+    await page.locator("#security-create-source-custom").fill("ops_2026");
     await page.locator("#security-create-submit").click();
 
     await expect
@@ -262,7 +295,7 @@ test.describe("RAGPro frontend smoke", () => {
         username: "ops_user",
         password: "Password123",
         role: "user",
-        allowed_sources: ["ai"],
+        allowed_sources: ["ai", "ops_2026"],
         is_active: true,
       });
     await expect(page.locator(".access-user-card", { hasText: "ops_user" })).toBeVisible();

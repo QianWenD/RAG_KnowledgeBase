@@ -139,6 +139,20 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["sources"], ["ai", "java"])
 
+    def test_sources_include_custom_user_scope(self) -> None:
+        user = AuthenticatedUser(
+            id=18,
+            username="custom_reader",
+            role="user",
+            allowed_sources=("policy_2026",),
+            is_active=True,
+        )
+        with patch("apps.api.main._require_authenticated_user", return_value=user):
+            response = self.client.get("/sources")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["sources"], ["policy_2026"])
+
     def test_admin_can_create_user(self) -> None:
         repository = FakeAuditRepository()
         admin = AuthenticatedUser(
@@ -180,6 +194,48 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(payload["user"]["username"], "new_user")
         self.assertEqual(payload["user"]["allowed_sources"], ["ai"])
         self.assertEqual(repository.audit_logs[-1]["action"], "admin_create_user")
+
+    def test_admin_can_create_user_with_custom_source(self) -> None:
+        repository = FakeAuditRepository()
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+        captured: dict[str, object] = {}
+
+        class FakeAuthService:
+            def create_user_by_admin(self, *, username: str, password: str, role: str, allowed_sources, is_active: bool):
+                captured["allowed_sources"] = list(allowed_sources)
+                return AuthenticatedUser(
+                    id=12,
+                    username=username,
+                    role=role,
+                    allowed_sources=tuple(allowed_sources),
+                    is_active=is_active,
+                )
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch("apps.api.main._create_auth_repository", return_value=repository),
+            patch("apps.api.main._auth_service_from_repository", return_value=FakeAuthService()),
+        ):
+            response = self.client.post(
+                "/auth/users",
+                json={
+                    "username": "policy_user",
+                    "password": "Password123",
+                    "role": "user",
+                    "allowed_sources": ["ai", "policy_2026"],
+                    "is_active": True,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["user"]["allowed_sources"], ["ai", "policy_2026"])
+        self.assertEqual(captured["allowed_sources"], ["ai", "policy_2026"])
 
     def test_admin_can_reset_user_password(self) -> None:
         repository = FakeAuditRepository()
@@ -395,6 +451,45 @@ class AuthAPITests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 403)
+
+    def test_admin_can_upload_documents_to_custom_source(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+        captured: dict[str, object] = {}
+
+        class FakeUploadService:
+            def upload_documents(self, *, source, files, replace_source=False):
+                captured["source"] = source
+                return {
+                    "source": source,
+                    "replace_source": replace_source,
+                    "file_count": len(files),
+                    "raw_document_count": len(files),
+                    "document_chunks": 1,
+                    "deleted_before_index": 0,
+                    "retrieval_backend": "local",
+                    "upload_directory": "runtime/uploads/policy_2026",
+                    "files": [{"filename": "notes.txt", "stored_name": "notes.txt"}],
+                }
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch("apps.api.main._build_document_upload_service", return_value=FakeUploadService()),
+        ):
+            response = self.client.post(
+                "/documents/upload",
+                data={"source": "policy_2026", "replace_source": "false"},
+                files=[("files", ("notes.txt", b"RAG notes", "text/plain"))],
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["source"], "policy_2026")
+        self.assertEqual(captured["source"], "policy_2026")
 
     def test_query_rejects_source_outside_user_scope(self) -> None:
         user = AuthenticatedUser(
