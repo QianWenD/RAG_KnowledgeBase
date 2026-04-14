@@ -1937,3 +1937,912 @@ body.auth-page .auth-notice {
     transition: none !important;
   }
 }
+
+/* Admin console redesign: image-inspired, concise, high-structure layout. */
+body.console-page,
+body.auth-page {
+  --bg: #e8eef4;
+  --bg-deep: #dfe8f1;
+  --bg-panel: #ffffff;
+  --paper: #ffffff;
+  --paper-strong: #ffffff;
+  --paper-soft: #f5f8fb;
+  --paper-muted: #eef3f8;
+  --ink: #172332;
+  --ink-soft: #526170;
+  --ink-faint: #7b8997;
+  --line: #d8e1ea;
+  --line-strong: #c6d2df;
+  --ok: #11856e;
+  --ok-soft: #e7f5f1;
+  --warning: #af6a13;
+  --warning-soft: #fff5df;
+  --danger: #bd3941;
+  --danger-soft: #fff0f1;
+  --page-accent: #2585d9;
+  --page-accent-rgb: 37, 133, 217;
+  --page-accent-strong: #1167b0;
+  --page-support: #1b7688;
+  --page-glow: rgba(37, 133, 217, 0.12);
+  --shadow-sm: 0 1px 2px rgba(15, 37, 55, 0.06);
+  --shadow-md: 0 10px 28px rgba(15, 37, 55, 0.08);
+  --shadow-lg: 0 18px 44px rgba(15, 37, 55, 0.12);
+  --radius-xl: 12px;
+  --radius-lg: 10px;
+  --radius-md: 8px;
+  --radius-sm: 6px;
+  color: var(--ink);
+  background: var(--bg);
+  font-family: "Noto Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+}
+
+body.console-page::before,
+body.console-page::after,
+body.auth-page::before,
+body.auth-page::after,
+body.console-page .scene-grid,
+body.console-page .scene-glow,
+body.auth-page .scene-grid,
+body.auth-page .scene-glow {
+  display: none;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 16px;
+  color: #edf5fb;
+  background: #263844;
+  border-bottom: 3px solid #3d9ae8;
+  box-shadow: 0 2px 10px rgba(11, 25, 36, 0.18);
+}
+
+.app-header-left,
+.app-header-right,
+.app-brand-title,
+.chrome-menu-button {
+  display: flex;
+  align-items: center;
+}
+
+.app-header-left {
+  gap: 12px;
+  min-width: 0;
+}
+
+.app-header-right {
+  gap: 12px;
+  color: #f6fbff;
+  font-size: 13px;
+}
+
+.app-logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, transparent 45%, rgba(255, 255, 255, 0.8) 46% 55%, transparent 56%),
+    linear-gradient(135deg, #58c4ff, #1e6fad);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+}
+
+.app-brand-title {
+  gap: 10px;
+  min-width: 0;
+}
+
+.app-brand-title strong {
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.app-brand-title span {
+  padding-left: 10px;
+  color: #a8bac8;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.chrome-menu-button,
+.app-exit-button {
+  border: 0;
+  color: #eaf3fb;
+  background: transparent;
+  cursor: pointer;
+}
+
+.chrome-menu-button {
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+}
+
+.chrome-menu-button span {
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 999px;
+}
+
+.chrome-menu-button:hover,
+.app-exit-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.app-exit-button {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 5px;
+}
+
+body.console-page .shell {
+  width: 100%;
+  max-width: none;
+  min-height: calc(100dvh - 52px);
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  grid-template-columns: 250px minmax(0, 1fr);
+  background: var(--bg);
+}
+
+body.sidebar-collapsed .shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.sidebar-collapsed .rail {
+  display: none;
+}
+
+body.console-page .rail {
+  position: sticky;
+  top: 52px;
+  align-self: start;
+  display: grid;
+  gap: 4px;
+  max-height: calc(100dvh - 52px);
+  min-height: calc(100dvh - 52px);
+  padding: 10px 0 18px;
+  overflow: auto;
+  color: #c9d7e2;
+  background: #132431;
+  border-right: 1px solid #0e1a24;
+}
+
+body.console-page .rail::-webkit-scrollbar {
+  width: 7px;
+}
+
+body.console-page .rail::-webkit-scrollbar-thumb {
+  background: rgba(201, 215, 226, 0.18);
+  border-radius: 999px;
+}
+
+body.console-page .board,
+body.console-page .page-board {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  grid-template-rows: none;
+  padding: 16px 18px 44px;
+  background: #e8eef4;
+}
+
+body.console-page .brand,
+body.console-page .rail .panel {
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+body.console-page .brand::before,
+body.console-page .brand::after,
+body.console-page .panel::before,
+body.console-page .topbar::before,
+body.console-page .summary-card::before,
+body.console-page .overview-card::before,
+body.console-page .source-card::before,
+body.console-page .access-user-card::before,
+body.console-page .upload-result::before,
+body.console-page .upload-history-item::before,
+body.console-page .session-row::before,
+body.console-page .empty-state::before {
+  display: none;
+}
+
+body.console-page .brand {
+  display: grid;
+  gap: 8px;
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid rgba(201, 215, 226, 0.12);
+}
+
+body.console-page .brand-topline {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+body.console-page .brand-kicker,
+body.console-page .brand-stamp,
+body.console-page .brand-copy,
+body.console-page .brand .note,
+body.console-page .brand .subtle {
+  color: #c9d7e2;
+}
+
+body.console-page .brand h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+body.console-page .brand-copy,
+body.console-page .brand-strip {
+  display: none;
+}
+
+body.console-page .rail .panel-head {
+  padding: 12px 16px 6px;
+}
+
+body.console-page .rail .panel-head h2,
+body.console-page .rail .panel-head h3 {
+  color: #8ba2b5;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+body.console-page .rail .panel-kicker {
+  display: none;
+}
+
+body.console-page .nav-links,
+body.console-page .nav-links-single {
+  display: grid;
+  gap: 2px;
+  padding: 0 8px 8px;
+  grid-template-columns: 1fr;
+}
+
+body.console-page .side-nav {
+  display: grid;
+  gap: 4px;
+  padding: 4px 8px 10px;
+}
+
+body.console-page .side-nav-group {
+  display: grid;
+  gap: 2px;
+}
+
+body.console-page .side-nav-group summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 28px 0 10px;
+  color: #8ba2b5;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  list-style: none;
+}
+
+body.console-page .side-nav-group summary::-webkit-details-marker {
+  display: none;
+}
+
+body.console-page .side-nav-group summary::after {
+  content: "";
+  position: absolute;
+  right: 11px;
+  width: 7px;
+  height: 7px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+body.console-page .side-nav-group[open] summary::after {
+  transform: rotate(225deg);
+}
+
+body.console-page .side-nav-group summary:hover {
+  color: #dce8f1;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+body.console-page .side-nav-list {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 4px;
+}
+
+body.console-page .rail .nav-link {
+  justify-content: flex-start;
+  min-height: 42px;
+  padding: 0 13px;
+  color: #c9d7e2;
+  background: transparent;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+body.console-page .rail .nav-link:hover {
+  color: #ffffff;
+  background: rgba(68, 142, 197, 0.14);
+  transform: none;
+}
+
+body.console-page .rail .nav-link.is-active {
+  color: #ffffff;
+  background: #1d3547;
+  border-left-color: #42a5f5;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+body.console-page .auth-panel {
+  margin-top: auto;
+  padding: 0 8px;
+}
+
+body.console-page .auth-panel .panel-head {
+  padding: 8px 8px 6px;
+}
+
+body.console-page .auth-panel .auth-summary {
+  display: none;
+}
+
+body.console-page .auth-card {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  color: #dce8f1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(201, 215, 226, 0.12);
+  border-radius: 8px;
+}
+
+body.console-page .auth-card strong {
+  color: #ffffff;
+}
+
+body.console-page .session-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+body.console-page .topbar,
+body.console-page .page-utility-bar,
+body.console-page .module-nav-bar,
+body.console-page .section-nav-bar,
+body.console-page .panel,
+body.console-page .summary-card,
+body.console-page .overview-card,
+body.console-page .state-banner,
+body.console-page .section-banner,
+body.console-page .source-card,
+body.console-page .access-user-card,
+body.console-page .guide-item,
+body.console-page .upload-result,
+body.console-page .upload-history-item,
+body.console-page .history-item,
+body.console-page .citation-item,
+body.console-page .session-row,
+body.console-page .file-list,
+body.console-page .empty-state,
+body.console-page .auth-notice,
+body.console-page .status-line,
+body.console-page .audit-metadata-item {
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: none;
+}
+
+body.console-page .topbar {
+  align-items: center;
+  min-height: 86px;
+  padding: 16px 18px;
+}
+
+body.console-page .topbar-main {
+  gap: 5px;
+  max-width: none;
+}
+
+body.console-page .topbar h2 {
+  max-width: none;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+body.console-page .topbar-copy {
+  max-width: 96ch;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+body.console-page .breadcrumb-row {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+body.console-page .breadcrumb-link {
+  color: var(--page-accent-strong);
+}
+
+body.console-page .page-utility-bar,
+body.console-page .module-nav-bar,
+body.console-page .section-nav-bar {
+  padding: 10px 12px;
+}
+
+body.console-page .page-utility-note {
+  color: var(--ink-faint);
+}
+
+body.console-page .topbar-link,
+body.console-page .module-nav-link,
+body.console-page .section-link {
+  min-height: 34px;
+  padding: 0 12px;
+  color: #415161;
+  background: #f5f8fb;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+body.console-page .topbar-link:hover,
+body.console-page .module-nav-link:hover,
+body.console-page .section-link:hover {
+  color: var(--page-accent-strong);
+  background: #edf6ff;
+  border-color: #b7d6f3;
+  transform: none;
+}
+
+body.console-page .topbar-link.is-active,
+body.console-page .module-nav-link.is-active,
+body.console-page .section-link.is-active {
+  color: #ffffff;
+  background: var(--page-accent);
+  border-color: var(--page-accent);
+  box-shadow: none;
+}
+
+body.console-page .page-summary-strip,
+body.console-page .overview-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+body.console-page .summary-card,
+body.console-page .overview-card {
+  min-height: 116px;
+  padding: 16px;
+}
+
+body.console-page .summary-card span,
+body.console-page .overview-card span,
+body.console-page .panel-kicker,
+body.console-page .label {
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+}
+
+body.console-page .summary-card strong,
+body.console-page .overview-card strong {
+  color: var(--ink);
+  font-size: 26px;
+}
+
+body.console-page .summary-card p,
+body.console-page .overview-card p,
+body.console-page .guide-item p,
+body.console-page .note,
+body.console-page .subtle,
+body.console-page .message-body,
+body.console-page .empty-state-copy {
+  color: var(--ink-soft);
+}
+
+body.console-page .panel {
+  padding: 16px;
+}
+
+body.console-page .panel-head {
+  align-items: flex-start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+body.console-page .panel-head h2,
+body.console-page .panel-head h3 {
+  color: var(--ink);
+  font-size: 17px;
+}
+
+body.console-page .split-panel-grid,
+body.console-page .split-panel-grid-3,
+body.console-page .guide-list-three {
+  gap: 12px;
+}
+
+body.console-page .guide-list,
+body.console-page .access-user-list,
+body.console-page .access-user-list-grid,
+body.console-page .upload-history-list,
+body.console-page .history-list,
+body.console-page .citation-list,
+body.console-page .source-card-grid,
+body.console-page .meta-notes,
+body.console-page .file-list {
+  gap: 10px;
+}
+
+body.console-page .field-block {
+  gap: 7px;
+}
+
+body.console-page input,
+body.console-page select,
+body.console-page textarea,
+body.auth-page input,
+body.auth-page select,
+body.auth-page textarea {
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid #cfd9e3;
+  border-radius: 4px;
+  box-shadow: inset 0 1px 1px rgba(15, 37, 55, 0.03);
+}
+
+body.console-page .field-block input,
+body.console-page .field-block select,
+body.console-page select,
+body.auth-page .field-block input,
+body.auth-page .field-block select {
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+body.console-page textarea,
+body.auth-page textarea {
+  min-height: 128px;
+  padding: 12px;
+}
+
+body.console-page input:focus,
+body.console-page select:focus,
+body.console-page textarea:focus,
+body.auth-page input:focus,
+body.auth-page select:focus,
+body.auth-page textarea:focus {
+  outline: 3px solid rgba(37, 133, 217, 0.16);
+  border-color: var(--page-accent);
+  box-shadow: none;
+}
+
+body.console-page .audit-filter-grid {
+  gap: 12px;
+  align-items: end;
+}
+
+body.console-page .audit-preset-row {
+  padding: 10px;
+  background: #f6f9fc;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+body.console-page .ghost-btn,
+body.console-page .send-btn,
+body.console-page .panel-link-btn,
+body.auth-page .send-btn {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+body.console-page .send-btn,
+body.console-page .panel-link-btn,
+body.auth-page .send-btn {
+  color: #ffffff;
+  background: var(--page-accent);
+  border: 1px solid var(--page-accent);
+}
+
+body.console-page .ghost-btn,
+body.console-page .panel-link-btn.tertiary {
+  color: #334455;
+  background: #ffffff;
+  border: 1px solid #cfd9e3;
+}
+
+body.console-page .ghost-btn:hover,
+body.console-page .send-btn:hover,
+body.console-page .panel-link-btn:hover,
+body.auth-page .send-btn:hover {
+  filter: brightness(0.98);
+  transform: none;
+}
+
+body.console-page .ghost-btn.danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: #f1c6ca;
+}
+
+body.console-page .status-chip,
+body.console-page .status-badge,
+body.auth-page .status-chip {
+  min-height: 28px;
+  color: #486074;
+  background: #eef4f9;
+  border: 1px solid #d4e1eb;
+  border-radius: 999px;
+  animation: none;
+}
+
+.app-header .status-chip {
+  color: #cfe8fb;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+body.console-page .status-chip.is-ok,
+body.console-page .status-badge.is-ok,
+.app-header .status-chip.is-ok {
+  color: #dffaf3;
+  background: rgba(17, 133, 110, 0.24);
+  border-color: rgba(122, 220, 195, 0.34);
+}
+
+body.console-page .status-badge.is-error,
+body.console-page .upload-result.is-error,
+body.auth-page .auth-notice.is-error {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: #f1c6ca;
+}
+
+body.console-page .tag,
+body.auth-page .tag {
+  min-height: 28px;
+  color: #31506a;
+  background: #edf6ff;
+  border: 1px solid #c9e0f5;
+  border-radius: 999px;
+  animation: none;
+}
+
+body.console-page .message-list {
+  min-height: 380px;
+  padding: 14px;
+  background: #f7fafc;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+body.console-page .message-body {
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+body.console-page .message.user .message-body {
+  color: #ffffff;
+  background: var(--page-accent);
+  border-color: var(--page-accent);
+}
+
+body.console-page .composer {
+  gap: 12px;
+}
+
+body.console-page .file-drop {
+  background: #f8fbfd;
+  border: 1px dashed #aebfce;
+  border-radius: 6px;
+}
+
+body.console-page .toggle,
+body.console-page .source-checkbox {
+  background: #f8fbfd;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+body.console-page .source-card,
+body.console-page .access-user-card,
+body.console-page .upload-history-item,
+body.console-page .history-item,
+body.console-page .citation-item,
+body.console-page .session-row,
+body.console-page .guide-item,
+body.console-page .status-line,
+body.console-page .audit-metadata-item {
+  padding: 12px;
+}
+
+body[data-page-view="users-audit"] #audit-log-panel,
+body[data-page="qa"] .workspace-side .panel,
+body[data-page="knowledge"] .upload-history-item,
+body[data-page="knowledge"] .source-card,
+body[data-page="users"] .summary-card,
+body[data-page="dashboard"] .summary-card,
+body[data-page="knowledge"] .summary-card {
+  background: #ffffff;
+}
+
+body[data-page="qa"] .workspace-side {
+  top: 64px;
+}
+
+body.auth-page {
+  background:
+    linear-gradient(90deg, #132431 0 34%, #e8eef4 34% 100%);
+}
+
+body.auth-page .auth-shell {
+  width: min(1160px, 100%);
+  padding: 28px;
+}
+
+body.auth-page .auth-stage {
+  width: 100%;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(360px, 0.62fr);
+  gap: 18px;
+}
+
+body.auth-page .auth-intro,
+body.auth-page .auth-card-panel,
+body.auth-page .stat-tile,
+body.auth-page .auth-notice {
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: none;
+}
+
+body.auth-page .auth-intro {
+  color: #dce8f1;
+  background: #132431;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.auth-page .auth-card-panel,
+body.auth-page .stat-tile,
+body.auth-page .auth-notice {
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+body.auth-page .auth-display-title {
+  color: #ffffff;
+  font-size: clamp(2rem, 4vw, 3.6rem);
+}
+
+body.auth-page .auth-display-copy,
+body.auth-page .auth-intro .brand-kicker {
+  color: #c9d7e2;
+}
+
+body.auth-page .auth-form-solo {
+  gap: 14px;
+}
+
+@media (max-width: 1280px) {
+  body.console-page .page-summary-strip,
+  body.console-page .overview-strip,
+  body.console-page .audit-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.console-page .content-grid,
+  body.console-page .split-panel-grid,
+  body.console-page .split-panel-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .app-header {
+    position: static;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .app-header-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  body.console-page .shell {
+    grid-template-columns: 1fr;
+  }
+
+  body.console-page .rail {
+    position: static;
+    min-height: auto;
+    max-height: none;
+  }
+
+  body.console-page .board,
+  body.console-page .page-board {
+    padding: 12px;
+  }
+
+  body.auth-page {
+    background: #e8eef4;
+  }
+
+  body.auth-page .auth-stage {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-brand-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .app-brand-title span {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  body.console-page .page-summary-strip,
+  body.console-page .overview-strip,
+  body.console-page .audit-filter-grid,
+  body.console-page .meta-grid,
+  body.console-page .source-card-grid,
+  body.console-page .access-user-list-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.console-page .topbar,
+  body.console-page .page-utility-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.console-page .topbar-actions,
+  body.console-page .page-utility-links,
+  body.console-page .module-nav-bar,
+  body.console-page .section-nav-bar,
+  body.console-page .audit-preset-row,
+  body.console-page .audit-filter-actions {
+    align-items: stretch;
+  }
+}

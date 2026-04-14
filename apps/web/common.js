@@ -14,7 +14,14 @@
     currentPageView: document.body.dataset.pageView || "",
   };
 
+  ensureAppChrome();
+  ensureSidebarNavigation();
+
   const elements = {
+    appUserName: document.getElementById("app-user-name"),
+    appRoleChip: document.getElementById("app-role-chip"),
+    chromeMenuToggle: document.getElementById("chrome-menu-toggle"),
+    chromeLogoutBtn: document.getElementById("chrome-logout-btn"),
     authBadge: document.getElementById("auth-badge"),
     authSummary: document.getElementById("auth-summary"),
     authUserCard: document.getElementById("auth-user-card"),
@@ -68,8 +75,10 @@
 
   function bindCommonEvents() {
     elements.logoutBtn?.addEventListener("click", handleLogout);
+    elements.chromeLogoutBtn?.addEventListener("click", handleLogout);
     elements.authRefreshBtn?.addEventListener("click", () => refreshSession(true));
     elements.changePasswordBtn?.addEventListener("click", changeOwnPassword);
+    elements.chromeMenuToggle?.addEventListener("click", toggleSidebar);
   }
 
   function renderPageMeta() {
@@ -181,6 +190,13 @@
       elements.authBadge.textContent = isAdmin ? "管理员" : "已登录";
       elements.authBadge.classList.add("is-ok");
     }
+    if (elements.appUserName) {
+      elements.appUserName.textContent = user.username;
+    }
+    if (elements.appRoleChip) {
+      elements.appRoleChip.textContent = isAdmin ? "管理员" : "普通用户";
+      elements.appRoleChip.classList.add("is-ok");
+    }
     if (elements.authSummary) {
       elements.authSummary.innerHTML = isAdmin
         ? '<p class="note">当前账号具备知识运营与权限治理能力，可以上传文档、重建索引并维护用户访问范围。</p>'
@@ -204,6 +220,13 @@
       elements.authBadge.textContent = "未登录";
       elements.authBadge.classList.remove("is-ok");
     }
+    if (elements.appUserName) {
+      elements.appUserName.textContent = "未登录";
+    }
+    if (elements.appRoleChip) {
+      elements.appRoleChip.textContent = "会话失效";
+      elements.appRoleChip.classList.remove("is-ok");
+    }
     if (elements.authSummary) {
       elements.authSummary.innerHTML = '<p class="note">当前会话不可用，系统将自动跳转到登录页。</p>';
     }
@@ -218,6 +241,86 @@
     } catch (error) {
       setStatus(`退出登录失败：${error.message}`, true);
     }
+  }
+
+  function toggleSidebar() {
+    const collapsed = document.body.classList.toggle("sidebar-collapsed");
+    elements.chromeMenuToggle?.setAttribute("aria-pressed", String(collapsed));
+  }
+
+  function ensureAppChrome() {
+    if (!document.body.classList.contains("console-page") || document.querySelector(".app-header")) {
+      return;
+    }
+
+    const meta = PAGE_META[state.currentPage] || PAGE_META.dashboard;
+    const currentLabel = state.currentPageLabel || meta.label;
+    const header = document.createElement("header");
+    header.className = "app-header";
+    header.innerHTML = `
+      <div class="app-header-left">
+        <span class="app-logo-mark" aria-hidden="true"></span>
+        <div class="app-brand-title">
+          <strong>知识库 &amp; 规则库</strong>
+          <span>${escapeHtml(currentLabel)}</span>
+        </div>
+        <button id="chrome-menu-toggle" class="chrome-menu-button" type="button" aria-label="展开或收起侧边导航" aria-pressed="false">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+      <div class="app-header-right">
+        <span id="app-role-chip" class="status-chip">检查中</span>
+        <strong id="app-user-name">正在校验</strong>
+        <button id="chrome-logout-btn" class="app-exit-button" type="button">退出</button>
+      </div>
+    `;
+
+    const shell = document.querySelector(".shell");
+    document.body.insertBefore(header, shell || document.body.firstChild);
+  }
+
+  function ensureSidebarNavigation() {
+    const navPanel = document.querySelector(".nav-panel");
+    if (!document.body.classList.contains("console-page") || !navPanel || navPanel.dataset.sidebarNav === "grouped") {
+      return;
+    }
+
+    navPanel.dataset.sidebarNav = "grouped";
+    navPanel.innerHTML = `
+      <nav class="side-nav" aria-label="后台主导航">
+        <details class="side-nav-group" open>
+          <summary>基础库</summary>
+          <div class="side-nav-list">
+            <a class="nav-link" data-nav="dashboard" href="/">总览</a>
+          </div>
+        </details>
+        <details class="side-nav-group" open>
+          <summary>知识库</summary>
+          <div class="side-nav-list">
+            <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
+            <a class="nav-link" data-module-nav="knowledge-upload" href="/knowledge">上传入库</a>
+            <a class="nav-link" data-module-nav="knowledge-reindex" href="/knowledge/reindex">重建索引</a>
+          </div>
+        </details>
+        <details class="side-nav-group" open data-admin-nav>
+          <summary>权限系统</summary>
+          <div class="side-nav-list">
+            <a class="nav-link" data-module-nav="users-overview" data-admin-nav href="/users">用户总览</a>
+            <a class="nav-link" data-module-nav="users-access" data-admin-nav href="/users/access">角色与授权</a>
+            <a class="nav-link" data-module-nav="users-security" data-admin-nav href="/users/security">安全操作</a>
+            <a class="nav-link" data-module-nav="users-audit" data-admin-nav href="/users/audit">审计日志</a>
+          </div>
+        </details>
+        <details class="side-nav-group" open>
+          <summary>数据管理</summary>
+          <div class="side-nav-list">
+            <a class="nav-link" data-module-nav="knowledge-sources" href="/knowledge/sources">数据源管理</a>
+          </div>
+        </details>
+      </nav>
+    `;
   }
 
   async function changeOwnPassword() {
