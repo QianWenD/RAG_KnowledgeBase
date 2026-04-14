@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -49,6 +50,7 @@ SENSITIVE_AUDIT_ACTIONS = (
     "change_password",
     "update_user_access",
 )
+SOURCE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$")
 
 
 def _call_local_llm(prompt: str) -> str:
@@ -120,24 +122,35 @@ def _auth_service_from_repository(repository):
     return AuthService(repository)
 
 
-def _validate_source_filter(source_filter: str | None) -> None:
-    if source_filter and source_filter not in settings.valid_sources:
+def _normalize_source_name(source: str | None) -> str | None:
+    normalized = str(source or "").strip()
+    if not normalized:
+        return None
+    if not SOURCE_NAME_PATTERN.fullmatch(normalized):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid source_filter '{source_filter}'. Supported values: {settings.valid_sources}",
+            detail=(
+                "Invalid source. Use 1-50 letters, numbers, underscores, or hyphens, "
+                "and start with a letter or number."
+            ),
         )
+    return normalized
+
+
+def _validate_source_filter(source_filter: str | None) -> str | None:
+    return _normalize_source_name(source_filter)
 
 
 def _validate_allowed_sources(values: list[str] | tuple[str, ...] | None) -> list[str] | None:
     if values is None:
         return None
-    normalized = [str(value).strip() for value in values if str(value).strip()]
-    invalid = [value for value in normalized if value not in settings.valid_sources]
-    if invalid:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid sources {invalid}. Supported values: {settings.valid_sources}",
-        )
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        source = _normalize_source_name(str(value))
+        if source and source not in seen:
+            normalized.append(source)
+            seen.add(source)
     return normalized
 
 
@@ -364,7 +377,7 @@ def _resolve_query_source_filter_for_user(
     requested_source_filter: str | None,
     user: AuthenticatedUser,
 ) -> str | None:
-    _validate_source_filter(requested_source_filter)
+    requested_source_filter = _validate_source_filter(requested_source_filter)
     try:
         return resolve_effective_source_filter(
             query=query,
@@ -836,7 +849,9 @@ async def upload_documents(
     files: list[UploadFile] = File(...),
 ) -> dict:
     _require_admin_user(request)
-    _validate_source_filter(source)
+    source = _validate_source_filter(source)
+    if source is None:
+        raise HTTPException(status_code=400, detail="source is required.")
     if not files:
         raise HTTPException(status_code=400, detail="No files were uploaded.")
 
@@ -877,11 +892,13 @@ async def upload_documents(
 def reindex_documents(payload: ReindexRequest, request: Request) -> dict:
     _require_admin_user(request)
     try:
-        _validate_source_filter(payload.source)
-        directory = _resolve_reindex_directory(payload.source, payload.directory)
+        source = _validate_source_filter(payload.source)
+        if source is None:
+            raise HTTPException(status_code=400, detail="source is required.")
+        directory = _resolve_reindex_directory(source, payload.directory)
         result = _run_reindex_job(directory, append=payload.append)
         return {
-            "requested_source": payload.source,
+            "requested_source": source,
             "requested_directory": str(directory),
             **result,
         }

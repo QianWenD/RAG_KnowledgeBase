@@ -238,7 +238,7 @@ window.RagProPage = {
         stream,
         session_id: pageState.sessionId || undefined,
         history: pageState.history,
-        source_filter: elements.sourceFilter.value || undefined,
+        source_filter: helpers.getSourceSelectValue(elements.sourceFilter) || undefined,
       };
     }
 
@@ -381,7 +381,7 @@ window.RagProPage = {
         elements.queryInputMeter.textContent = `${length} 字`;
       }
       if (elements.querySourceHint) {
-        const source = elements.sourceFilter?.value || "";
+        const source = helpers.getSourceSelectValue(elements.sourceFilter);
         elements.querySourceHint.textContent = source
           ? `当前限定来源：${source}`
           : "未限定来源，将由权限范围和路由自动收口";

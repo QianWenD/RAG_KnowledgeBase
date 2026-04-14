@@ -18,6 +18,7 @@ ALLOWED_UPLOAD_EXTENSIONS = frozenset(
     {".txt", ".md", ".markdown", ".html", ".htm", ".pdf", ".docx", ".ppt", ".pptx"}
 )
 _INVALID_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_SOURCE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$")
 
 
 class DocumentUploadError(ValueError):
@@ -51,9 +52,7 @@ class DocumentUploadService:
         files: list[IncomingDocument],
         replace_source: bool = False,
     ) -> dict:
-        normalized_source = source.strip()
-        if not normalized_source:
-            raise DocumentUploadError("source is required.")
+        normalized_source = self._sanitize_source(source)
         if not files:
             raise DocumentUploadError("No files were uploaded.")
 
@@ -148,6 +147,17 @@ class DocumentUploadService:
             "size_bytes": size_bytes,
             "content_type": item.content_type or "application/octet-stream",
         }
+
+    @staticmethod
+    def _sanitize_source(source: str) -> str:
+        normalized = str(source or "").strip()
+        if not normalized:
+            raise DocumentUploadError("source is required.")
+        if not _SOURCE_NAME_PATTERN.fullmatch(normalized):
+            raise DocumentUploadError(
+                "source must use 1-50 letters, numbers, underscores, or hyphens."
+            )
+        return normalized
 
     @staticmethod
     def _sanitize_filename(filename: str) -> str:

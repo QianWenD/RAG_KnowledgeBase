@@ -43,8 +43,8 @@ window.RagProPage = {
     }
 
     helpers.populateSourceSelect(elements.uploadSource, state.sources || [], "请选择来源");
-    if (preferredSource && (state.sources || []).includes(preferredSource)) {
-      elements.uploadSource.value = preferredSource;
+    if (preferredSource) {
+      helpers.setSourceSelectValue(elements.uploadSource, preferredSource);
     }
     bindEvents();
     helpers.setStatus("知识运营页已就绪，可以上传资料并写入检索链路。");
@@ -94,12 +94,17 @@ window.RagProPage = {
         return;
       }
 
-      const source = elements.uploadSource.value;
+      const source = helpers.getSourceSelectValue(elements.uploadSource);
       const files = pageState.uploadFiles;
 
       if (!source) {
-        renderUploadResult({ message: "请先选择上传来源。", isError: true });
-        helpers.setStatus("请先选择上传来源。", true);
+        renderUploadResult({ message: "请先选择或输入上传来源。", isError: true });
+        helpers.setStatus("请先选择或输入上传来源。", true);
+        return;
+      }
+      if (!helpers.isValidSourceName(source)) {
+        renderUploadResult({ message: "来源只能使用 1-50 位字母、数字、下划线或短横线。", isError: true });
+        helpers.setStatus("来源格式不正确。", true);
         return;
       }
       if (!files.length) {

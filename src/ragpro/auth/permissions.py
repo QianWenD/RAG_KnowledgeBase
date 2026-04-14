@@ -21,7 +21,7 @@ def filter_sources_for_user(
     valid_sources: tuple[str, ...] | list[str],
     user: AuthenticatedUser,
 ) -> list[str]:
-    available = list(valid_sources)
+    available = list(dict.fromkeys([*valid_sources, *user.allowed_sources]))
     if user.is_admin:
         return available
     allowed = set(user.allowed_sources)

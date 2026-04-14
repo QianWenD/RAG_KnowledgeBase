@@ -5,6 +5,8 @@
     knowledge: { label: "知识运营" },
     users: { label: "权限管理" },
   };
+  const CUSTOM_SOURCE_OPTION = "__custom_source__";
+  const SOURCE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$/;
 
   const state = {
     user: null,
@@ -46,6 +48,10 @@
     escapeHtml,
     formatBytes,
     populateSourceSelect,
+    getSourceSelectValue,
+    setSourceSelectValue,
+    isValidSourceName,
+    mergeSourceValues,
     renderEmptyState,
     getState: () => state,
     isAdmin: () => state.user?.role === "admin",
@@ -381,21 +387,114 @@
     if (!select) {
       return;
     }
-    const currentValue = select.value;
+    const currentValue = getSourceSelectValue(select) || select.value;
+    const uniqueSources = mergeSourceValues(sources || []);
     select.innerHTML = "";
     const placeholderOption = document.createElement("option");
     placeholderOption.value = "";
     placeholderOption.textContent = placeholder;
     select.appendChild(placeholderOption);
-    for (const source of sources) {
+    for (const source of uniqueSources) {
       const option = document.createElement("option");
       option.value = source;
       option.textContent = source;
       select.appendChild(option);
     }
-    if (sources.includes(currentValue)) {
-      select.value = currentValue;
+    const customOption = document.createElement("option");
+    customOption.value = CUSTOM_SOURCE_OPTION;
+    customOption.textContent = "自定义来源...";
+    select.appendChild(customOption);
+    ensureCustomSourceInput(select);
+    setSourceSelectValue(select, currentValue);
+  }
+
+  function ensureCustomSourceInput(select) {
+    const inputId = `${select.id}-custom`;
+    let input = document.getElementById(inputId);
+    if (!input) {
+      input = document.createElement("input");
+      input.id = inputId;
+      input.type = "text";
+      input.maxLength = 50;
+      input.className = "source-custom-input hidden";
+      input.placeholder = "输入自定义来源，例如 policy_2026";
+      input.setAttribute("aria-label", "自定义来源");
+      input.dataset.sourceCustomFor = select.id;
+      select.insertAdjacentElement("afterend", input);
     }
+    if (!select.dataset.customSourceBound) {
+      select.addEventListener("change", () => updateCustomSourceInput(select));
+      input.addEventListener("input", () => {
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      select.dataset.customSourceBound = "true";
+    }
+    updateCustomSourceInput(select);
+    return input;
+  }
+
+  function updateCustomSourceInput(select) {
+    const input = document.getElementById(`${select.id}-custom`);
+    if (!input) {
+      return;
+    }
+    const customMode = select.value === CUSTOM_SOURCE_OPTION;
+    input.classList.toggle("hidden", !customMode);
+    input.disabled = !customMode;
+    input.setAttribute("aria-hidden", String(!customMode));
+    if (!customMode) {
+      input.value = "";
+    }
+  }
+
+  function getSourceSelectValue(select) {
+    if (!select) {
+      return "";
+    }
+    if (select.value !== CUSTOM_SOURCE_OPTION) {
+      return (select.value || "").trim();
+    }
+    const input = document.getElementById(`${select.id}-custom`);
+    return (input?.value || "").trim();
+  }
+
+  function setSourceSelectValue(select, value) {
+    if (!select) {
+      return;
+    }
+    const normalized = (value || "").trim();
+    const input = ensureCustomSourceInput(select);
+    const optionValues = Array.from(select.options).map((option) => option.value);
+    if (!normalized) {
+      select.value = "";
+      input.value = "";
+    } else if (optionValues.includes(normalized)) {
+      select.value = normalized;
+      input.value = "";
+    } else {
+      select.value = CUSTOM_SOURCE_OPTION;
+      input.value = normalized;
+    }
+    updateCustomSourceInput(select);
+  }
+
+  function isValidSourceName(value) {
+    return SOURCE_NAME_PATTERN.test((value || "").trim());
+  }
+
+  function mergeSourceValues(...groups) {
+    const merged = [];
+    const seen = new Set();
+    for (const group of groups) {
+      for (const value of group || []) {
+        const source = (value || "").trim();
+        if (source && !seen.has(source)) {
+          merged.push(source);
+          seen.add(source);
+        }
+      }
+    }
+    return merged;
   }
 
   function renderEmptyState(title, body, tone = "neutral") {

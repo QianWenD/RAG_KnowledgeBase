@@ -345,7 +345,7 @@ class APISurfaceTests(unittest.TestCase):
             response = self.client.get("/sources")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["sources"], ["ops"])
+        self.assertEqual(response.json()["sources"], ["ops", "faq"])
 
     def test_create_session_endpoint_returns_generated_session_id(self) -> None:
         user = AuthenticatedUser(

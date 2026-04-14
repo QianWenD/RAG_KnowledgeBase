@@ -2510,6 +2510,28 @@ body.console-page .field-block {
   gap: 7px;
 }
 
+body.console-page .source-custom-input {
+  margin-top: 8px;
+  width: 100%;
+}
+
+body.console-page .source-custom-field {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  color: var(--ink);
+  background: #f8fbfd;
+  border: 1px dashed #aebfce;
+  border-radius: 5px;
+}
+
+body.console-page .source-custom-field span {
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
 body.console-page input,
 body.console-page select,
 body.console-page textarea,

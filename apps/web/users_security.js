@@ -48,7 +48,10 @@
         return;
       }
       if (!(state.sources || []).length) {
-        elements.createSources.innerHTML = '<div class="note">当前还没有可授权来源。</div>';
+        elements.createSources.innerHTML = `
+          <div class="note">当前还没有可授权来源，你仍然可以先添加自定义来源。</div>
+          ${renderCreateCustomSourceField()}
+        `;
         return;
       }
       elements.createSources.innerHTML = (state.sources || []).map((source) => `
@@ -56,15 +59,33 @@
           <input type="checkbox" data-create-source="${helpers.escapeHtml(source)}">
           <span>${helpers.escapeHtml(source)}</span>
         </label>
-      `).join("");
+      `).join("") + renderCreateCustomSourceField();
+    }
+
+    function renderCreateCustomSourceField() {
+      return `
+        <label class="source-custom-field">
+          <span>添加自定义来源</span>
+          <input id="security-create-source-custom" type="text" maxlength="50" placeholder="例如 ops_2026">
+        </label>
+      `;
     }
 
     async function handleAdminCreateUser() {
       const username = elements.createUsername?.value.trim() || "";
       const password = elements.createPassword?.value || "";
       const role = elements.createRole?.value || "user";
-      const allowedSources = Array.from(elements.createSources?.querySelectorAll("[data-create-source]:checked") || [])
+      const checkedSources = Array.from(elements.createSources?.querySelectorAll("[data-create-source]:checked") || [])
         .map((node) => node.getAttribute("data-create-source"));
+      const customSource = document.getElementById("security-create-source-custom")?.value.trim() || "";
+      if (customSource && !helpers.isValidSourceName(customSource)) {
+        helpers.setStatus("自定义来源只能使用 1-50 位字母、数字、下划线或短横线。", true);
+        return;
+      }
+      const allowedSources = helpers.mergeSourceValues(
+        checkedSources,
+        customSource ? [customSource] : [],
+      );
 
       if (!username || !password) {
         helpers.setStatus("请填写新用户的用户名和密码。", true);

@@ -33,8 +33,8 @@ window.RagProPage = {
     }
 
     helpers.populateSourceSelect(elements.reindexSource, state.sources || [], "请选择来源");
-    if (preferredSource && (state.sources || []).includes(preferredSource)) {
-      elements.reindexSource.value = preferredSource;
+    if (preferredSource) {
+      helpers.setSourceSelectValue(elements.reindexSource, preferredSource);
     }
     bindEvents();
     helpers.setStatus("重建索引页已就绪，可以按来源执行重建任务。");
@@ -61,13 +61,18 @@ window.RagProPage = {
         return;
       }
 
-      const source = elements.reindexSource.value;
+      const source = helpers.getSourceSelectValue(elements.reindexSource);
       const directory = elements.reindexDirectory.value.trim();
       const append = elements.reindexAppend.checked;
 
       if (!source) {
-        renderResult("请先选择目标来源。", true);
-        helpers.setStatus("请先选择目标来源。", true);
+        renderResult("请先选择或输入目标来源。", true);
+        helpers.setStatus("请先选择或输入目标来源。", true);
+        return;
+      }
+      if (!helpers.isValidSourceName(source)) {
+        renderResult("来源只能使用 1-50 位字母、数字、下划线或短横线。", true);
+        helpers.setStatus("来源格式不正确。", true);
         return;
       }
 

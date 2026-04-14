@@ -111,7 +111,8 @@
     function buildAccessCard(user) {
       const card = document.createElement("article");
       card.className = "access-user-card";
-      const checkboxHtml = (state.sources || []).map((source) => {
+      const availableSources = helpers.mergeSourceValues(state.sources || [], user.allowed_sources || []);
+      const checkboxHtml = availableSources.map((source) => {
         const checked = (user.allowed_sources || []).includes(source) ? "checked" : "";
         return `
           <label class="source-checkbox">
@@ -142,7 +143,13 @@
             <span>账号启用</span>
           </label>
         </div>
-        <div class="source-checkbox-grid">${checkboxHtml || helpers.renderEmptyState("暂无可分配来源", "请先确保系统里已经准备好可授权来源。", "soft")}</div>
+        <div class="source-checkbox-grid">
+          ${checkboxHtml || helpers.renderEmptyState("暂无可分配来源", "请先确保系统里已经准备好可授权来源。", "soft")}
+          <label class="source-custom-field">
+            <span>添加自定义来源</span>
+            <input type="text" data-user-source-custom maxlength="50" placeholder="例如 policy_2026">
+          </label>
+        </div>
         <div class="session-actions">
           <button class="ghost-btn" type="button" data-save-access>保存授权</button>
           <a class="ghost-btn" href="/users/security">去安全操作</a>
@@ -150,8 +157,17 @@
       `;
 
       card.querySelector("[data-save-access]")?.addEventListener("click", async () => {
-        const allowedSources = Array.from(card.querySelectorAll("[data-user-source]:checked"))
+        const checkedSources = Array.from(card.querySelectorAll("[data-user-source]:checked"))
           .map((node) => node.getAttribute("data-user-source"));
+        const customSource = card.querySelector("[data-user-source-custom]")?.value.trim() || "";
+        if (customSource && !helpers.isValidSourceName(customSource)) {
+          helpers.setStatus("自定义来源只能使用 1-50 位字母、数字、下划线或短横线。", true);
+          return;
+        }
+        const allowedSources = helpers.mergeSourceValues(
+          checkedSources,
+          customSource ? [customSource] : [],
+        );
         const role = card.querySelector("[data-role-select]")?.value || "user";
         const isActive = Boolean(card.querySelector("[data-active-toggle]")?.checked);
         await saveUserAccess(user.id, {
