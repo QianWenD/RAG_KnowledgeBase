@@ -1539,6 +1539,11 @@ body[data-page="knowledge"] .module-nav-bar {
   background: rgba(34, 25, 18, 0.76);
 }
 
+body[data-page-view="knowledge-sources"] .page-utility-bar,
+body[data-page-view="knowledge-sources"] .module-nav-bar {
+  display: none;
+}
+
 body[data-page="knowledge"] .upload-panel,
 body[data-page="knowledge"] #reindex-panel,
 body[data-page="knowledge"] #source-cards {
@@ -2114,17 +2119,18 @@ body.console-page .rail {
   min-height: calc(100dvh - 52px);
   padding: 10px 0 18px;
   overflow: auto;
+  scrollbar-width: none;
   color: #c9d7e2;
   background: #132431;
   border-right: 1px solid #0e1a24;
 }
 
 body.console-page .rail::-webkit-scrollbar {
-  width: 7px;
+  width: 0;
 }
 
 body.console-page .rail::-webkit-scrollbar-thumb {
-  background: rgba(201, 215, 226, 0.18);
+  background: transparent;
   border-radius: 999px;
 }
 
@@ -2301,8 +2307,7 @@ body.console-page .rail .nav-link.is-active {
 }
 
 body.console-page .auth-panel {
-  margin-top: auto;
-  padding: 0 8px;
+  display: none;
 }
 
 body.console-page .auth-panel .panel-head {
