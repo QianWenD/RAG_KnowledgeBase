@@ -171,6 +171,9 @@ test.describe("RAGPro frontend smoke", () => {
     });
 
     await page.goto(`${baseURL}/knowledge/sources`);
+    await expect(page.locator("#auth-panel")).not.toBeVisible();
+    await expect(page.locator(".page-utility-bar")).not.toBeVisible();
+    await expect(page.locator(".module-nav-bar")).not.toBeVisible();
     await page.locator("#source-register-input").fill("policy_2026");
     await page.locator("#source-register-submit").click();
 
