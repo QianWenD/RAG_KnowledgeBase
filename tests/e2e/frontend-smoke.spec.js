@@ -139,6 +139,37 @@ test.describe("RAGPro frontend smoke", () => {
     await expect.poll(() => latestUploadBody).toContain("policy_2026");
   });
 
+  test("knowledge sources page registers custom source", async ({ page }) => {
+    let latestSourceBody = "";
+    await page.route("**/sources", async (route) => {
+      if (route.request().method() === "POST") {
+        latestSourceBody = route.request().postData() || "";
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            source: "policy_2026",
+            sources: ["ai", "java", "policy_2026"],
+            user: { ...adminUser, allowed_sources: ["ai", "java", "policy_2026"] },
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ sources: ["ai", "java"] }),
+      });
+    });
+
+    await page.goto(`${baseURL}/knowledge/sources`);
+    await page.locator("#source-register-input").fill("policy_2026");
+    await page.locator("#source-register-submit").click();
+
+    await expect.poll(() => latestSourceBody).toContain("policy_2026");
+    await expect(page.locator("#source-card-grid")).toContainText("policy_2026");
+  });
+
   test("audit quick time presets write range filters into API request and URL", async ({ page }) => {
     let latestAuditRequestUrl = "";
     await page.route("**/auth/audit-logs**", async (route) => {

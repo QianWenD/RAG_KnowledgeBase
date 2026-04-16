@@ -153,6 +153,44 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["sources"], ["policy_2026"])
 
+    def test_admin_can_register_custom_source(self) -> None:
+        repository = FakeAuditRepository()
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+        captured: dict[str, object] = {}
+
+        class FakeAuthService:
+            def update_user_access(self, *, target_user_id: int, role=None, allowed_sources=None, is_active=None):
+                captured["target_user_id"] = target_user_id
+                captured["allowed_sources"] = list(allowed_sources)
+                return AuthenticatedUser(
+                    id=target_user_id,
+                    username="admin",
+                    role="admin",
+                    allowed_sources=tuple(allowed_sources),
+                    is_active=True,
+                )
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch("apps.api.main._create_auth_repository", return_value=repository),
+            patch("apps.api.main._auth_service_from_repository", return_value=FakeAuthService()),
+        ):
+            response = self.client.post("/sources", json={"source": "policy_2026"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["source"], "policy_2026")
+        self.assertIn("policy_2026", payload["sources"])
+        self.assertEqual(captured["target_user_id"], 1)
+        self.assertEqual(captured["allowed_sources"], ["ai", "java", "policy_2026"])
+        self.assertEqual(repository.audit_logs[-1]["action"], "update_user_access")
+
     def test_admin_can_create_user(self) -> None:
         repository = FakeAuditRepository()
         admin = AuthenticatedUser(
