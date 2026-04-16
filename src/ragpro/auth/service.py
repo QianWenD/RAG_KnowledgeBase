@@ -13,6 +13,7 @@ from .models import AuthResult, AuthenticatedUser
 from .repository import AuthMySQLRepository
 
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
+SOURCE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$")
 
 
 class AuthService:
@@ -242,10 +243,23 @@ class AuthService:
             raise ValueError("Unsupported role.")
 
     def _normalize_allowed_sources(self, allowed_sources: list[str] | None, *, role: str) -> list[str]:
-        normalized = [str(value).strip() for value in (allowed_sources or []) if str(value).strip()]
-        invalid = [value for value in normalized if value not in self.settings.valid_sources]
+        normalized: list[str] = []
+        seen: set[str] = set()
+        invalid: list[str] = []
+        for value in allowed_sources or []:
+            source = str(value).strip()
+            if not source:
+                continue
+            if not SOURCE_NAME_PATTERN.fullmatch(source):
+                invalid.append(source)
+                continue
+            if source not in seen:
+                normalized.append(source)
+                seen.add(source)
         if invalid:
-            raise ValueError(f"Invalid sources: {invalid}")
+            raise ValueError(
+                "Invalid sources: use 1-50 letters, numbers, underscores, or hyphens."
+            )
         if role == "admin" and not normalized:
             return list(self.settings.valid_sources)
         return normalized
