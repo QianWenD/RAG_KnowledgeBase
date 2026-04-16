@@ -111,6 +111,7 @@
 
       <nav class="section-nav-bar" aria-label="页内导航">
         <a class="section-link" data-section-link href="#source-overview">来源总览</a>
+        <a class="section-link" data-section-link href="#source-register">登记来源</a>
         <a class="section-link" data-section-link href="#source-cards">来源卡片</a>
         <a class="section-link" data-section-link href="#source-guidelines">管理建议</a>
       </nav>
@@ -149,6 +150,23 @@
           <strong>来源是权限和知识的共同边界</strong>
           <p>后续不管换业务内容还是扩知识域，只要继续沿用来源模型，这里的结构都可以复用。</p>
         </div>
+      </section>
+
+      <section class="panel section-panel" id="source-register" data-source-register-panel>
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">登记来源</p>
+            <h2>添加一个自定义来源</h2>
+          </div>
+        </div>
+        <form id="source-register-form" class="source-register-form">
+          <label class="field-block" for="source-register-input">
+            <span>来源标识</span>
+            <input id="source-register-input" type="text" maxlength="50" placeholder="例如 policy_2026">
+          </label>
+          <button id="source-register-submit" class="send-btn" type="submit">登记来源</button>
+          <p id="source-register-feedback" class="note">来源标识用于权限、上传、重建和问答筛选，请保持稳定。</p>
+        </form>
       </section>
 
       <section class="panel section-panel" id="source-cards">

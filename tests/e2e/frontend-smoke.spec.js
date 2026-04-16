@@ -34,6 +34,10 @@ async function mockAuthenticatedShell(page) {
   });
 
   await page.route("**/sources", async (route) => {
+    if (new URL(route.request().url()).pathname !== "/sources") {
+      await route.continue();
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -142,6 +146,10 @@ test.describe("RAGPro frontend smoke", () => {
   test("knowledge sources page registers custom source", async ({ page }) => {
     let latestSourceBody = "";
     await page.route("**/sources", async (route) => {
+      if (new URL(route.request().url()).pathname !== "/sources") {
+        await route.continue();
+        return;
+      }
       if (route.request().method() === "POST") {
         latestSourceBody = route.request().postData() || "";
         await route.fulfill({

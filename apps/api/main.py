@@ -406,6 +406,10 @@ class ReindexRequest(BaseModel):
     append: bool = Field(default=False, description="Append to the existing source instead of replacing it")
 
 
+class SourceRegistrationRequest(BaseModel):
+    source: str = Field(..., min_length=1, max_length=50, description="Custom knowledge source to register")
+
+
 class RegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=64)
     password: str = Field(..., min_length=8, max_length=128)
@@ -779,6 +783,41 @@ def create_session(request: Request, payload: dict | None = None) -> dict:
 def get_sources(request: Request) -> dict:
     user = _require_authenticated_user(request)
     return {"sources": filter_sources_for_user(settings.valid_sources, user)}
+
+
+@app.post("/sources")
+def register_source(payload: SourceRegistrationRequest, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    source = _validate_source_filter(payload.source)
+    if source is None:
+        raise HTTPException(status_code=400, detail="source is required.")
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        allowed_sources = _validate_allowed_sources([*admin_user.allowed_sources, source])
+        updated = auth_service.update_user_access(
+            target_user_id=admin_user.id,
+            role=admin_user.role,
+            allowed_sources=allowed_sources,
+        )
+        _record_auth_audit(
+            auth_repository,
+            action="update_user_access",
+            actor=admin_user,
+            target=updated,
+            metadata={"registered_source": source, "allowed_sources": allowed_sources},
+        )
+        return {
+            "source": source,
+            "sources": filter_sources_for_user(settings.valid_sources, updated),
+            "user": _serialize_user(updated),
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
 
 
 @app.get("/sessions/{session_id}/history")
