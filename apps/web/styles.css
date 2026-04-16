@@ -2275,6 +2275,20 @@ body.console-page .side-nav-group summary:hover {
   background: rgba(255, 255, 255, 0.04);
 }
 
+body.console-page .side-nav-group summary:focus-visible {
+  outline: 2px solid rgba(66, 165, 245, 0.75);
+  outline-offset: 2px;
+}
+
+body.console-page .side-nav-group[open] summary {
+  color: #ffffff;
+  background: rgba(66, 165, 245, 0.1);
+}
+
+body.console-page .side-nav-group:not([open]) .side-nav-list {
+  display: none;
+}
+
 body.console-page .side-nav-list {
   display: grid;
   gap: 2px;

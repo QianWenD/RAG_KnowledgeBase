@@ -68,6 +68,7 @@
 
   async function init() {
     bindCommonEvents();
+    bindSidebarAccordion();
     renderPageMeta();
     markActiveNav();
     markActiveModuleNav();
@@ -254,6 +255,19 @@
     elements.chromeMenuToggle?.setAttribute("aria-pressed", String(collapsed));
   }
 
+  function getActiveSidebarSection() {
+    if (state.currentPageView === "knowledge-sources") {
+      return "data";
+    }
+    if (state.currentPage === "knowledge" || state.currentPage === "qa") {
+      return "knowledge";
+    }
+    if (state.currentPage === "users") {
+      return "users";
+    }
+    return "base";
+  }
+
   function ensureAppChrome() {
     if (!document.body.classList.contains("console-page") || document.querySelector(".app-header")) {
       return;
@@ -293,25 +307,27 @@
       return;
     }
 
+    const activeSection = getActiveSidebarSection();
+    const openAttr = (section) => (activeSection === section ? "open" : "");
     navPanel.dataset.sidebarNav = "grouped";
     navPanel.innerHTML = `
       <nav class="side-nav" aria-label="后台主导航">
-        <details class="side-nav-group" open>
-          <summary>基础库</summary>
+        <details class="side-nav-group" data-sidebar-section="base" ${openAttr("base")}>
+          <summary aria-expanded="${activeSection === "base"}">基础库</summary>
           <div class="side-nav-list">
             <a class="nav-link" data-nav="dashboard" href="/">总览</a>
           </div>
         </details>
-        <details class="side-nav-group" open>
-          <summary>知识库</summary>
+        <details class="side-nav-group" data-sidebar-section="knowledge" ${openAttr("knowledge")}>
+          <summary aria-expanded="${activeSection === "knowledge"}">知识库</summary>
           <div class="side-nav-list">
             <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
             <a class="nav-link" data-module-nav="knowledge-upload" href="/knowledge">上传入库</a>
             <a class="nav-link" data-module-nav="knowledge-reindex" href="/knowledge/reindex">重建索引</a>
           </div>
         </details>
-        <details class="side-nav-group" open data-admin-nav>
-          <summary>权限系统</summary>
+        <details class="side-nav-group" data-sidebar-section="users" ${openAttr("users")} data-admin-nav>
+          <summary aria-expanded="${activeSection === "users"}">权限系统</summary>
           <div class="side-nav-list">
             <a class="nav-link" data-module-nav="users-overview" data-admin-nav href="/users">用户总览</a>
             <a class="nav-link" data-module-nav="users-access" data-admin-nav href="/users/access">角色与授权</a>
@@ -319,14 +335,40 @@
             <a class="nav-link" data-module-nav="users-audit" data-admin-nav href="/users/audit">审计日志</a>
           </div>
         </details>
-        <details class="side-nav-group" open>
-          <summary>数据管理</summary>
+        <details class="side-nav-group" data-sidebar-section="data" ${openAttr("data")}>
+          <summary aria-expanded="${activeSection === "data"}">数据管理</summary>
           <div class="side-nav-list">
             <a class="nav-link" data-module-nav="knowledge-sources" href="/knowledge/sources">数据源管理</a>
           </div>
         </details>
       </nav>
     `;
+  }
+
+  function bindSidebarAccordion() {
+    const groups = Array.from(document.querySelectorAll(".side-nav-group"));
+    if (!groups.length) {
+      return;
+    }
+    for (const group of groups) {
+      syncSidebarGroupState(group);
+      group.addEventListener("toggle", () => {
+        syncSidebarGroupState(group);
+        if (!group.open) {
+          return;
+        }
+        for (const peer of groups) {
+          if (peer !== group) {
+            peer.open = false;
+            syncSidebarGroupState(peer);
+          }
+        }
+      });
+    }
+  }
+
+  function syncSidebarGroupState(group) {
+    group.querySelector("summary")?.setAttribute("aria-expanded", String(group.open));
   }
 
   async function changeOwnPassword() {
