@@ -91,7 +91,8 @@ class APISurfaceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('data-page="knowledge"', response.text)
         self.assertIn('data-page-view="knowledge-sources"', response.text)
-        self.assertIn('id="source-card-grid"', response.text)
+        self.assertIn('class="panel source-management-workbench"', response.text)
+        self.assertIn('id="source-table"', response.text)
         self.assertIn('href="/knowledge/reindex"', response.text)
         self.assertNotIn('id="query-input"', response.text)
         self.assertNotIn('id="upload-form"', response.text)
@@ -204,7 +205,8 @@ class APISurfaceTests(unittest.TestCase):
     def test_static_knowledge_sources_script_includes_source_navigation_logic(self) -> None:
         response = self.client.get("/static/knowledge_sources.js")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("source-card-grid", response.text)
+        self.assertIn("source-table-body", response.text)
+        self.assertIn("renderSourceTable", response.text)
         self.assertIn("/knowledge/reindex", response.text)
         self.assertIn("/knowledge?source=", response.text)
 

@@ -2530,6 +2530,88 @@ body.console-page .note.is-error {
   color: var(--danger);
 }
 
+body.console-page .source-management-workbench {
+  gap: 12px;
+  padding: 12px;
+}
+
+body.console-page .source-filter-row {
+  display: grid;
+  grid-template-columns: minmax(320px, 520px) minmax(220px, 1fr);
+  align-items: end;
+  gap: 12px;
+  padding: 12px;
+  background: #f7fafc;
+  border: 1px solid #d9e3ec;
+  border-radius: 4px;
+}
+
+body.console-page .source-filter-row .note {
+  margin: 0;
+  color: #667789;
+}
+
+body.console-page .source-table-wrap {
+  overflow-x: auto;
+  background: #ffffff;
+  border: 1px solid #d9e3ec;
+  border-radius: 4px;
+}
+
+body.console-page .source-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  color: #2c3e50;
+  font-size: 13px;
+}
+
+body.console-page .source-table th,
+body.console-page .source-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid #e4ebf2;
+  text-align: left;
+  vertical-align: middle;
+}
+
+body.console-page .source-table th {
+  color: #506174;
+  background: #edf3f8;
+  font-weight: 700;
+}
+
+body.console-page .source-table tbody tr:hover {
+  background: #f7fbff;
+}
+
+body.console-page .source-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+body.console-page .source-table-actions .panel-link-btn {
+  min-width: 64px;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+body.console-page .source-table-pager {
+  display: flex;
+  justify-content: flex-end;
+  padding: 9px 12px;
+  color: #667789;
+  background: #f8fbfd;
+  border-top: 1px solid #e4ebf2;
+  font-size: 12px;
+}
+
+body.console-page .source-compact-note {
+  padding: 12px;
+  border-radius: 4px;
+}
+
 body.console-page .source-custom-input {
   margin-top: 8px;
   width: 100%;
@@ -2883,8 +2965,14 @@ body.auth-page .auth-form-solo {
   body.console-page .page-utility-links,
   body.console-page .module-nav-bar,
   body.console-page .section-nav-bar,
+  body.console-page .source-table-actions,
   body.console-page .audit-preset-row,
   body.console-page .audit-filter-actions {
     align-items: stretch;
+  }
+
+  body.console-page .source-filter-row,
+  body.console-page .source-register-form {
+    grid-template-columns: 1fr;
   }
 }

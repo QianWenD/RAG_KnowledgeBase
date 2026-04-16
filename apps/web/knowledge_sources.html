@@ -139,45 +139,49 @@
         </article>
       </section>
 
-      <section class="panel guide-panel" id="source-overview">
+      <section class="panel source-management-workbench" id="source-overview">
         <div class="panel-head">
           <div>
-            <p class="panel-kicker">来源总览</p>
-            <h2>当前来源范围</h2>
+            <p class="panel-kicker">数据源管理</p>
+            <h2>来源清单与运营入口</h2>
           </div>
+          <span class="status-chip is-ok">表格视图</span>
         </div>
-        <div id="sources-overview-note" class="section-banner">
-          <strong>来源是权限和知识的共同边界</strong>
-          <p>后续不管换业务内容还是扩知识域，只要继续沿用来源模型，这里的结构都可以复用。</p>
-        </div>
-      </section>
 
-      <section class="panel section-panel" id="source-register" data-source-register-panel>
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">登记来源</p>
-            <h2>添加一个自定义来源</h2>
-          </div>
-        </div>
-        <form id="source-register-form" class="source-register-form">
-          <label class="field-block" for="source-register-input">
-            <span>来源标识</span>
-            <input id="source-register-input" type="text" maxlength="50" placeholder="例如 policy_2026">
-          </label>
-          <button id="source-register-submit" class="send-btn" type="submit">登记来源</button>
+        <div class="source-filter-row" id="source-register" data-source-register-panel>
+          <form id="source-register-form" class="source-register-form">
+            <label class="field-block" for="source-register-input">
+              <span>来源标识</span>
+              <input id="source-register-input" type="text" maxlength="50" placeholder="例如 policy_2026">
+            </label>
+            <button id="source-register-submit" class="send-btn" type="submit">登记来源</button>
+          </form>
           <p id="source-register-feedback" class="note">来源标识用于权限、上传、重建和问答筛选，请保持稳定。</p>
-        </form>
-      </section>
-
-      <section class="panel section-panel" id="source-cards">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">来源卡片</p>
-            <h2>可操作来源</h2>
-          </div>
         </div>
-        <div id="source-card-grid" class="source-card-grid">
-          <div class="note">当前来源卡片会显示在这里。</div>
+
+        <div class="source-table-wrap" id="source-cards">
+          <table id="source-table" class="source-table">
+            <thead>
+              <tr>
+                <th>来源标识</th>
+                <th>来源类型</th>
+                <th>当前权限</th>
+                <th>建议动作</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="source-table-body">
+              <tr>
+                <td colspan="5">当前来源会显示在这里。</td>
+              </tr>
+            </tbody>
+          </table>
+          <div id="source-table-pager" class="source-table-pager">共 0 条</div>
+        </div>
+
+        <div id="sources-overview-note" class="section-banner source-compact-note">
+          <strong>来源是权限和知识的共同边界</strong>
+          <p>同一个来源尽量在同一轮操作里完成上传、重建、授权和问答回测，避免知识域边界漂移。</p>
         </div>
       </section>
 
