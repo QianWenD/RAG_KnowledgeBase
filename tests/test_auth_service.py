@@ -274,6 +274,31 @@ class AuthServiceAdminTests(unittest.TestCase):
         self.assertEqual(user.role, "user")
         self.assertEqual(user.allowed_sources, ("ai",))
 
+    def test_admin_can_create_user_with_custom_source(self) -> None:
+        user = self.service.create_user_by_admin(
+            username="policy_user",
+            password="Password123",
+            role="user",
+            allowed_sources=["ai", "policy_2026"],
+        )
+
+        self.assertEqual(user.allowed_sources, ("ai", "policy_2026"))
+
+    def test_admin_can_update_user_access_with_custom_source(self) -> None:
+        user = self.service.create_user_by_admin(
+            username="ops_user",
+            password="Password123",
+            role="user",
+            allowed_sources=["ai"],
+        )
+
+        updated = self.service.update_user_access(
+            target_user_id=user.id,
+            allowed_sources=["ai", "ops_2026"],
+        )
+
+        self.assertEqual(updated.allowed_sources, ("ai", "ops_2026"))
+
     def test_admin_can_reset_password(self) -> None:
         user = self.service.create_user_by_admin(
             username="bob",
