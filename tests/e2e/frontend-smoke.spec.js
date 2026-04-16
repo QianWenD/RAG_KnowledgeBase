@@ -185,6 +185,22 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator("#source-table")).toContainText("policy_2026");
   });
 
+  test("sidebar accordion keeps one navigation group open", async ({ page }) => {
+    await page.goto(`${baseURL}/knowledge/sources`);
+    const dataGroup = page.locator(".side-nav-group", { hasText: "数据管理" });
+    const knowledgeGroup = page.locator(".side-nav-group", { hasText: "知识库" });
+    const baseGroup = page.locator(".side-nav-group", { hasText: "基础库" });
+
+    await expect(dataGroup).toHaveAttribute("open", "");
+    await expect(knowledgeGroup).not.toHaveAttribute("open", "");
+    await expect(baseGroup).not.toHaveAttribute("open", "");
+
+    await knowledgeGroup.locator("summary").click();
+    await expect(knowledgeGroup).toHaveAttribute("open", "");
+    await expect(dataGroup).not.toHaveAttribute("open", "");
+    await expect(knowledgeGroup.locator('a[href="/knowledge"]')).toBeVisible();
+  });
+
   test("audit quick time presets write range filters into API request and URL", async ({ page }) => {
     let latestAuditRequestUrl = "";
     await page.route("**/auth/audit-logs**", async (route) => {
