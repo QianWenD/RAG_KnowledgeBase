@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260422-user-actions">
+  <link rel="stylesheet" href="/static/styles.css?v=20260422-user-modal">
 </head>
 <body class="console-page" data-page="users" data-page-view="users-overview" data-page-label="用户管理">
   <div class="scene-grid" aria-hidden="true"></div>
@@ -134,31 +134,44 @@
             </div>
           </div>
 
-          <div id="users-create-panel" class="users-create-panel hidden">
-            <form id="users-create-form" class="security-create-form-table users-create-form">
-              <label class="legacy-filter-field" for="users-create-username">
-                <span>用户名</span>
-                <input id="users-create-username" type="text" autocomplete="off" placeholder="例如 ops_user">
-              </label>
-              <label class="legacy-filter-field" for="users-create-password">
-                <span>初始密码</span>
-                <input id="users-create-password" type="password" autocomplete="new-password" placeholder="建议至少 8 位">
-              </label>
-              <label class="legacy-filter-field" for="users-create-role">
-                <span>角色</span>
-                <select id="users-create-role">
-                  <option value="user">user</option>
-                  <option value="admin">admin</option>
-                </select>
-              </label>
-              <div id="users-create-sources" class="source-checkbox-grid security-create-sources">
-                <div class="note">来源列表会在系统加载后显示。</div>
+          <div id="users-create-panel" class="users-create-panel hidden" role="dialog" aria-modal="true" aria-labelledby="users-create-title">
+            <div class="users-create-card" role="document">
+              <div class="users-create-header">
+                <div>
+                  <p class="users-create-kicker">账号台账</p>
+                  <h3 id="users-create-title">新增用户</h3>
+                </div>
+                <button id="users-create-close" class="users-create-close" type="button" aria-label="关闭新增用户弹框">×</button>
               </div>
-              <div class="form-inline-actions">
-                <button id="users-create-cancel" class="legacy-plain-btn" type="button">取消</button>
-                <button id="users-create-submit" class="legacy-primary-btn" type="submit">创建账号</button>
-              </div>
-            </form>
+              <p class="users-create-copy">创建后会自动刷新用户信息，并定位到新账号。</p>
+              <form id="users-create-form" class="security-create-form-table users-create-form">
+                <label class="legacy-filter-field" for="users-create-username">
+                  <span>用户名</span>
+                  <input id="users-create-username" type="text" autocomplete="off" placeholder="例如 ops_user">
+                </label>
+                <label class="legacy-filter-field" for="users-create-password">
+                  <span>初始密码</span>
+                  <input id="users-create-password" type="password" autocomplete="new-password" placeholder="建议至少 8 位">
+                </label>
+                <label class="legacy-filter-field" for="users-create-role">
+                  <span>角色</span>
+                  <select id="users-create-role">
+                    <option value="user">user</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </label>
+                <div class="users-create-source-field">
+                  <span class="users-create-source-label">可见来源</span>
+                  <div id="users-create-sources" class="source-checkbox-grid security-create-sources">
+                    <div class="note">来源列表会在系统加载后显示。</div>
+                  </div>
+                </div>
+                <div class="form-inline-actions users-create-footer">
+                  <button id="users-create-cancel" class="legacy-plain-btn" type="button">取消</button>
+                  <button id="users-create-submit" class="legacy-primary-btn" type="submit">创建账号</button>
+                </div>
+              </form>
+            </div>
           </div>
 
           <div id="users-table-wrap" class="users-table-wrap">
@@ -209,7 +222,7 @@
     </main>
   </div>
 
-  <script src="/static/common.js?v=20260422-user-actions"></script>
-  <script src="/static/users.js?v=20260422-user-actions"></script>
+  <script src="/static/common.js?v=20260422-user-modal"></script>
+  <script src="/static/users.js?v=20260422-user-modal"></script>
 </body>
 </html>

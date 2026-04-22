@@ -404,6 +404,7 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator("#page-status")).toContainText("用户信息已刷新。");
 
     await page.locator("#users-create-toggle").click();
+    await expect(page.getByRole("dialog", { name: "新增用户" })).toBeVisible();
     await expect(page.locator("#users-create-panel")).toBeVisible();
     await page.locator("#users-create-username").fill("ops_user");
     await page.locator("#users-create-password").fill("Password123");

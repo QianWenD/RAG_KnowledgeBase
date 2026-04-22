@@ -24,6 +24,7 @@ window.RagProPage = {
       createRole: document.getElementById("users-create-role"),
       createSources: document.getElementById("users-create-sources"),
       createCancel: document.getElementById("users-create-cancel"),
+      createClose: document.getElementById("users-create-close"),
       createSubmit: document.getElementById("users-create-submit"),
       filterForm: document.getElementById("users-filter-form"),
       filterLogin: document.getElementById("users-filter-login"),
@@ -44,6 +45,7 @@ window.RagProPage = {
       summaryActive: document.getElementById("users-summary-active"),
       summarySources: document.getElementById("users-summary-sources"),
     };
+    let createDialogReturnFocus = null;
 
     bindEvents();
     renderSummary();
@@ -68,6 +70,22 @@ window.RagProPage = {
       elements.createCancel?.addEventListener("click", () => {
         resetCreateForm();
         setCreatePanelOpen(false);
+      });
+      elements.createClose?.addEventListener("click", () => {
+        resetCreateForm();
+        setCreatePanelOpen(false);
+      });
+      elements.createPanel?.addEventListener("click", (event) => {
+        if (event.target === elements.createPanel) {
+          resetCreateForm();
+          setCreatePanelOpen(false);
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !elements.createPanel?.classList.contains("hidden")) {
+          resetCreateForm();
+          setCreatePanelOpen(false);
+        }
       });
       elements.createForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -117,10 +135,17 @@ window.RagProPage = {
       if (!elements.createPanel || !elements.createToggle) {
         return;
       }
+      if (open) {
+        createDialogReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : elements.createToggle;
+      }
       elements.createPanel.classList.toggle("hidden", !open);
       elements.createToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      document.body.classList.toggle("users-create-dialog-open", open);
       if (open) {
         elements.createUsername?.focus();
+      } else {
+        createDialogReturnFocus?.focus?.();
+        createDialogReturnFocus = null;
       }
     }
 
