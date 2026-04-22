@@ -347,7 +347,13 @@ test.describe("RAGPro frontend smoke", () => {
   test("users overview creates accounts from the user information panel", async ({ page }) => {
     let createPayload;
     let users = [adminUser, memberUser, inactiveUser];
+    let getUsersRequests = 0;
+    let holdNextUsersRefresh = false;
+    let releaseRefresh;
     let releaseCreate;
+    const refreshMayContinue = new Promise((resolve) => {
+      releaseRefresh = resolve;
+    });
     const createMayContinue = new Promise((resolve) => {
       releaseCreate = resolve;
     });
@@ -372,6 +378,11 @@ test.describe("RAGPro frontend smoke", () => {
         });
         return;
       }
+      getUsersRequests += 1;
+      if (holdNextUsersRefresh) {
+        holdNextUsersRefresh = false;
+        await refreshMayContinue;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -380,6 +391,18 @@ test.describe("RAGPro frontend smoke", () => {
     });
 
     await page.goto(`${baseURL}/users`);
+    await expect(page.locator("#users-table-body")).toContainText("analyst");
+    const refreshButton = page.locator("#users-overview-refresh");
+    const requestsBeforeRefresh = getUsersRequests;
+    holdNextUsersRefresh = true;
+    await refreshButton.click();
+    await expect(refreshButton).toHaveAttribute("data-loading", "true");
+    await expect(refreshButton).toHaveAttribute("aria-busy", "true");
+    await expect(refreshButton).toBeDisabled();
+    await expect.poll(() => getUsersRequests).toBeGreaterThan(requestsBeforeRefresh);
+    releaseRefresh();
+    await expect(page.locator("#page-status")).toContainText("用户信息已刷新。");
+
     await page.locator("#users-create-toggle").click();
     await expect(page.locator("#users-create-panel")).toBeVisible();
     await page.locator("#users-create-username").fill("ops_user");

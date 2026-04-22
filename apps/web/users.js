@@ -61,7 +61,7 @@ window.RagProPage = {
     helpers.setStatus("用户管理已就绪，可以筛选账号并进入编辑、删除或审计操作。", false);
 
     function bindEvents() {
-      elements.refreshBtn?.addEventListener("click", loadUsers);
+      elements.refreshBtn?.addEventListener("click", () => refreshUsers(elements.refreshBtn));
       elements.createToggle?.addEventListener("click", () => {
         setCreatePanelOpen(elements.createPanel?.classList.contains("hidden"));
       });
@@ -185,7 +185,18 @@ window.RagProPage = {
       });
     }
 
-    async function loadUsers() {
+    async function refreshUsers(control) {
+      await helpers.runUiAction({
+        control,
+        pendingMessage: "正在刷新用户信息...",
+        successMessage: "用户信息已刷新。",
+        errorPrefix: "刷新用户信息失败",
+        action: () => loadUsers({ showError: false, throwOnError: true }),
+      });
+    }
+
+    async function loadUsers(options = {}) {
+      const { showError = true, throwOnError = false } = options;
       try {
         const payload = await helpers.apiJson("/auth/users");
         pageState.users = payload.users || [];
@@ -195,8 +206,13 @@ window.RagProPage = {
         applyFilters();
         renderSummary();
       } catch (error) {
-        helpers.setStatus(`加载用户信息失败：${error.message}`, true);
-        renderEmptyTable("加载用户信息失败", error.message);
+        if (showError) {
+          helpers.setStatus(`加载用户信息失败：${error.message}`, true);
+          renderEmptyTable("加载用户信息失败", error.message);
+        }
+        if (throwOnError) {
+          throw error;
+        }
       }
     }
 
