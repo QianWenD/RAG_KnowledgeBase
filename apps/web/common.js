@@ -676,6 +676,12 @@
     if (!username || !password) {
       return { error: missingMessage };
     }
+    if (username.length < 3) {
+      return { error: "用户名至少需要 3 位。" };
+    }
+    if (password.length < 8) {
+      return { error: "初始密码至少需要 8 位。" };
+    }
     const checkedSources = Array.from(sourceContainer?.querySelectorAll(`[${checkboxAttribute}]:checked`) || [])
       .map((node) => node.getAttribute(checkboxAttribute));
     const customSource = document.getElementById(customInputId)?.value.trim() || "";

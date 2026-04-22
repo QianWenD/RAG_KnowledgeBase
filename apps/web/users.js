@@ -26,6 +26,7 @@ window.RagProPage = {
       createCancel: document.getElementById("users-create-cancel"),
       createClose: document.getElementById("users-create-close"),
       createSubmit: document.getElementById("users-create-submit"),
+      createFeedback: document.getElementById("users-create-feedback"),
       filterForm: document.getElementById("users-filter-form"),
       filterLogin: document.getElementById("users-filter-login"),
       filterWorkNo: document.getElementById("users-filter-workno"),
@@ -142,11 +143,20 @@ window.RagProPage = {
       elements.createToggle.setAttribute("aria-expanded", open ? "true" : "false");
       document.body.classList.toggle("users-create-dialog-open", open);
       if (open) {
+        setCreateFeedback("填写账号信息后点击创建，系统会自动刷新列表。");
         elements.createUsername?.focus();
       } else {
         createDialogReturnFocus?.focus?.();
         createDialogReturnFocus = null;
       }
+    }
+
+    function setCreateFeedback(message, isError = false) {
+      if (!elements.createFeedback) {
+        return;
+      }
+      elements.createFeedback.textContent = message;
+      elements.createFeedback.classList.toggle("is-error", Boolean(isError));
     }
 
     function renderCreateSourceSelector() {
@@ -164,6 +174,7 @@ window.RagProPage = {
       if (elements.createRole) {
         elements.createRole.value = "user";
       }
+      setCreateFeedback("填写账号信息后点击创建，系统会自动刷新列表。");
     }
 
     function focusCreatedUser(username) {
@@ -191,11 +202,13 @@ window.RagProPage = {
         missingMessage: "请填写新用户的用户名和初始密码。",
       });
       if (error) {
+        setCreateFeedback(error, true);
         helpers.setStatus(error, true);
         return;
       }
 
-      await helpers.runUiAction({
+      setCreateFeedback(`正在创建用户 ${payload.username}...`);
+      const result = await helpers.runUiAction({
         control: elements.createSubmit,
         pendingMessage: `正在创建用户 ${payload.username}...`,
         successMessage: `已创建用户 ${payload.username}，并筛选到新账号。`,
@@ -208,6 +221,9 @@ window.RagProPage = {
           await loadUsers();
         },
       });
+      if (!result.ok) {
+        setCreateFeedback(`创建用户失败：${result.error.message}`, true);
+      }
     }
 
     async function refreshUsers(control) {

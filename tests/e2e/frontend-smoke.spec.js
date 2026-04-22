@@ -412,6 +412,7 @@ test.describe("RAGPro frontend smoke", () => {
     await page.locator("#users-create-source-custom").fill("ops_2026");
     const submitButton = page.locator("#users-create-submit");
     await submitButton.click();
+    await expect(page.locator("#users-create-feedback")).toContainText("正在创建用户 ops_user");
     await expect(submitButton).toHaveAttribute("data-loading", "true");
     await expect(submitButton).toHaveAttribute("aria-busy", "true");
     await expect(submitButton).toBeDisabled();
@@ -427,6 +428,27 @@ test.describe("RAGPro frontend smoke", () => {
         is_active: true,
       });
     await expect(page.locator("#users-table-body")).toContainText("ops_user");
+  });
+
+  test("users overview surfaces account creation validation inside the modal", async ({ page }) => {
+    await page.route("**/auth/users", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ users: [adminUser, memberUser] }),
+      });
+    });
+
+    await page.goto(`${baseURL}/users`);
+    await page.locator("#users-create-toggle").click();
+    await page.locator("#users-create-username").fill("analyst");
+    await page.locator("#users-create-password").fill("Password123");
+    await page.locator("#users-create-source-custom").fill("bad source!");
+    await page.locator("#users-create-submit").click();
+
+    await expect(page.getByRole("dialog", { name: "新增用户" })).toBeVisible();
+    await expect(page.locator("#users-create-feedback")).toHaveClass(/is-error/);
+    await expect(page.locator("#users-create-feedback")).toContainText("自定义来源");
   });
 
   test("users security page creates accounts and triggers sensitive actions", async ({ page }) => {

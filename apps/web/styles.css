@@ -6147,6 +6147,24 @@ body.console-page[data-page-view="users-overview"] .users-create-footer {
   padding-top: 6px;
 }
 
+body.console-page[data-page-view="users-overview"] .users-create-feedback {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #d8e8f4;
+  border-radius: 10px;
+  color: #52677a;
+  background: #f4f9fd;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+body.console-page[data-page-view="users-overview"] .users-create-feedback.is-error {
+  border-color: #f1c6ca;
+  color: #b3483c;
+  background: #fff5f3;
+}
+
 body.console-page[data-page-view="users-overview"] .users-create-footer .legacy-primary-btn,
 body.console-page[data-page-view="users-overview"] .users-create-footer .legacy-plain-btn {
   min-height: 36px;
