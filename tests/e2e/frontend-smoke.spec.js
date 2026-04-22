@@ -431,7 +431,11 @@ test.describe("RAGPro frontend smoke", () => {
   });
 
   test("users overview surfaces account creation validation inside the modal", async ({ page }) => {
+    let createRequests = 0;
     await page.route("**/auth/users", async (route) => {
+      if (route.request().method() === "POST") {
+        createRequests += 1;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -442,6 +446,12 @@ test.describe("RAGPro frontend smoke", () => {
     await page.goto(`${baseURL}/users`);
     await page.locator("#users-create-toggle").click();
     await page.locator("#users-create-username").fill("analyst");
+    await page.locator("#users-create-password").fill("short");
+    await page.locator("#users-create-submit").click();
+    await expect(page.locator("#users-create-feedback")).toHaveClass(/is-error/);
+    await expect(page.locator("#users-create-feedback")).toContainText("初始密码至少需要 8 位。");
+    expect(createRequests).toBe(0);
+
     await page.locator("#users-create-password").fill("Password123");
     await page.locator("#users-create-source-custom").fill("bad source!");
     await page.locator("#users-create-submit").click();
