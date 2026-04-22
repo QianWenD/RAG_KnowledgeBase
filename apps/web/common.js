@@ -81,6 +81,7 @@
     apiJson,
     buildHttpError,
     setStatus,
+    runUiAction,
     escapeHtml,
     formatBytes,
     populateSourceSelect,
@@ -88,6 +89,13 @@
     setSourceSelectValue,
     isValidSourceName,
     mergeSourceValues,
+    renderAdminCreateSourceSelector,
+    collectAdminCreateUserPayload,
+    createAdminUser,
+    deleteAdminUser,
+    resetAdminUserPassword,
+    updateAdminUserAccess,
+    getUserAdminActionHref,
     renderEmptyState,
     getState: () => state,
     isAdmin: () => state.user?.role === "admin",
@@ -453,6 +461,59 @@
     elements.pageStatus.classList.toggle("is-error", Boolean(isError));
   }
 
+  function setActionBusy(control, busy) {
+    if (!control) {
+      return;
+    }
+    if (busy) {
+      control.dataset.loading = "true";
+      control.setAttribute("aria-busy", "true");
+      if ("disabled" in control) {
+        control.dataset.wasDisabled = String(Boolean(control.disabled));
+        control.disabled = true;
+      } else {
+        control.setAttribute("aria-disabled", "true");
+      }
+      return;
+    }
+    control.removeAttribute("data-loading");
+    control.removeAttribute("aria-busy");
+    control.removeAttribute("aria-disabled");
+    if ("disabled" in control) {
+      control.disabled = control.dataset.wasDisabled === "true";
+    }
+    delete control.dataset.wasDisabled;
+  }
+
+  async function runUiAction({
+    control,
+    pendingMessage,
+    successMessage,
+    errorPrefix = "操作失败",
+    action,
+    onSuccess,
+  }) {
+    setActionBusy(control, true);
+    if (pendingMessage) {
+      setStatus(pendingMessage, false);
+    }
+    try {
+      const result = await action();
+      if (onSuccess) {
+        await onSuccess(result);
+      }
+      if (successMessage) {
+        setStatus(typeof successMessage === "function" ? successMessage(result) : successMessage, false);
+      }
+      return { ok: true, result };
+    } catch (error) {
+      setStatus(`${errorPrefix}：${error.message}`, true);
+      return { ok: false, error };
+    } finally {
+      setActionBusy(control, false);
+    }
+  }
+
   function populateSourceSelect(select, sources, placeholder) {
     if (!select) {
       return;
@@ -565,6 +626,112 @@
       }
     }
     return merged;
+  }
+
+  function renderAdminCreateSourceSelector({
+    container,
+    sources = [],
+    checkboxAttribute,
+    customInputId,
+    customLabel = "自定义来源",
+    emptyMessage = "当前还没有可授权来源，可以先填写自定义来源。",
+  }) {
+    if (!container) {
+      return;
+    }
+    const customField = `
+      <label class="source-custom-field">
+        <span>${escapeHtml(customLabel)}</span>
+        <input id="${escapeHtml(customInputId)}" type="text" maxlength="50" placeholder="例如 ops_2026">
+      </label>
+    `;
+    const sourceList = mergeSourceValues(sources);
+    if (!sourceList.length) {
+      container.innerHTML = `
+        <div class="note">${escapeHtml(emptyMessage)}</div>
+        ${customField}
+      `;
+      return;
+    }
+    container.innerHTML = sourceList.map((source) => `
+      <label class="source-checkbox">
+        <input type="checkbox" ${checkboxAttribute}="${escapeHtml(source)}">
+        <span>${escapeHtml(source)}</span>
+      </label>
+    `).join("") + customField;
+  }
+
+  function collectAdminCreateUserPayload({
+    usernameInput,
+    passwordInput,
+    roleSelect,
+    sourceContainer,
+    checkboxAttribute,
+    customInputId,
+    missingMessage = "请填写新用户的用户名和密码。",
+  }) {
+    const username = usernameInput?.value.trim() || "";
+    const password = passwordInput?.value || "";
+    const role = roleSelect?.value || "user";
+    if (!username || !password) {
+      return { error: missingMessage };
+    }
+    const checkedSources = Array.from(sourceContainer?.querySelectorAll(`[${checkboxAttribute}]:checked`) || [])
+      .map((node) => node.getAttribute(checkboxAttribute));
+    const customSource = document.getElementById(customInputId)?.value.trim() || "";
+    if (customSource && !isValidSourceName(customSource)) {
+      return { error: "自定义来源只能使用 1-50 位字母、数字、下划线或短横线。" };
+    }
+    return {
+      payload: {
+        username,
+        password,
+        role,
+        allowed_sources: mergeSourceValues(checkedSources, customSource ? [customSource] : []),
+        is_active: true,
+      },
+    };
+  }
+
+  async function createAdminUser(payload) {
+    return apiJson("/auth/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async function deleteAdminUser(userId) {
+    return apiJson(`/auth/users/${encodeURIComponent(String(userId))}`, { method: "DELETE" });
+  }
+
+  async function resetAdminUserPassword(userId, newPassword) {
+    return apiJson(`/auth/users/${encodeURIComponent(String(userId))}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ new_password: newPassword }),
+    });
+  }
+
+  async function updateAdminUserAccess(userId, payload) {
+    return apiJson(`/auth/users/${encodeURIComponent(String(userId))}/access`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  function getUserAdminActionHref(action, user = {}) {
+    if (action === "audit") {
+      return `/users/audit?search=${encodeURIComponent(user.username || "")}`;
+    }
+    if (action === "security") {
+      return "/users/security";
+    }
+    if (action === "edit" || action === "access") {
+      return "/users/access";
+    }
+    return "";
   }
 
   function renderEmptyState(title, body, tone = "neutral") {

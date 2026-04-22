@@ -128,10 +128,37 @@
           <div class="user-table-toolbar">
             <h2 id="users-table-title">用户信息</h2>
             <div class="user-table-actions">
-              <a class="legacy-text-action" href="/users/security#security-create-panel">＋ 新增</a>
+              <button id="users-create-toggle" class="legacy-text-action" type="button" aria-expanded="false" aria-controls="users-create-panel">＋ 新增</button>
               <button id="users-batch-delete" class="legacy-text-action danger" type="button" disabled>批量删除</button>
               <button id="users-overview-refresh" class="legacy-text-action" type="button">刷新</button>
             </div>
+          </div>
+
+          <div id="users-create-panel" class="users-create-panel hidden">
+            <form id="users-create-form" class="security-create-form-table users-create-form">
+              <label class="legacy-filter-field" for="users-create-username">
+                <span>用户名</span>
+                <input id="users-create-username" type="text" autocomplete="off" placeholder="例如 ops_user">
+              </label>
+              <label class="legacy-filter-field" for="users-create-password">
+                <span>初始密码</span>
+                <input id="users-create-password" type="password" autocomplete="new-password" placeholder="建议至少 8 位">
+              </label>
+              <label class="legacy-filter-field" for="users-create-role">
+                <span>角色</span>
+                <select id="users-create-role">
+                  <option value="user">user</option>
+                  <option value="admin">admin</option>
+                </select>
+              </label>
+              <div id="users-create-sources" class="source-checkbox-grid security-create-sources">
+                <div class="note">来源列表会在系统加载后显示。</div>
+              </div>
+              <div class="form-inline-actions">
+                <button id="users-create-cancel" class="legacy-plain-btn" type="button">取消</button>
+                <button id="users-create-submit" class="legacy-primary-btn" type="submit">创建账号</button>
+              </div>
+            </form>
           </div>
 
           <div id="users-table-wrap" class="users-table-wrap">

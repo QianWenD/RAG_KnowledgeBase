@@ -39,18 +39,15 @@
       }
     }
 
-    async function saveUserAccess(userId, payload) {
-      try {
-        await helpers.apiJson(`/auth/users/${userId}/access`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        helpers.setStatus("授权更新成功。", false);
-        await loadUsers();
-      } catch (error) {
-        helpers.setStatus(`授权更新失败：${error.message}`, true);
-      }
+    async function saveUserAccess(userId, payload, control) {
+      await helpers.runUiAction({
+        control,
+        pendingMessage: "正在保存授权...",
+        successMessage: "授权更新成功。",
+        errorPrefix: "授权更新失败",
+        action: () => helpers.updateAdminUserAccess(userId, payload),
+        onSuccess: loadUsers,
+      });
     }
 
     function renderUsers() {
@@ -135,7 +132,7 @@
         <td>
           <div class="table-operation-list">
             <button class="table-icon-btn is-save" type="button" data-save-access title="保存授权" aria-label="保存 ${helpers.escapeHtml(user.username)} 的授权">${renderIcon("save")}</button>
-            <a class="table-icon-btn" href="/users/security" title="安全操作" aria-label="进入 ${helpers.escapeHtml(user.username)} 的安全操作">${renderIcon("settings")}</a>
+            <a class="table-icon-btn" href="${helpers.getUserAdminActionHref("security", user)}" title="安全操作" aria-label="进入 ${helpers.escapeHtml(user.username)} 的安全操作">${renderIcon("settings")}</a>
           </div>
         </td>
       `;
@@ -152,7 +149,7 @@
         row.classList.toggle("is-source-open", Boolean(expanded));
       });
 
-      row.querySelector("[data-save-access]")?.addEventListener("click", async () => {
+      row.querySelector("[data-save-access]")?.addEventListener("click", async (event) => {
         const checkedSources = Array.from(row.querySelectorAll("[data-user-source]:checked"))
           .map((node) => node.getAttribute("data-user-source"));
         const customSource = row.querySelector("[data-user-source-custom]")?.value.trim() || "";
@@ -166,11 +163,15 @@
         );
         const role = row.querySelector("[data-role-select]")?.value || "user";
         const isActive = Boolean(row.querySelector("[data-active-toggle]")?.checked);
-        await saveUserAccess(user.id, {
-          role,
-          allowed_sources: allowedSources,
-          is_active: isActive,
-        });
+        await saveUserAccess(
+          user.id,
+          {
+            role,
+            allowed_sources: allowedSources,
+            is_active: isActive,
+          },
+          event.currentTarget,
+        );
       });
 
       return row;

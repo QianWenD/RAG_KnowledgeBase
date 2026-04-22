@@ -16,6 +16,15 @@ window.RagProPage = {
     const elements = {
       overviewNote: document.getElementById("users-overview-note"),
       refreshBtn: document.getElementById("users-overview-refresh"),
+      createToggle: document.getElementById("users-create-toggle"),
+      createPanel: document.getElementById("users-create-panel"),
+      createForm: document.getElementById("users-create-form"),
+      createUsername: document.getElementById("users-create-username"),
+      createPassword: document.getElementById("users-create-password"),
+      createRole: document.getElementById("users-create-role"),
+      createSources: document.getElementById("users-create-sources"),
+      createCancel: document.getElementById("users-create-cancel"),
+      createSubmit: document.getElementById("users-create-submit"),
       filterForm: document.getElementById("users-filter-form"),
       filterLogin: document.getElementById("users-filter-login"),
       filterWorkNo: document.getElementById("users-filter-workno"),
@@ -38,6 +47,7 @@ window.RagProPage = {
 
     bindEvents();
     renderSummary();
+    renderCreateSourceSelector();
     renderTable();
 
     if (!helpers.isAdmin()) {
@@ -52,6 +62,17 @@ window.RagProPage = {
 
     function bindEvents() {
       elements.refreshBtn?.addEventListener("click", loadUsers);
+      elements.createToggle?.addEventListener("click", () => {
+        setCreatePanelOpen(elements.createPanel?.classList.contains("hidden"));
+      });
+      elements.createCancel?.addEventListener("click", () => {
+        resetCreateForm();
+        setCreatePanelOpen(false);
+      });
+      elements.createForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await handleCreateUser();
+      });
       elements.filterForm?.addEventListener("submit", (event) => {
         event.preventDefault();
         applyFiltersFromForm();
@@ -88,7 +109,79 @@ window.RagProPage = {
         if (!action) {
           return;
         }
-        await handleRowAction(action.dataset.userAction, Number(action.dataset.userId));
+        await handleRowAction(action.dataset.userAction, Number(action.dataset.userId), action);
+      });
+    }
+
+    function setCreatePanelOpen(open) {
+      if (!elements.createPanel || !elements.createToggle) {
+        return;
+      }
+      elements.createPanel.classList.toggle("hidden", !open);
+      elements.createToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) {
+        elements.createUsername?.focus();
+      }
+    }
+
+    function renderCreateSourceSelector() {
+      helpers.renderAdminCreateSourceSelector({
+        container: elements.createSources,
+        sources: state.sources,
+        checkboxAttribute: "data-users-create-source",
+        customInputId: "users-create-source-custom",
+      });
+    }
+
+    function resetCreateForm() {
+      elements.createForm?.reset();
+      renderCreateSourceSelector();
+      if (elements.createRole) {
+        elements.createRole.value = "user";
+      }
+    }
+
+    function focusCreatedUser(username) {
+      if (elements.filterLogin) {
+        elements.filterLogin.value = username;
+      }
+      if (elements.filterWorkNo) {
+        elements.filterWorkNo.value = "";
+      }
+      if (elements.filterName) {
+        elements.filterName.value = "";
+      }
+      pageState.filters = { login: normalize(username), workNo: "", name: "" };
+      pageState.page = 1;
+    }
+
+    async function handleCreateUser() {
+      const { payload, error } = helpers.collectAdminCreateUserPayload({
+        usernameInput: elements.createUsername,
+        passwordInput: elements.createPassword,
+        roleSelect: elements.createRole,
+        sourceContainer: elements.createSources,
+        checkboxAttribute: "data-users-create-source",
+        customInputId: "users-create-source-custom",
+        missingMessage: "请填写新用户的用户名和初始密码。",
+      });
+      if (error) {
+        helpers.setStatus(error, true);
+        return;
+      }
+
+      await helpers.runUiAction({
+        control: elements.createSubmit,
+        pendingMessage: `正在创建用户 ${payload.username}...`,
+        successMessage: `已创建用户 ${payload.username}，并筛选到新账号。`,
+        errorPrefix: "创建用户失败",
+        action: () => helpers.createAdminUser(payload),
+        onSuccess: async () => {
+          resetCreateForm();
+          setCreatePanelOpen(false);
+          focusCreatedUser(payload.username);
+          await loadUsers();
+        },
       });
     }
 
@@ -312,24 +405,19 @@ window.RagProPage = {
       return pageState.users.filter((user) => pageState.selectedIds.has(String(user.id)));
     }
 
-    async function handleRowAction(action, userId) {
+    async function handleRowAction(action, userId, control) {
       const user = pageState.users.find((item) => item.id === userId);
       if (!user) {
         return;
       }
       if (action === "delete") {
-        await deleteUser(user);
+        await deleteUser(user, control);
         return;
       }
-      if (action === "audit") {
-        window.location.href = `/users/audit?search=${encodeURIComponent(user.username)}`;
-        return;
+      const href = helpers.getUserAdminActionHref(action, user);
+      if (href) {
+        window.location.href = href;
       }
-      if (action === "security") {
-        window.location.href = "/users/security";
-        return;
-      }
-      window.location.href = "/users/access";
     }
 
     async function deleteSelectedUsers() {
@@ -343,19 +431,23 @@ window.RagProPage = {
       if (!window.confirm(`确认删除 ${deletableUsers.length} 个用户吗${suffix}？`)) {
         return;
       }
-      try {
-        for (const user of deletableUsers) {
-          await helpers.apiJson(`/auth/users/${user.id}`, { method: "DELETE" });
-          pageState.selectedIds.delete(String(user.id));
-        }
-        helpers.setStatus(`已删除 ${deletableUsers.length} 个用户。`, false);
-        await loadUsers();
-      } catch (error) {
-        helpers.setStatus(`批量删除失败：${error.message}`, true);
-      }
+      await helpers.runUiAction({
+        control: elements.batchDelete,
+        pendingMessage: `正在删除 ${deletableUsers.length} 个用户...`,
+        successMessage: `已删除 ${deletableUsers.length} 个用户。`,
+        errorPrefix: "批量删除失败",
+        action: async () => {
+          for (const user of deletableUsers) {
+            await helpers.deleteAdminUser(user.id);
+            pageState.selectedIds.delete(String(user.id));
+          }
+        },
+        onSuccess: loadUsers,
+      });
+      syncSelectionControls();
     }
 
-    async function deleteUser(user) {
+    async function deleteUser(user, control) {
       if (state.user && user.id === state.user.id) {
         helpers.setStatus("不能删除当前登录账号。", true);
         return;
@@ -363,14 +455,17 @@ window.RagProPage = {
       if (!window.confirm(`确认删除用户 ${user.username} 吗？`)) {
         return;
       }
-      try {
-        await helpers.apiJson(`/auth/users/${user.id}`, { method: "DELETE" });
-        pageState.selectedIds.delete(String(user.id));
-        helpers.setStatus(`已删除用户 ${user.username}。`, false);
-        await loadUsers();
-      } catch (error) {
-        helpers.setStatus(`删除用户失败：${error.message}`, true);
-      }
+      await helpers.runUiAction({
+        control,
+        pendingMessage: `正在删除用户 ${user.username}...`,
+        successMessage: `已删除用户 ${user.username}。`,
+        errorPrefix: "删除用户失败",
+        action: () => helpers.deleteAdminUser(user.id),
+        onSuccess: async () => {
+          pageState.selectedIds.delete(String(user.id));
+          await loadUsers();
+        },
+      });
     }
 
     function renderSummary() {

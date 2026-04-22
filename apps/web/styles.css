@@ -5962,6 +5962,46 @@ body.console-page[data-page="users"] .table-icon-btn svg {
   stroke-linejoin: round;
 }
 
+body.console-page[data-page="users"] [data-loading="true"] {
+  position: relative;
+  pointer-events: none;
+}
+
+body.console-page[data-page="users"] .legacy-primary-btn[data-loading="true"],
+body.console-page[data-page="users"] .legacy-plain-btn[data-loading="true"] {
+  color: transparent;
+}
+
+body.console-page[data-page="users"] .legacy-primary-btn[data-loading="true"]::after,
+body.console-page[data-page="users"] .legacy-plain-btn[data-loading="true"]::after,
+body.console-page[data-page="users"] .table-icon-btn[data-loading="true"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  margin: -6.5px 0 0 -6.5px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: users-action-spin 720ms linear infinite;
+}
+
+body.console-page[data-page="users"] .legacy-primary-btn[data-loading="true"]::after {
+  color: #ffffff;
+}
+
+body.console-page[data-page="users"] .table-icon-btn[data-loading="true"] svg {
+  opacity: 0.18;
+}
+
+@keyframes users-action-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 body.console-page[data-page="users"] .security-create-sources {
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   gap: 6px;

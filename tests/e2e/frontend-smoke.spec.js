@@ -344,6 +344,67 @@ test.describe("RAGPro frontend smoke", () => {
       });
   });
 
+  test("users overview creates accounts from the user information panel", async ({ page }) => {
+    let createPayload;
+    let users = [adminUser, memberUser, inactiveUser];
+    let releaseCreate;
+    const createMayContinue = new Promise((resolve) => {
+      releaseCreate = resolve;
+    });
+
+    await page.route("**/auth/users", async (route) => {
+      if (route.request().method() === "POST") {
+        createPayload = route.request().postDataJSON();
+        const created = {
+          id: 4,
+          username: createPayload.username,
+          role: createPayload.role,
+          allowed_sources: createPayload.allowed_sources,
+          is_active: createPayload.is_active,
+          created_at: "2026-04-22T09:30:00",
+        };
+        users = [adminUser, created, memberUser, inactiveUser];
+        await createMayContinue;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ user: created }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ users }),
+      });
+    });
+
+    await page.goto(`${baseURL}/users`);
+    await page.locator("#users-create-toggle").click();
+    await expect(page.locator("#users-create-panel")).toBeVisible();
+    await page.locator("#users-create-username").fill("ops_user");
+    await page.locator("#users-create-password").fill("Password123");
+    await page.locator('[data-users-create-source="ai"]').check();
+    await page.locator("#users-create-source-custom").fill("ops_2026");
+    const submitButton = page.locator("#users-create-submit");
+    await submitButton.click();
+    await expect(submitButton).toHaveAttribute("data-loading", "true");
+    await expect(submitButton).toHaveAttribute("aria-busy", "true");
+    await expect(submitButton).toBeDisabled();
+    releaseCreate();
+
+    await expect
+      .poll(() => createPayload)
+      .toMatchObject({
+        username: "ops_user",
+        password: "Password123",
+        role: "user",
+        allowed_sources: ["ai", "ops_2026"],
+        is_active: true,
+      });
+    await expect(page.locator("#users-table-body")).toContainText("ops_user");
+  });
+
   test("users security page creates accounts and triggers sensitive actions", async ({ page }) => {
     const requests = [];
     let users = [adminUser, memberUser, inactiveUser];

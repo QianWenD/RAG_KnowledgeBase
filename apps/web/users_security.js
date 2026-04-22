@@ -44,84 +44,51 @@
     }
 
     function renderCreateSourceSelector() {
-      if (!elements.createSources) {
-        return;
-      }
-      if (!(state.sources || []).length) {
-        elements.createSources.innerHTML = `
-          <div class="note">当前还没有可授权来源，你仍然可以先添加自定义来源。</div>
-          ${renderCreateCustomSourceField()}
-        `;
-        return;
-      }
-      elements.createSources.innerHTML = (state.sources || []).map((source) => `
-        <label class="source-checkbox">
-          <input type="checkbox" data-create-source="${helpers.escapeHtml(source)}">
-          <span>${helpers.escapeHtml(source)}</span>
-        </label>
-      `).join("") + renderCreateCustomSourceField();
-    }
-
-    function renderCreateCustomSourceField() {
-      return `
-        <label class="source-custom-field">
-          <span>添加自定义来源</span>
-          <input id="security-create-source-custom" type="text" maxlength="50" placeholder="例如 ops_2026">
-        </label>
-      `;
+      helpers.renderAdminCreateSourceSelector({
+        container: elements.createSources,
+        sources: state.sources,
+        checkboxAttribute: "data-create-source",
+        customInputId: "security-create-source-custom",
+        customLabel: "添加自定义来源",
+        emptyMessage: "当前还没有可授权来源，你仍然可以先添加自定义来源。",
+      });
     }
 
     async function handleAdminCreateUser() {
-      const username = elements.createUsername?.value.trim() || "";
-      const password = elements.createPassword?.value || "";
-      const role = elements.createRole?.value || "user";
-      const checkedSources = Array.from(elements.createSources?.querySelectorAll("[data-create-source]:checked") || [])
-        .map((node) => node.getAttribute("data-create-source"));
-      const customSource = document.getElementById("security-create-source-custom")?.value.trim() || "";
-      if (customSource && !helpers.isValidSourceName(customSource)) {
-        helpers.setStatus("自定义来源只能使用 1-50 位字母、数字、下划线或短横线。", true);
-        return;
-      }
-      const allowedSources = helpers.mergeSourceValues(
-        checkedSources,
-        customSource ? [customSource] : [],
-      );
-
-      if (!username || !password) {
-        helpers.setStatus("请填写新用户的用户名和密码。", true);
+      const { payload, error } = helpers.collectAdminCreateUserPayload({
+        usernameInput: elements.createUsername,
+        passwordInput: elements.createPassword,
+        roleSelect: elements.createRole,
+        sourceContainer: elements.createSources,
+        checkboxAttribute: "data-create-source",
+        customInputId: "security-create-source-custom",
+        missingMessage: "请填写新用户的用户名和密码。",
+      });
+      if (error) {
+        helpers.setStatus(error, true);
         return;
       }
 
-      try {
-        elements.createSubmit.disabled = true;
-        await helpers.apiJson("/auth/users", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username,
-            password,
-            role,
-            allowed_sources: allowedSources,
-            is_active: true,
-          }),
-        });
-        if (elements.createUsername) {
-          elements.createUsername.value = "";
-        }
-        if (elements.createPassword) {
-          elements.createPassword.value = "";
-        }
-        if (elements.createRole) {
-          elements.createRole.value = "user";
-        }
-        renderCreateSourceSelector();
-        await loadUsers();
-        helpers.setStatus(`已创建用户 ${username}。`, false);
-      } catch (error) {
-        helpers.setStatus(`创建用户失败：${error.message}`, true);
-      } finally {
-        elements.createSubmit.disabled = false;
-      }
+      await helpers.runUiAction({
+        control: elements.createSubmit,
+        pendingMessage: `正在创建用户 ${payload.username}...`,
+        successMessage: `已创建用户 ${payload.username}。`,
+        errorPrefix: "创建用户失败",
+        action: () => helpers.createAdminUser(payload),
+        onSuccess: async () => {
+          if (elements.createUsername) {
+            elements.createUsername.value = "";
+          }
+          if (elements.createPassword) {
+            elements.createPassword.value = "";
+          }
+          if (elements.createRole) {
+            elements.createRole.value = "user";
+          }
+          renderCreateSourceSelector();
+          await loadUsers();
+        },
+      });
     }
 
     async function loadUsers() {
@@ -136,56 +103,51 @@
     }
 
     async function patchUserAccess(user, isActive) {
-      await helpers.apiJson(`/auth/users/${user.id}/access`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          role: user.role,
-          allowed_sources: user.allowed_sources || [],
-          is_active: isActive,
-        }),
+      await helpers.updateAdminUserAccess(user.id, {
+        role: user.role,
+        allowed_sources: user.allowed_sources || [],
+        is_active: isActive,
       });
     }
 
-    async function toggleUserActive(user) {
+    async function toggleUserActive(user, control) {
       const nextActive = !user.is_active;
-      try {
-        await patchUserAccess(user, nextActive);
-        helpers.setStatus(nextActive ? `已重新启用 ${user.username}。` : `已停用 ${user.username}。`, false);
-        await loadUsers();
-      } catch (error) {
-        helpers.setStatus(`更新账号状态失败：${error.message}`, true);
-      }
+      await helpers.runUiAction({
+        control,
+        pendingMessage: nextActive ? `正在重新启用 ${user.username}...` : `正在停用 ${user.username}...`,
+        successMessage: nextActive ? `已重新启用 ${user.username}。` : `已停用 ${user.username}。`,
+        errorPrefix: "更新账号状态失败",
+        action: () => patchUserAccess(user, nextActive),
+        onSuccess: loadUsers,
+      });
     }
 
-    async function resetUserPassword(userId, username) {
+    async function resetUserPassword(userId, username, control) {
       const newPassword = window.prompt(`请输入 ${username} 的新密码`, "NewPassword123");
       if (!newPassword) {
         return;
       }
-      try {
-        await helpers.apiJson(`/auth/users/${userId}/reset-password`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ new_password: newPassword }),
-        });
-        helpers.setStatus(`已重置 ${username} 的密码。`, false);
-      } catch (error) {
-        helpers.setStatus(`重置密码失败：${error.message}`, true);
-      }
+      await helpers.runUiAction({
+        control,
+        pendingMessage: `正在重置 ${username} 的密码...`,
+        successMessage: `已重置 ${username} 的密码。`,
+        errorPrefix: "重置密码失败",
+        action: () => helpers.resetAdminUserPassword(userId, newPassword),
+      });
     }
 
-    async function deleteUser(userId, username) {
+    async function deleteUser(userId, username, control) {
       if (!window.confirm(`确认删除用户 ${username} 吗？`)) {
         return;
       }
-      try {
-        await helpers.apiJson(`/auth/users/${userId}`, { method: "DELETE" });
-        helpers.setStatus(`已删除用户 ${username}。`, false);
-        await loadUsers();
-      } catch (error) {
-        helpers.setStatus(`删除用户失败：${error.message}`, true);
-      }
+      await helpers.runUiAction({
+        control,
+        pendingMessage: `正在删除用户 ${username}...`,
+        successMessage: `已删除用户 ${username}。`,
+        errorPrefix: "删除用户失败",
+        action: () => helpers.deleteAdminUser(userId),
+        onSuccess: loadUsers,
+      });
     }
 
     function renderUsers() {
@@ -242,16 +204,16 @@
         </td>
       `;
 
-      row.querySelector("[data-toggle-active]")?.addEventListener("click", async () => {
-        await toggleUserActive(user);
+      row.querySelector("[data-toggle-active]")?.addEventListener("click", async (event) => {
+        await toggleUserActive(user, event.currentTarget);
       });
-      row.querySelector("[data-reset-password]")?.addEventListener("click", async () => {
-        await resetUserPassword(user.id, user.username);
+      row.querySelector("[data-reset-password]")?.addEventListener("click", async (event) => {
+        await resetUserPassword(user.id, user.username, event.currentTarget);
       });
       const deleteButton = row.querySelector("[data-delete-user]");
       if (deleteButton && !deleteButton.disabled) {
-        deleteButton.addEventListener("click", async () => {
-          await deleteUser(user.id, user.username);
+        deleteButton.addEventListener("click", async (event) => {
+          await deleteUser(user.id, user.username, event.currentTarget);
         });
       }
       return row;
