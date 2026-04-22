@@ -84,117 +84,53 @@
             <span class="breadcrumb-sep">/</span>
             <span id="page-breadcrumb-current">角色与授权</span>
           </div>
-          <p class="panel-kicker">权限管理 · 角色与授权</p>
-          <h2>控制账号的可见范围和可用状态</h2>
-          <p class="topbar-copy">进入这一页时，应该只专注三件事：角色是否合理、来源是否收口、账号是否需要停用。敏感动作已经拆到安全操作页。</p>
+          <h2>角色与授权</h2>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
 
-      <div class="page-utility-bar">
-        <div class="page-utility-links">
-          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
-          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
-          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
-        </div>
-        <p class="page-utility-note">如果你只是想新建账号或重置密码，直接去“安全操作”；如果是调整可见来源和启停状态，就留在这一页。</p>
-      </div>
-
       <nav class="module-nav-bar" aria-label="权限管理子导航">
-        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户总览</a>
+        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户管理</a>
         <a class="module-nav-link" data-module-nav="users-access" href="/users/access">角色与授权</a>
         <a class="module-nav-link" data-module-nav="users-security" href="/users/security">安全操作</a>
         <a class="module-nav-link" data-module-nav="users-audit" href="/users/audit">审计日志</a>
       </nav>
-
-      <nav class="section-nav-bar" aria-label="页内导航">
-        <a class="section-link" data-section-link href="#access-workspace-panel">授权列表</a>
-        <a class="section-link" data-section-link href="#access-guide">配置建议</a>
-        <a class="section-link" data-section-link href="#access-audit-link">审计关联</a>
-      </nav>
-
-      <section class="page-summary-strip">
-        <article class="summary-card">
-          <span>当前角色</span>
-          <strong id="access-summary-role">检查中</strong>
-          <p>只有管理员可以保存角色、来源和启停状态，普通用户只会看到说明。</p>
-        </article>
-        <article class="summary-card">
-          <span>管理员账号</span>
-          <strong id="access-summary-admins">0</strong>
-          <p>建议管理员账号尽量少，并确保每个高权限账号都有明确归属。</p>
-        </article>
-        <article class="summary-card">
-          <span>业务账号</span>
-          <strong id="access-summary-users">0</strong>
-          <p>业务账号数量越多，越需要把来源授权收紧，避免默认放开太多内容。</p>
-        </article>
-        <article class="summary-card">
-          <span>可配来源</span>
-          <strong id="access-summary-sources">0</strong>
-          <p>来源越清晰，授权越容易复用到未来的新业务域。</p>
-        </article>
-      </section>
 
       <section id="users-access-note" class="section-banner hidden">
         <strong>当前无权限管理授权</strong>
         <p>只有管理员可以变更角色、来源和账号状态。普通用户如果直接进入这个页面，只会看到说明和当前系统结构。</p>
       </section>
 
-      <section id="users-access-admin-wrap" class="panel section-panel">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">授权工作区</p>
-            <h2>角色、来源与启停配置</h2>
+      <section class="user-management-console permission-table-console">
+        <section id="users-access-admin-wrap" class="panel user-table-panel">
+          <div class="user-table-toolbar">
+            <h2>角色与授权</h2>
+            <div class="user-table-actions">
+              <button id="access-refresh-btn" class="legacy-text-action" type="button">刷新</button>
+              <a class="legacy-text-action" href="/users/audit">查看审计</a>
+            </div>
           </div>
-          <button id="access-refresh-btn" class="ghost-btn" type="button">刷新列表</button>
-        </div>
-        <div id="access-user-list" class="access-user-list">
-          <div class="note">管理员校验完成后，这里会显示可配置账号。</div>
-        </div>
-      </section>
-
-      <section class="panel guide-panel" id="access-guide">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">配置建议</p>
-            <h2>日常授权更稳的做法</h2>
+          <div class="users-table-wrap">
+            <table class="admin-data-table permission-data-table access-data-table">
+              <thead>
+                <tr>
+                  <th class="row-number-col" scope="col">序号</th>
+                  <th scope="col">登录账号</th>
+                  <th scope="col">角色 / 状态</th>
+                  <th scope="col">来源授权</th>
+                  <th class="operation-col" scope="col">操作</th>
+                </tr>
+              </thead>
+              <tbody id="access-user-list" class="access-user-list">
+                <tr>
+                  <td colspan="5" class="users-table-empty">管理员校验完成后，这里会显示可配置账号。</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="guide-list guide-list-three">
-          <div class="guide-item">
-            <strong>先减法，再加法</strong>
-            <p>普通用户优先只开放必需来源，确认业务需要后再逐步扩展，不建议一次性放宽。</p>
-          </div>
-          <div class="guide-item">
-            <strong>账号停用优于直接删除</strong>
-            <p>如果只是暂时不用，先停用更安全，也更方便回溯历史会话和权限变更。</p>
-          </div>
-          <div class="guide-item">
-            <strong>把角色调整和密码操作分开</strong>
-            <p>这样可以让日常授权维护更稳定，敏感动作则集中到安全操作页单独处理，所有关键改动都会进入审计日志。</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel section-panel" id="access-audit-link">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">审计关联</p>
-            <h2>授权变更会自动留下记录</h2>
-          </div>
-        </div>
-        <div class="state-banner compact-banner">
-          <div class="state-banner-copy">
-            <span class="state-banner-label">当前能力</span>
-            <strong>保存角色、来源和启停状态后，会进入审计日志</strong>
-            <p>如果你需要回看最近是谁改了某个账号的可见来源，直接去审计日志页即可，不需要再人工比对。</p>
-          </div>
-          <a class="panel-link-btn secondary" href="/users/audit">查看审计日志</a>
-        </div>
+        </section>
       </section>
     </main>
   </div>

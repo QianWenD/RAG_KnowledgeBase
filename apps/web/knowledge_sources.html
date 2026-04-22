@@ -84,24 +84,12 @@
             <span class="breadcrumb-sep">/</span>
             <span id="page-breadcrumb-current">数据源管理</span>
           </div>
-          <p class="panel-kicker">知识运营 · 数据源管理</p>
-          <h2>先看清来源，再决定上传还是重建</h2>
-          <p class="topbar-copy">这里不会直接做重操作，而是帮助你理解当前有哪些来源、当前账号能看到哪些来源，以及每个来源下一步该去哪里处理。</p>
+          <h2>数据源管理</h2>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
-
-      <div class="page-utility-bar">
-        <div class="page-utility-links">
-          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
-          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
-          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
-        </div>
-        <p class="page-utility-note">建议先在这里确认来源边界，再进入上传或重建页面，这样更容易保持知识域和权限域一致。</p>
-      </div>
 
       <nav class="module-nav-bar" aria-label="知识运营子导航">
         <a class="module-nav-link" data-module-nav="knowledge-upload" href="/knowledge">上传入库</a>
@@ -109,103 +97,79 @@
         <a class="module-nav-link" data-module-nav="knowledge-sources" href="/knowledge/sources">数据源管理</a>
       </nav>
 
-      <nav class="section-nav-bar" aria-label="页内导航">
-        <a class="section-link" data-section-link href="#source-overview">来源总览</a>
-        <a class="section-link" data-section-link href="#source-register">登记来源</a>
-        <a class="section-link" data-section-link href="#source-cards">来源卡片</a>
-        <a class="section-link" data-section-link href="#source-guidelines">管理建议</a>
-      </nav>
-
-      <section class="page-summary-strip">
-        <article class="summary-card">
-          <span>当前角色</span>
-          <strong id="sources-summary-role">检查中</strong>
-          <p>管理员适合从这里跳转到上传和重建，普通用户适合把这里当作来源范围说明页。</p>
-        </article>
-        <article class="summary-card">
-          <span>来源总数</span>
-          <strong id="sources-summary-count">0</strong>
-          <p>当前账号能够看到的来源总数会直接显示在这里。</p>
-        </article>
-        <article class="summary-card">
-          <span>默认入口</span>
-          <strong id="sources-summary-default">上传入库</strong>
-          <p>大多数场景先去上传页即可，只有整源更新或结构变化时才建议去重建。</p>
-        </article>
-        <article class="summary-card">
-          <span>操作建议</span>
-          <strong id="sources-summary-recommendation">先看来源</strong>
-          <p>同一个来源尽量在同一轮操作里完成上传、重建和问答回测。</p>
-        </article>
-      </section>
-
-      <section class="panel source-management-workbench" id="source-overview">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">数据源管理</p>
-            <h2>来源清单与运营入口</h2>
+      <section class="knowledge-workbench source-management-layout">
+        <section class="panel source-management-workbench" id="source-overview">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">来源清单</p>
+              <h2>管理来源边界</h2>
+            </div>
+            <span class="status-chip is-ok">表格视图</span>
           </div>
-          <span class="status-chip is-ok">表格视图</span>
-        </div>
 
-        <div class="source-filter-row" id="source-register" data-source-register-panel>
-          <form id="source-register-form" class="source-register-form">
-            <label class="field-block" for="source-register-input">
-              <span>来源标识</span>
-              <input id="source-register-input" type="text" maxlength="50" placeholder="例如 policy_2026">
-            </label>
-            <button id="source-register-submit" class="send-btn" type="submit">登记来源</button>
-          </form>
-          <p id="source-register-feedback" class="note">来源标识用于权限、上传、重建和问答筛选，请保持稳定。</p>
-        </div>
+          <div class="source-filter-row" id="source-register" data-source-register-panel>
+            <form id="source-register-form" class="source-register-form">
+              <label class="field-block" for="source-register-input">
+                <span>来源标识</span>
+                <input id="source-register-input" type="text" maxlength="50" placeholder="例如 policy_2026">
+              </label>
+              <button id="source-register-submit" class="send-btn" type="submit">登记来源</button>
+            </form>
+            <p id="source-register-feedback" class="note">来源标识用于权限、上传、重建和问答筛选。</p>
+          </div>
 
-        <div class="source-table-wrap" id="source-cards">
-          <table id="source-table" class="source-table">
-            <thead>
-              <tr>
-                <th>来源标识</th>
-                <th>来源类型</th>
-                <th>当前权限</th>
-                <th>建议动作</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="source-table-body">
-              <tr>
-                <td colspan="5">当前来源会显示在这里。</td>
-              </tr>
-            </tbody>
-          </table>
-          <div id="source-table-pager" class="source-table-pager">共 0 条</div>
-        </div>
+          <div class="source-table-wrap" id="source-cards">
+            <table id="source-table" class="source-table">
+              <thead>
+                <tr>
+                  <th>来源标识</th>
+                  <th>来源类型</th>
+                  <th>当前权限</th>
+                  <th>建议动作</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="source-table-body">
+                <tr>
+                  <td colspan="5">当前来源会显示在这里。</td>
+                </tr>
+              </tbody>
+            </table>
+            <div id="source-table-pager" class="source-table-pager">共 0 条</div>
+          </div>
+        </section>
 
-        <div id="sources-overview-note" class="section-banner source-compact-note">
-          <strong>来源是权限和知识的共同边界</strong>
-          <p>同一个来源尽量在同一轮操作里完成上传、重建、授权和问答回测，避免知识域边界漂移。</p>
-        </div>
-      </section>
+        <aside class="knowledge-side" aria-label="来源辅助信息">
+          <section class="panel guide-panel" id="source-guidelines">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">维护建议</p>
+                <h2>稳定、验证、成组</h2>
+              </div>
+            </div>
+            <div class="guide-list knowledge-ops-list">
+              <div class="guide-item">
+                <strong>来源名尽量稳定</strong>
+                <p>长期使用的知识域不要频繁改名，避免权限和评测一起漂移。</p>
+              </div>
+              <div class="guide-item">
+                <strong>新来源先小范围验证</strong>
+                <p>先上传少量代表文档并问答回测，再继续扩充。</p>
+              </div>
+              <div class="guide-item">
+                <strong>动作成组完成</strong>
+                <p>看来源、上传、重建、授权和回测尽量在同一轮收口。</p>
+              </div>
+            </div>
+          </section>
 
-      <section class="panel guide-panel" id="source-guidelines">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">管理建议</p>
-            <h2>如何维护来源边界</h2>
-          </div>
-        </div>
-        <div class="guide-list guide-list-three">
-          <div class="guide-item">
-            <strong>来源名尽量稳定</strong>
-            <p>如果业务长期使用同一个知识域，来源名不要频繁变化，否则权限和评测都要跟着改。</p>
-          </div>
-          <div class="guide-item">
-            <strong>新来源先小范围验证</strong>
-            <p>先上传少量代表性文档并做问答回测，确认效果后再继续扩充这一来源。</p>
-          </div>
-          <div class="guide-item">
-            <strong>来源动作尽量成组完成</strong>
-            <p>看来源、上传资料、重建索引、回测问答最好在同一轮完成，避免中间状态不好追。</p>
-          </div>
-        </div>
+          <section class="panel guide-panel">
+            <div id="sources-overview-note" class="section-banner source-compact-note">
+              <strong>来源是权限和知识的共同边界</strong>
+              <p>同一个来源尽量在同一轮操作里完成上传、重建、授权和问答回测。</p>
+            </div>
+          </section>
+        </aside>
       </section>
     </main>
   </div>

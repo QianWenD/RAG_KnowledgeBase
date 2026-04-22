@@ -193,93 +193,79 @@
         return;
       }
       if (!pageState.users.length) {
-        elements.securityUserList.innerHTML = helpers.renderEmptyState(
+        renderEmptyRow(
+          elements.securityUserList,
+          5,
           "还没有可执行安全操作的账号",
-          "先创建第一个业务账号或管理员账号，后续才能执行重置密码、停用和删除等动作。",
-          "soft",
+          "先创建第一个业务账号或管理员账号，后续才能执行重置密码、停用和删除等动作。"
         );
         return;
       }
 
-      const groups = [
-        {
-          title: "启用中的账号",
-          description: "这些账号当前仍可正常登录，执行重置或停用前建议先确认业务影响范围。",
-          items: pageState.users.filter((item) => item.is_active),
-        },
-        {
-          title: "已停用账号",
-          description: "这部分账号已经被收口，可作为删除前的缓冲区，也可按需重新启用。",
-          items: pageState.users.filter((item) => !item.is_active),
-        },
-      ];
-
       elements.securityUserList.innerHTML = "";
-      for (const group of groups) {
-        const section = document.createElement("section");
-        section.className = "user-group";
-        section.innerHTML = `
-          <div class="group-header">
-            <div class="group-copy">
-              <strong>${helpers.escapeHtml(group.title)}</strong>
-              <p>${helpers.escapeHtml(group.description)}</p>
-            </div>
-            <span class="group-badge">${group.items.length}</span>
-          </div>
-          <div class="access-user-list-grid" data-group-grid></div>
-        `;
-        const grid = section.querySelector("[data-group-grid]");
-        if (!group.items.length) {
-          grid.innerHTML = helpers.renderEmptyState(
-            `当前没有${group.title}`,
-            "等状态变化后，这里会自动出现对应账号。",
-            "soft",
-          );
-          elements.securityUserList.appendChild(section);
-          continue;
-        }
-        group.items.forEach((user) => grid.appendChild(buildSecurityCard(user)));
-        elements.securityUserList.appendChild(section);
-      }
+      pageState.users.forEach((user, index) => {
+        elements.securityUserList.appendChild(buildSecurityRow(user, index + 1));
+      });
     }
 
-    function buildSecurityCard(user) {
-      const card = document.createElement("article");
-      card.className = "access-user-card";
+    function buildSecurityRow(user, rowNumber) {
+      const row = document.createElement("tr");
+      row.className = "access-user-card security-user-row";
       const isSelf = Boolean(state.user && user.id === state.user.id);
       const sourceHtml = (user.allowed_sources || []).length
         ? user.allowed_sources.map((source) => `<span class="tag muted">${helpers.escapeHtml(source)}</span>`).join("")
-        : '<span class="tag muted">未分配来源</span>';
+        : '<span class="table-muted">未分配来源</span>';
 
-      card.innerHTML = `
-        <div class="panel-head compact">
-          <div>
-            <h3>${helpers.escapeHtml(user.username)}</h3>
-            <p class="subtle">ID ${user.id} · 角色 ${helpers.escapeHtml(user.role)}</p>
+      row.innerHTML = `
+        <td class="row-number-col">${rowNumber}</td>
+        <td class="strong-cell">
+          <div class="table-user-cell">
+            <strong>${helpers.escapeHtml(user.username)}</strong>
+            <span>ID ${user.id}</span>
           </div>
-          <span class="status-chip ${user.is_active ? "is-ok" : "is-warn"}">${user.is_active ? "启用中" : "已停用"}</span>
-        </div>
-        <div class="tag-list">${sourceHtml}</div>
-        <div class="session-actions">
-          <button class="ghost-btn" type="button" data-toggle-active>${user.is_active ? "停用账号" : "重新启用"}</button>
-          <button class="ghost-btn" type="button" data-reset-password>重置密码</button>
-          <button class="ghost-btn danger" type="button" data-delete-user ${isSelf ? "disabled" : ""}>删除用户</button>
-        </div>
+        </td>
+        <td>
+          <div class="table-role-cell">
+            <strong>${helpers.escapeHtml(user.role)}</strong>
+            <span class="table-status ${user.is_active ? "is-active" : "is-inactive"}">${user.is_active ? "启用" : "停用"}</span>
+          </div>
+        </td>
+        <td>
+          <div class="tag-list table-tag-list">${sourceHtml}</div>
+        </td>
+        <td>
+          <div class="table-operation-list security-operation-list">
+            <button class="table-icon-btn" type="button" data-toggle-active title="${user.is_active ? "停用账号" : "重新启用"}" aria-label="${user.is_active ? "停用" : "重新启用"} ${helpers.escapeHtml(user.username)}">${renderIcon(user.is_active ? "pause" : "play")}</button>
+            <button class="table-icon-btn" type="button" data-reset-password title="重置密码" aria-label="重置 ${helpers.escapeHtml(user.username)} 的密码">${renderIcon("key")}</button>
+            <button class="table-icon-btn danger" type="button" data-delete-user title="${isSelf ? "不能删除当前登录账号" : "删除用户"}" aria-label="删除 ${helpers.escapeHtml(user.username)}" ${isSelf ? "disabled" : ""}>${renderIcon("trash")}</button>
+          </div>
+        </td>
       `;
 
-      card.querySelector("[data-toggle-active]")?.addEventListener("click", async () => {
+      row.querySelector("[data-toggle-active]")?.addEventListener("click", async () => {
         await toggleUserActive(user);
       });
-      card.querySelector("[data-reset-password]")?.addEventListener("click", async () => {
+      row.querySelector("[data-reset-password]")?.addEventListener("click", async () => {
         await resetUserPassword(user.id, user.username);
       });
-      const deleteButton = card.querySelector("[data-delete-user]");
+      const deleteButton = row.querySelector("[data-delete-user]");
       if (deleteButton && !deleteButton.disabled) {
         deleteButton.addEventListener("click", async () => {
           await deleteUser(user.id, user.username);
         });
       }
-      return card;
+      return row;
+    }
+
+    function renderEmptyRow(container, colSpan, title, body) {
+      container.innerHTML = `
+        <tr>
+          <td colspan="${colSpan}" class="users-table-empty">
+            <strong>${helpers.escapeHtml(title)}</strong>
+            <span>${helpers.escapeHtml(body)}</span>
+          </td>
+        </tr>
+      `;
     }
 
     function renderSummary() {
@@ -298,6 +284,16 @@
       if (elements.summaryInactive) {
         elements.summaryInactive.textContent = String(inactive);
       }
+    }
+
+    function renderIcon(type) {
+      const icons = {
+        pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14"></path><path d="M16 5v14"></path></svg>',
+        play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z"></path></svg>',
+        key: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 9.5a4.5 4.5 0 1 1-2.8-4.2 4.5 4.5 0 0 1 2.8 4.2Z"></path><path d="m14 14 6 6"></path><path d="m17 17 2-2"></path><path d="m19 19 2-2"></path></svg>',
+        trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="m9 7 .8-2h4.4l.8 2"></path><path d="m7 7 1 13h8l1-13"></path></svg>',
+      };
+      return icons[type] || icons.key;
     }
   },
 };

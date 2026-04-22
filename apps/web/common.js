@@ -7,6 +7,42 @@
   };
   const CUSTOM_SOURCE_OPTION = "__custom_source__";
   const SOURCE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$/;
+  const SIDEBAR_SECTIONS = [
+    {
+      id: "base",
+      label: "基础库",
+      icon: "基",
+      links: [{ label: "总览", icon: "总", href: "/", nav: "dashboard" }],
+    },
+    {
+      id: "knowledge",
+      label: "知识库",
+      icon: "知",
+      links: [
+        { label: "问答工作台", icon: "问", href: "/qa", nav: "qa" },
+        { label: "上传入库", icon: "传", href: "/knowledge", module: "knowledge-upload" },
+        { label: "重建索引", icon: "索", href: "/knowledge/reindex", module: "knowledge-reindex" },
+      ],
+    },
+    {
+      id: "users",
+      label: "权限系统",
+      icon: "权",
+      adminOnly: true,
+      links: [
+        { label: "用户管理", icon: "用", href: "/users", module: "users-overview", adminOnly: true },
+        { label: "角色与授权", icon: "授", href: "/users/access", module: "users-access", adminOnly: true },
+        { label: "安全操作", icon: "安", href: "/users/security", module: "users-security", adminOnly: true },
+        { label: "审计日志", icon: "审", href: "/users/audit", module: "users-audit", adminOnly: true },
+      ],
+    },
+    {
+      id: "data",
+      label: "数据管理",
+      icon: "数",
+      links: [{ label: "数据源管理", icon: "源", href: "/knowledge/sources", module: "knowledge-sources" }],
+    },
+  ];
 
   const state = {
     user: null,
@@ -68,7 +104,7 @@
 
   async function init() {
     bindCommonEvents();
-    bindSidebarAccordion();
+    bindSidebarMenus();
     renderPageMeta();
     markActiveNav();
     markActiveModuleNav();
@@ -303,49 +339,50 @@
 
   function ensureSidebarNavigation() {
     const navPanel = document.querySelector(".nav-panel");
-    if (!document.body.classList.contains("console-page") || !navPanel || navPanel.dataset.sidebarNav === "grouped") {
+    if (!document.body.classList.contains("console-page") || !navPanel || navPanel.dataset.sidebarNav === "kbms") {
       return;
     }
 
     const activeSection = getActiveSidebarSection();
-    const openAttr = (section) => (activeSection === section ? "open" : "");
-    navPanel.dataset.sidebarNav = "grouped";
+    navPanel.dataset.sidebarNav = "kbms";
     navPanel.innerHTML = `
       <nav class="side-nav" aria-label="后台主导航">
-        <details class="side-nav-group" data-sidebar-section="base" ${openAttr("base")}>
-          <summary aria-expanded="${activeSection === "base"}">基础库</summary>
-          <div class="side-nav-list">
-            <a class="nav-link" data-nav="dashboard" href="/">总览</a>
-          </div>
-        </details>
-        <details class="side-nav-group" data-sidebar-section="knowledge" ${openAttr("knowledge")}>
-          <summary aria-expanded="${activeSection === "knowledge"}">知识库</summary>
-          <div class="side-nav-list">
-            <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
-            <a class="nav-link" data-module-nav="knowledge-upload" href="/knowledge">上传入库</a>
-            <a class="nav-link" data-module-nav="knowledge-reindex" href="/knowledge/reindex">重建索引</a>
-          </div>
-        </details>
-        <details class="side-nav-group" data-sidebar-section="users" ${openAttr("users")} data-admin-nav>
-          <summary aria-expanded="${activeSection === "users"}">权限系统</summary>
-          <div class="side-nav-list">
-            <a class="nav-link" data-module-nav="users-overview" data-admin-nav href="/users">用户总览</a>
-            <a class="nav-link" data-module-nav="users-access" data-admin-nav href="/users/access">角色与授权</a>
-            <a class="nav-link" data-module-nav="users-security" data-admin-nav href="/users/security">安全操作</a>
-            <a class="nav-link" data-module-nav="users-audit" data-admin-nav href="/users/audit">审计日志</a>
-          </div>
-        </details>
-        <details class="side-nav-group" data-sidebar-section="data" ${openAttr("data")}>
-          <summary aria-expanded="${activeSection === "data"}">数据管理</summary>
-          <div class="side-nav-list">
-            <a class="nav-link" data-module-nav="knowledge-sources" href="/knowledge/sources">数据源管理</a>
-          </div>
-        </details>
+        ${SIDEBAR_SECTIONS.map((section) => renderSidebarSection(section, activeSection)).join("")}
       </nav>
     `;
   }
 
-  function bindSidebarAccordion() {
+  function renderSidebarSection(section, activeSection) {
+    const isActive = section.id === activeSection;
+    const openAttr = isActive ? " open" : "";
+    const activeClass = isActive ? " is-active-section" : "";
+    const adminAttr = section.adminOnly ? " data-admin-nav" : "";
+    return `
+      <details class="side-nav-group${activeClass}" data-sidebar-section="${escapeHtml(section.id)}"${openAttr}${adminAttr}>
+        <summary aria-expanded="${isActive}" title="${escapeHtml(section.label)}">
+          <span class="side-nav-icon" aria-hidden="true">${escapeHtml(section.icon)}</span>
+          <span class="side-nav-label">${escapeHtml(section.label)}</span>
+        </summary>
+        <div class="side-nav-list">
+          ${(section.links || []).map(renderSidebarLink).join("")}
+        </div>
+      </details>
+    `;
+  }
+
+  function renderSidebarLink(link) {
+    const navAttr = link.nav ? ` data-nav="${escapeHtml(link.nav)}"` : "";
+    const moduleAttr = link.module ? ` data-module-nav="${escapeHtml(link.module)}"` : "";
+    const adminAttr = link.adminOnly ? " data-admin-nav" : "";
+    return `
+      <a class="nav-link" href="${escapeHtml(link.href)}"${navAttr}${moduleAttr}${adminAttr} title="${escapeHtml(link.label)}">
+        <span class="side-nav-link-icon" aria-hidden="true">${escapeHtml(link.icon)}</span>
+        <span class="side-nav-link-text">${escapeHtml(link.label)}</span>
+      </a>
+    `;
+  }
+
+  function bindSidebarMenus() {
     const groups = Array.from(document.querySelectorAll(".side-nav-group"));
     if (!groups.length) {
       return;
@@ -354,15 +391,6 @@
       syncSidebarGroupState(group);
       group.addEventListener("toggle", () => {
         syncSidebarGroupState(group);
-        if (!group.open) {
-          return;
-        }
-        for (const peer of groups) {
-          if (peer !== group) {
-            peer.open = false;
-            syncSidebarGroupState(peer);
-          }
-        }
       });
     }
   }

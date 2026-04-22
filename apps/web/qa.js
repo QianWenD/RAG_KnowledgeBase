@@ -5,6 +5,7 @@ window.RagProPage = {
       history: [],
       pending: false,
       streaming: true,
+      hasAsked: false,
     };
 
     const elements = {
@@ -36,13 +37,17 @@ window.RagProPage = {
       summaryMode: document.getElementById("qa-summary-mode"),
       summaryBackend: document.getElementById("qa-summary-backend"),
       suggestionButtons: Array.from(document.querySelectorAll("[data-prompt-suggestion]")),
+      contextTabs: Array.from(document.querySelectorAll("[data-qa-context-tab]")),
+      contextPanes: Array.from(document.querySelectorAll("[data-qa-context-pane]")),
+      currentQuestion: document.getElementById("qa-current-question"),
+      currentStage: document.getElementById("qa-current-stage"),
     };
 
     bindEvents();
     helpers.populateSourceSelect(
       elements.sourceFilter,
       state.sources || [],
-      (state.sources || []).length > 1 ? "请选择来源" : "全部来源",
+      (state.sources || []).length > 1 ? "选择" : "全部",
     );
     if ((state.sources || []).length === 1) {
       elements.sourceFilter.value = state.sources[0];
@@ -78,6 +83,27 @@ window.RagProPage = {
           elements.queryInput.focus();
           updateComposerTelemetry();
         });
+      }
+      for (const tab of elements.contextTabs) {
+        tab.addEventListener("click", () => {
+          activateContextPane(tab.getAttribute("data-qa-context-tab") || "");
+        });
+      }
+    }
+
+    function activateContextPane(target) {
+      if (!target) {
+        return;
+      }
+      for (const tab of elements.contextTabs) {
+        const isActive = tab.getAttribute("data-qa-context-tab") === target;
+        tab.classList.toggle("is-active", isActive);
+        tab.setAttribute("aria-selected", String(isActive));
+      }
+      for (const pane of elements.contextPanes) {
+        const isActive = pane.getAttribute("data-qa-context-pane") === target;
+        pane.classList.toggle("is-active", isActive);
+        pane.hidden = !isActive;
       }
     }
 
@@ -146,8 +172,10 @@ window.RagProPage = {
       }
 
       pageState.pending = true;
+      pageState.hasAsked = true;
       elements.sendBtn.disabled = true;
       updateComposerTelemetry();
+      updateCurrentTurn(query, pageState.streaming ? "流式生成中" : "请求中");
       addMessage("user", query);
       elements.queryInput.value = "";
       updateComposerTelemetry();
@@ -159,9 +187,11 @@ window.RagProPage = {
         } else {
           await sendNormalQuery(query);
         }
+        updateCurrentTurn(query, "已完成");
         await loadHistory();
       } catch (error) {
         addMessage("system", `请求失败：${error.message}`);
+        updateCurrentTurn(query, "请求失败");
         helpers.setStatus("当前请求失败，请稍后重试。", true);
       } finally {
         pageState.pending = false;
@@ -281,14 +311,20 @@ window.RagProPage = {
       elements.historyCount.textContent = `${pageState.history.length} 条`;
     }
 
+    function setText(node, value) {
+      if (node) {
+        node.textContent = value;
+      }
+    }
+
     function applyMeta(payload) {
-      elements.route.textContent = payload.route || "-";
-      elements.intent.textContent = payload.intent || "-";
-      elements.strategy.textContent = payload.retrieval_strategy || "-";
-      elements.backend.textContent = payload.retrieval_backend || "-";
-      elements.context.textContent = String(payload.context_count || 0);
-      elements.routeReason.textContent = payload.route_reason || "等待请求";
-      elements.strategyReason.textContent = payload.strategy_reason || "等待请求";
+      setText(elements.route, payload.route || "-");
+      setText(elements.intent, payload.intent || "-");
+      setText(elements.strategy, payload.retrieval_strategy || "-");
+      setText(elements.backend, payload.retrieval_backend || "-");
+      setText(elements.context, String(payload.context_count || 0));
+      setText(elements.routeReason, payload.route_reason || "等待请求");
+      setText(elements.strategyReason, payload.strategy_reason || "等待请求");
       renderCitations(payload.citations || []);
       renderSummary(payload.retrieval_backend || "未知");
 
@@ -296,6 +332,10 @@ window.RagProPage = {
         const label = payload.confidence.label || "unknown";
         const score = payload.confidence.score != null ? ` ${payload.confidence.score}` : "";
         helpers.setStatus(`路由 ${payload.route || "-"} | 置信 ${label}${score}`);
+      }
+      const statusParts = [payload.route, payload.retrieval_backend].filter(Boolean);
+      if (elements.currentStage && statusParts.length) {
+        elements.currentStage.textContent = statusParts.join(" / ");
       }
     }
 
@@ -332,19 +372,28 @@ window.RagProPage = {
     }
 
     function resetConversation() {
-      elements.route.textContent = "-";
-      elements.intent.textContent = "-";
-      elements.strategy.textContent = "-";
-      elements.backend.textContent = "-";
-      elements.context.textContent = "0";
-      elements.routeReason.textContent = "等待请求";
-      elements.strategyReason.textContent = "等待请求";
-      elements.citationsList.innerHTML = helpers.renderEmptyState(
-        "当前没有引用证据",
-        "先发起一轮提问，系统才会在这里展示命中的文档片段和分数。",
-        "soft",
-      );
+      setText(elements.route, "-");
+      setText(elements.intent, "-");
+      setText(elements.strategy, "-");
+      setText(elements.backend, "-");
+      setText(elements.context, "0");
+      setText(elements.routeReason, "等待请求");
+      setText(elements.strategyReason, "等待请求");
+      if (elements.citationsList) {
+        elements.citationsList.innerHTML = helpers.renderEmptyState(
+          "当前没有引用证据",
+          "先发起一轮提问，系统才会在这里展示命中的文档片段和分数。",
+          "soft",
+        );
+      }
+      pageState.hasAsked = false;
+      updateCurrentTurn("", "等待输入");
       renderSummary();
+    }
+
+    function updateCurrentTurn(question, stage) {
+      setText(elements.currentQuestion, question || "尚未提问");
+      setText(elements.currentStage, stage || "等待输入");
     }
 
     function scrollMessages() {
@@ -382,12 +431,27 @@ window.RagProPage = {
       }
       if (elements.querySourceHint) {
         const source = helpers.getSourceSelectValue(elements.sourceFilter);
-        elements.querySourceHint.textContent = source
-          ? `当前限定来源：${source}`
-          : "未限定来源，将由权限范围和路由自动收口";
+        if (source) {
+          elements.querySourceHint.hidden = false;
+          elements.querySourceHint.textContent = `来源：${source}`;
+        } else if (pageState.hasAsked || pageState.pending) {
+          elements.querySourceHint.hidden = false;
+          elements.querySourceHint.textContent = "自动收口";
+        } else {
+          elements.querySourceHint.hidden = true;
+          elements.querySourceHint.textContent = "";
+        }
       }
       if (elements.sendBtn) {
-        elements.sendBtn.textContent = pageState.pending ? "生成中..." : "发送问题";
+        const label = pageState.pending ? "生成中..." : "发送问题";
+        elements.sendBtn.dataset.loading = String(pageState.pending);
+        elements.sendBtn.setAttribute("aria-label", pageState.pending ? "正在生成回答" : "发送问题");
+        const labelNode = elements.sendBtn.querySelector(".send-btn-label");
+        if (labelNode) {
+          labelNode.textContent = label;
+        } else {
+          elements.sendBtn.textContent = label;
+        }
       }
     }
   },

@@ -1,129 +1,376 @@
-﻿window.RagProPage = {
+window.RagProPage = {
   async init({ state, helpers }) {
     const pageState = {
       users: [],
+      filteredUsers: [],
+      selectedIds: new Set(),
+      page: 1,
+      pageSize: 10,
+      filters: {
+        login: "",
+        workNo: "",
+        name: "",
+      },
     };
 
     const elements = {
-      overviewGrid: document.getElementById("users-overview-grid"),
       overviewNote: document.getElementById("users-overview-note"),
       refreshBtn: document.getElementById("users-overview-refresh"),
+      filterForm: document.getElementById("users-filter-form"),
+      filterLogin: document.getElementById("users-filter-login"),
+      filterWorkNo: document.getElementById("users-filter-workno"),
+      filterName: document.getElementById("users-filter-name"),
+      filterReset: document.getElementById("users-filter-reset"),
+      tableBody: document.getElementById("users-table-body"),
+      checkAll: document.getElementById("users-check-all"),
+      batchDelete: document.getElementById("users-batch-delete"),
+      pagePrev: document.getElementById("users-page-prev"),
+      pageNext: document.getElementById("users-page-next"),
+      pageNumbers: document.getElementById("users-page-numbers"),
+      pageJump: document.getElementById("users-page-jump"),
+      pageSize: document.getElementById("users-page-size"),
+      totalCount: document.getElementById("users-total-count"),
       summaryTotal: document.getElementById("users-summary-total"),
       summaryAdmins: document.getElementById("users-summary-admins"),
       summaryActive: document.getElementById("users-summary-active"),
       summarySources: document.getElementById("users-summary-sources"),
     };
 
+    bindEvents();
     renderSummary();
-    renderOverview();
+    renderTable();
 
     if (!helpers.isAdmin()) {
       elements.overviewNote?.classList.remove("hidden");
-      helpers.setStatus("当前账号没有权限查看用户总览。", true);
+      helpers.setStatus("当前账号没有权限查看用户管理。", true);
+      renderEmptyTable("当前账号没有权限查看用户信息", "请使用管理员账号登录后再进入用户管理。");
       return;
     }
 
-    elements.refreshBtn?.addEventListener("click", loadUsers);
     await loadUsers();
-    helpers.setStatus("用户总览已就绪，可以继续进入授权页或安全页。", false);
+    helpers.setStatus("用户管理已就绪，可以筛选账号并进入编辑、删除或审计操作。", false);
+
+    function bindEvents() {
+      elements.refreshBtn?.addEventListener("click", loadUsers);
+      elements.filterForm?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        applyFiltersFromForm();
+      });
+      elements.filterReset?.addEventListener("click", resetFilters);
+      elements.checkAll?.addEventListener("change", toggleCurrentPageSelection);
+      elements.batchDelete?.addEventListener("click", deleteSelectedUsers);
+      elements.pagePrev?.addEventListener("click", () => goToPage(pageState.page - 1));
+      elements.pageNext?.addEventListener("click", () => goToPage(pageState.page + 1));
+      elements.pageSize?.addEventListener("change", () => {
+        pageState.pageSize = Number(elements.pageSize.value) || 10;
+        pageState.page = 1;
+        renderTable();
+      });
+      elements.pageJump?.addEventListener("change", () => {
+        goToPage(Number(elements.pageJump.value) || 1);
+      });
+      elements.pageNumbers?.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-page-number]");
+        if (!button) {
+          return;
+        }
+        goToPage(Number(button.dataset.pageNumber));
+      });
+      elements.tableBody?.addEventListener("change", (event) => {
+        const checkbox = event.target.closest("[data-user-select]");
+        if (!checkbox) {
+          return;
+        }
+        toggleUserSelection(checkbox.dataset.userSelect, checkbox.checked);
+      });
+      elements.tableBody?.addEventListener("click", async (event) => {
+        const action = event.target.closest("[data-user-action]");
+        if (!action) {
+          return;
+        }
+        await handleRowAction(action.dataset.userAction, Number(action.dataset.userId));
+      });
+    }
 
     async function loadUsers() {
       try {
         const payload = await helpers.apiJson("/auth/users");
         pageState.users = payload.users || [];
-        renderOverview();
+        pageState.selectedIds = new Set(
+          Array.from(pageState.selectedIds).filter((id) => pageState.users.some((user) => String(user.id) === id)),
+        );
+        applyFilters();
         renderSummary();
       } catch (error) {
-        helpers.setStatus(`加载账号概览失败：${error.message}`, true);
+        helpers.setStatus(`加载用户信息失败：${error.message}`, true);
+        renderEmptyTable("加载用户信息失败", error.message);
       }
     }
 
-    function renderOverview() {
-      if (!elements.overviewGrid) {
+    function applyFiltersFromForm() {
+      pageState.filters = {
+        login: normalize(elements.filterLogin?.value),
+        workNo: normalize(elements.filterWorkNo?.value),
+        name: normalize(elements.filterName?.value),
+      };
+      pageState.page = 1;
+      applyFilters();
+      helpers.setStatus("已按条件筛选用户信息。", false);
+    }
+
+    function resetFilters() {
+      if (elements.filterLogin) {
+        elements.filterLogin.value = "";
+      }
+      if (elements.filterWorkNo) {
+        elements.filterWorkNo.value = "";
+      }
+      if (elements.filterName) {
+        elements.filterName.value = "";
+      }
+      pageState.filters = { login: "", workNo: "", name: "" };
+      pageState.page = 1;
+      applyFilters();
+      helpers.setStatus("已重置用户筛选条件。", false);
+    }
+
+    function applyFilters() {
+      pageState.filteredUsers = pageState.users.filter((user) => {
+        const login = normalize(user.username);
+        const workNo = normalize(formatWorkNo(user));
+        const name = normalize(formatDisplayName(user));
+        return (
+          (!pageState.filters.login || login.includes(pageState.filters.login)) &&
+          (!pageState.filters.workNo || workNo.includes(pageState.filters.workNo)) &&
+          (!pageState.filters.name || name.includes(pageState.filters.name))
+        );
+      });
+      clampPage();
+      renderTable();
+    }
+
+    function renderTable() {
+      if (!elements.tableBody) {
         return;
       }
       if (!helpers.isAdmin()) {
-        elements.overviewGrid.innerHTML = helpers.renderEmptyState(
-          "当前账号没有权限查看账号分布",
-          "如果你需要管理用户、角色或来源授权，请使用管理员账号登录。",
-          "soft",
-        );
+        renderEmptyTable("当前账号没有权限查看用户信息", "请使用管理员账号登录后再进入用户管理。");
         return;
       }
       if (!pageState.users.length) {
-        elements.overviewGrid.innerHTML = helpers.renderEmptyState(
-          "还没有可管理账号",
-          "先去安全操作页创建第一个业务账号或管理员账号，然后再回来查看整体分布。",
-          "soft",
-        );
+        renderEmptyTable("还没有可管理账号", "请先去安全操作页创建第一个业务账号或管理员账号。");
+        renderPager();
+        return;
+      }
+      if (!pageState.filteredUsers.length) {
+        renderEmptyTable("没有匹配的用户", "换一个登录账号、工号或用户名条件再试试。");
+        renderPager();
         return;
       }
 
-      const groups = [
-        {
-          title: "管理员账号",
-          description: "高权限账号建议保持少量且明确，便于追溯和审计。",
-          items: pageState.users.filter((item) => item.role === "admin"),
-        },
-        {
-          title: "业务账号",
-          description: "业务账号应围绕实际来源范围配置，避免默认看见过多内容。",
-          items: pageState.users.filter((item) => item.role !== "admin"),
-        },
-      ];
+      const users = getCurrentPageUsers();
+      const startIndex = (pageState.page - 1) * pageState.pageSize;
+      elements.tableBody.innerHTML = users.map((user, index) => renderUserRow(user, startIndex + index + 1)).join("");
+      renderPager();
+      syncSelectionControls();
+    }
 
-      elements.overviewGrid.innerHTML = "";
-      for (const group of groups) {
-        const section = document.createElement("section");
-        section.className = "user-group";
-        section.innerHTML = `
-          <div class="group-header">
-            <div class="group-copy">
-              <strong>${helpers.escapeHtml(group.title)}</strong>
-              <p>${helpers.escapeHtml(group.description)}</p>
+    function renderUserRow(user, rowNumber) {
+      const userId = String(user.id);
+      const checked = pageState.selectedIds.has(userId) ? "checked" : "";
+      const disabledDelete = state.user && user.id === state.user.id ? "disabled" : "";
+      const disabledTitle = disabledDelete ? "不能删除当前登录账号" : "删除";
+      return `
+        <tr data-user-id="${helpers.escapeHtml(userId)}">
+          <td class="row-number-col">${rowNumber}</td>
+          <td class="check-col">
+            <input type="checkbox" data-user-select="${helpers.escapeHtml(userId)}" aria-label="选择 ${helpers.escapeHtml(user.username)}" ${checked}>
+          </td>
+          <td class="strong-cell">${helpers.escapeHtml(user.username)}</td>
+          <td>${helpers.escapeHtml(formatWorkNo(user))}</td>
+          <td>${helpers.escapeHtml(formatDisplayName(user))}</td>
+          <td>
+            <span class="table-status ${user.is_active ? "is-active" : "is-inactive"}">${user.is_active ? "启用" : "停用"}</span>
+          </td>
+          <td>${helpers.escapeHtml(formatOrgName(user))}</td>
+          <td class="date-cell">${helpers.escapeHtml(formatDateTime(user.created_at))}</td>
+          <td>
+            <div class="table-operation-list">
+              <button class="table-icon-btn" type="button" data-user-action="edit" data-user-id="${helpers.escapeHtml(userId)}" title="编辑" aria-label="编辑 ${helpers.escapeHtml(user.username)}">${renderIcon("edit")}</button>
+              <button class="table-icon-btn danger" type="button" data-user-action="delete" data-user-id="${helpers.escapeHtml(userId)}" title="${disabledTitle}" aria-label="删除 ${helpers.escapeHtml(user.username)}" ${disabledDelete}>${renderIcon("trash")}</button>
+              <button class="table-icon-btn" type="button" data-user-action="security" data-user-id="${helpers.escapeHtml(userId)}" title="安全操作" aria-label="安全操作 ${helpers.escapeHtml(user.username)}">${renderIcon("settings")}</button>
+              <button class="table-icon-btn" type="button" data-user-action="audit" data-user-id="${helpers.escapeHtml(userId)}" title="审计记录" aria-label="查看 ${helpers.escapeHtml(user.username)} 的审计记录">${renderIcon("more")}</button>
+              <button class="table-icon-btn" type="button" data-user-action="access" data-user-id="${helpers.escapeHtml(userId)}" title="授权" aria-label="授权 ${helpers.escapeHtml(user.username)}">${renderIcon("arrow")}</button>
             </div>
-            <span class="group-badge">${group.items.length}</span>
-          </div>
-          <div class="access-user-list-grid" data-group-grid></div>
-        `;
-        const grid = section.querySelector("[data-group-grid]");
-        if (!group.items.length) {
-          grid.innerHTML = helpers.renderEmptyState(
-            `当前没有${group.title}`,
-            "你可以先去安全操作页创建账号，再回到这里查看整体分布。",
-            "soft",
-          );
-          elements.overviewGrid.appendChild(section);
-          continue;
-        }
-        group.items.forEach((user) => grid.appendChild(buildUserCard(user)));
-        elements.overviewGrid.appendChild(section);
+          </td>
+        </tr>
+      `;
+    }
+
+    function renderEmptyTable(title, body) {
+      if (!elements.tableBody) {
+        return;
+      }
+      elements.tableBody.innerHTML = `
+        <tr>
+          <td colspan="9" class="users-table-empty">
+            <strong>${helpers.escapeHtml(title)}</strong>
+            <span>${helpers.escapeHtml(body)}</span>
+          </td>
+        </tr>
+      `;
+      syncSelectionControls();
+    }
+
+    function renderPager() {
+      const total = pageState.filteredUsers.length;
+      const pageCount = getPageCount();
+      if (elements.totalCount) {
+        elements.totalCount.textContent = `共 ${total} 条`;
+      }
+      if (elements.pageJump) {
+        elements.pageJump.max = String(pageCount);
+        elements.pageJump.value = String(pageState.page);
+      }
+      if (elements.pagePrev) {
+        elements.pagePrev.disabled = pageState.page <= 1;
+      }
+      if (elements.pageNext) {
+        elements.pageNext.disabled = pageState.page >= pageCount;
+      }
+      if (elements.pageNumbers) {
+        elements.pageNumbers.innerHTML = buildPageNumbers(pageCount).map((page) => `
+          <button class="pager-btn ${page === pageState.page ? "is-current" : ""}" type="button" data-page-number="${page}" aria-label="第 ${page} 页">${page}</button>
+        `).join("");
+      }
+      syncSelectionControls();
+    }
+
+    function buildPageNumbers(pageCount) {
+      const pages = [];
+      const start = Math.max(1, pageState.page - 2);
+      const end = Math.min(pageCount, start + 4);
+      for (let page = start; page <= end; page += 1) {
+        pages.push(page);
+      }
+      return pages.length ? pages : [1];
+    }
+
+    function getCurrentPageUsers() {
+      const start = (pageState.page - 1) * pageState.pageSize;
+      return pageState.filteredUsers.slice(start, start + pageState.pageSize);
+    }
+
+    function getPageCount() {
+      return Math.max(1, Math.ceil(pageState.filteredUsers.length / pageState.pageSize));
+    }
+
+    function goToPage(page) {
+      pageState.page = Math.min(Math.max(1, page), getPageCount());
+      renderTable();
+    }
+
+    function clampPage() {
+      pageState.page = Math.min(Math.max(1, pageState.page), getPageCount());
+    }
+
+    function toggleCurrentPageSelection(event) {
+      const checked = Boolean(event.target.checked);
+      getCurrentPageUsers().forEach((user) => toggleUserSelection(String(user.id), checked, false));
+      renderTable();
+    }
+
+    function toggleUserSelection(userId, checked, sync = true) {
+      if (!userId) {
+        return;
+      }
+      if (checked) {
+        pageState.selectedIds.add(String(userId));
+      } else {
+        pageState.selectedIds.delete(String(userId));
+      }
+      if (sync) {
+        syncSelectionControls();
       }
     }
 
-    function buildUserCard(user) {
-      const card = document.createElement("article");
-      card.className = "access-user-card";
-      const sources = Array.isArray(user.allowed_sources) ? user.allowed_sources : [];
-      const tagHtml = sources.length
-        ? sources.map((source) => `<span class="tag muted">${helpers.escapeHtml(source)}</span>`).join("")
-        : '<span class="tag muted">未分配来源</span>';
+    function syncSelectionControls() {
+      const currentPageUsers = getCurrentPageUsers();
+      const selectableCount = currentPageUsers.length;
+      const selectedOnPage = currentPageUsers.filter((user) => pageState.selectedIds.has(String(user.id))).length;
+      if (elements.checkAll) {
+        elements.checkAll.checked = selectableCount > 0 && selectedOnPage === selectableCount;
+        elements.checkAll.indeterminate = selectedOnPage > 0 && selectedOnPage < selectableCount;
+      }
+      if (elements.batchDelete) {
+        const deletableSelected = getSelectedUsers().filter((user) => !state.user || user.id !== state.user.id);
+        elements.batchDelete.disabled = deletableSelected.length === 0;
+      }
+    }
 
-      card.innerHTML = `
-        <div class="panel-head compact">
-          <div>
-            <h3>${helpers.escapeHtml(user.username)}</h3>
-            <p class="subtle">ID ${user.id} · 角色 ${helpers.escapeHtml(user.role)}</p>
-          </div>
-          <span class="status-chip ${user.is_active ? "is-ok" : "is-warn"}">${user.is_active ? "启用中" : "已停用"}</span>
-        </div>
-        <div class="tag-list">${tagHtml}</div>
-        <div class="source-card-actions">
-          <a class="panel-link-btn" href="/users/access">去授权页调整</a>
-          <a class="panel-link-btn tertiary" href="/users/security">去安全页处理</a>
-        </div>
-      `;
-      return card;
+    function getSelectedUsers() {
+      return pageState.users.filter((user) => pageState.selectedIds.has(String(user.id)));
+    }
+
+    async function handleRowAction(action, userId) {
+      const user = pageState.users.find((item) => item.id === userId);
+      if (!user) {
+        return;
+      }
+      if (action === "delete") {
+        await deleteUser(user);
+        return;
+      }
+      if (action === "audit") {
+        window.location.href = `/users/audit?search=${encodeURIComponent(user.username)}`;
+        return;
+      }
+      if (action === "security") {
+        window.location.href = "/users/security";
+        return;
+      }
+      window.location.href = "/users/access";
+    }
+
+    async function deleteSelectedUsers() {
+      const selectedUsers = getSelectedUsers();
+      const deletableUsers = selectedUsers.filter((user) => !state.user || user.id !== state.user.id);
+      if (!deletableUsers.length) {
+        helpers.setStatus("当前选择里没有可删除的账号。", true);
+        return;
+      }
+      const suffix = selectedUsers.length !== deletableUsers.length ? "，当前登录账号会被自动跳过" : "";
+      if (!window.confirm(`确认删除 ${deletableUsers.length} 个用户吗${suffix}？`)) {
+        return;
+      }
+      try {
+        for (const user of deletableUsers) {
+          await helpers.apiJson(`/auth/users/${user.id}`, { method: "DELETE" });
+          pageState.selectedIds.delete(String(user.id));
+        }
+        helpers.setStatus(`已删除 ${deletableUsers.length} 个用户。`, false);
+        await loadUsers();
+      } catch (error) {
+        helpers.setStatus(`批量删除失败：${error.message}`, true);
+      }
+    }
+
+    async function deleteUser(user) {
+      if (state.user && user.id === state.user.id) {
+        helpers.setStatus("不能删除当前登录账号。", true);
+        return;
+      }
+      if (!window.confirm(`确认删除用户 ${user.username} 吗？`)) {
+        return;
+      }
+      try {
+        await helpers.apiJson(`/auth/users/${user.id}`, { method: "DELETE" });
+        pageState.selectedIds.delete(String(user.id));
+        helpers.setStatus(`已删除用户 ${user.username}。`, false);
+        await loadUsers();
+      } catch (error) {
+        helpers.setStatus(`删除用户失败：${error.message}`, true);
+      }
     }
 
     function renderSummary() {
@@ -143,6 +390,48 @@
       if (elements.summarySources) {
         elements.summarySources.textContent = String(sourceCount);
       }
+    }
+
+    function normalize(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function formatWorkNo(user) {
+      return user.work_no || user.employee_no || user.job_number || user.username || `U${String(user.id).padStart(4, "0")}`;
+    }
+
+    function formatDisplayName(user) {
+      return user.display_name || user.name || user.full_name || user.username || "-";
+    }
+
+    function formatOrgName(user) {
+      if (user.organization || user.org_name) {
+        return user.organization || user.org_name;
+      }
+      return user.role === "admin" ? "权限管理组" : "业务用户组";
+    }
+
+    function formatDateTime(value) {
+      if (!value) {
+        return "-";
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
+      const pad = (number) => String(number).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    }
+
+    function renderIcon(type) {
+      const icons = {
+        edit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.7V20h3.3L17.1 10.2l-3.3-3.3L4 16.7Z"></path><path d="m15 5.7 1.2-1.2a1.8 1.8 0 0 1 2.6 0l.7.7a1.8 1.8 0 0 1 0 2.6L18.3 9"></path></svg>',
+        trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="m9 7 .8-2h4.4l.8 2"></path><path d="m7 7 1 13h8l1-13"></path></svg>',
+        settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path><path d="m19 12 .9-1.7-2-3.4-1.9.1a7.8 7.8 0 0 0-1.5-.9L13.5 4h-4l-.9 2.1c-.5.2-1 .5-1.5.9L5.2 6.9l-2 3.4L4 12l-.9 1.7 2 3.4 1.9-.1c.5.4 1 .7 1.5.9l1 2.1h4l1-2.1c.5-.2 1-.5 1.5-.9l1.9.1 2-3.4L19 12Z"></path></svg>',
+        more: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01"></path><path d="M12 12h.01"></path><path d="M19 12h.01"></path></svg>',
+        arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6"></path></svg>',
+      };
+      return icons[type] || icons.more;
     }
   },
 };

@@ -84,150 +84,80 @@
             <span class="breadcrumb-sep">/</span>
             <span id="page-breadcrumb-current">安全操作</span>
           </div>
-          <p class="panel-kicker">权限管理 · 安全操作</p>
-          <h2>把高敏感动作放到单独页面处理</h2>
-          <p class="topbar-copy">创建账号、重置密码、停用账号和删除账号都属于更高风险操作，拆成独立子页后，管理员更不容易在日常授权过程中误触这些动作，而且关键行为都会被记录下来。</p>
+          <h2>安全操作</h2>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
 
-      <div class="page-utility-bar">
-        <div class="page-utility-links">
-          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
-          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
-          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
-        </div>
-        <p class="page-utility-note">建议在做删除或重置密码前，先在总览页确认账号归属，再回到这里执行敏感操作。</p>
-      </div>
-
       <nav class="module-nav-bar" aria-label="权限管理子导航">
-        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户总览</a>
+        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户管理</a>
         <a class="module-nav-link" data-module-nav="users-access" href="/users/access">角色与授权</a>
         <a class="module-nav-link" data-module-nav="users-security" href="/users/security">安全操作</a>
         <a class="module-nav-link" data-module-nav="users-audit" href="/users/audit">审计日志</a>
       </nav>
-
-      <nav class="section-nav-bar" aria-label="页内导航">
-        <a class="section-link" data-section-link href="#security-create-panel">创建账号</a>
-        <a class="section-link" data-section-link href="#security-list-panel">敏感操作</a>
-        <a class="section-link" data-section-link href="#security-guide">操作建议</a>
-        <a class="section-link" data-section-link href="#security-audit-link">审计关联</a>
-      </nav>
-
-      <section class="page-summary-strip">
-        <article class="summary-card">
-          <span>当前角色</span>
-          <strong id="security-summary-role">检查中</strong>
-          <p>这一页仅对管理员开放，普通用户不会拿到创建、重置或删除能力。</p>
-        </article>
-        <article class="summary-card">
-          <span>账号总数</span>
-          <strong id="security-summary-total">0</strong>
-          <p>用于快速确认当前盘子大小，避免误删或重复创建同类型账号。</p>
-        </article>
-        <article class="summary-card">
-          <span>启用账号</span>
-          <strong id="security-summary-active">0</strong>
-          <p>如果启用账号明显偏多，通常说明系统里还留着一些未回收的业务账号。</p>
-        </article>
-        <article class="summary-card">
-          <span>停用账号</span>
-          <strong id="security-summary-inactive">0</strong>
-          <p>停用账号可以作为缓冲层，先停用观察，再决定是否真正删除。</p>
-        </article>
-      </section>
 
       <section id="users-security-note" class="section-banner hidden">
         <strong>当前无权限执行安全操作</strong>
         <p>只有管理员可以创建账号、重置密码或删除账号。普通用户访问这一页时，只会看到说明，不会看到真实操作入口。</p>
       </section>
 
-      <section id="users-security-admin-wrap" class="split-panel-grid">
-        <section class="panel" id="security-create-panel">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">创建账号</p>
-              <h2>新增用户</h2>
-            </div>
-          </div>
-          <form id="security-create-form" class="auth-form access-create-form">
-            <label class="field-block" for="security-create-username">
+      <section id="users-security-admin-wrap" class="user-management-console permission-table-console">
+        <section class="panel legacy-filter-panel" id="security-create-panel">
+          <div class="legacy-section-title">新增用户</div>
+          <form id="security-create-form" class="security-create-form-table">
+            <label class="legacy-filter-field" for="security-create-username">
               <span>用户名</span>
               <input id="security-create-username" type="text" placeholder="例如 ai_ops_user">
             </label>
-            <label class="field-block" for="security-create-password">
+            <label class="legacy-filter-field" for="security-create-password">
               <span>初始密码</span>
               <input id="security-create-password" type="password" placeholder="建议至少 8 位">
             </label>
-            <label class="field-block" for="security-create-role">
+            <label class="legacy-filter-field" for="security-create-role">
               <span>角色</span>
               <select id="security-create-role">
                 <option value="user">user</option>
                 <option value="admin">admin</option>
               </select>
             </label>
-            <div id="security-create-sources" class="source-checkbox-grid">
+            <div id="security-create-sources" class="source-checkbox-grid security-create-sources">
               <div class="note">来源列表会在系统加载后显示。</div>
             </div>
-            <button id="security-create-submit" class="send-btn" type="submit">创建账号</button>
+            <div class="form-inline-actions">
+              <button id="security-create-submit" class="legacy-primary-btn" type="submit">创建账号</button>
+            </div>
           </form>
         </section>
 
-        <section class="panel guide-panel" id="security-guide">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">操作建议</p>
-              <h2>敏感动作的推荐顺序</h2>
+        <section class="panel user-table-panel" id="security-list-panel">
+          <div class="user-table-toolbar">
+            <h2>敏感操作</h2>
+            <div class="user-table-actions">
+              <button id="security-refresh-btn" class="legacy-text-action" type="button">刷新</button>
+              <a class="legacy-text-action" href="/users/audit">查看审计</a>
             </div>
           </div>
-          <div class="guide-list">
-            <div class="guide-item">
-              <strong>重置密码前先确认账号归属</strong>
-              <p>如果账号仍在使用中，建议先通知对应业务方，避免重置后直接中断正在进行的验证或演示。</p>
-            </div>
-            <div class="guide-item">
-              <strong>优先停用，再决定是否删除</strong>
-              <p>删除是不可逆的管理动作。大多数情况下，先停用账号更稳，也方便后续恢复。</p>
-            </div>
-            <div class="guide-item">
-              <strong>创建账号时就收紧来源范围</strong>
-              <p>新账号不要默认全开。创建时就只勾选业务必需来源，后面会少很多回收动作。</p>
-            </div>
+          <div class="users-table-wrap">
+            <table class="admin-data-table permission-data-table security-data-table">
+              <thead>
+                <tr>
+                  <th class="row-number-col" scope="col">序号</th>
+                  <th scope="col">登录账号</th>
+                  <th scope="col">角色 / 状态</th>
+                  <th scope="col">来源范围</th>
+                  <th class="operation-col wide" scope="col">操作</th>
+                </tr>
+              </thead>
+              <tbody id="security-user-list" class="access-user-list">
+                <tr>
+                  <td colspan="5" class="users-table-empty">管理员校验完成后，这里会显示可执行敏感操作的账号列表。</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
-      </section>
-
-      <section class="panel section-panel" id="security-list-panel">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">敏感操作</p>
-            <h2>账号重置、停用与删除</h2>
-          </div>
-          <button id="security-refresh-btn" class="ghost-btn" type="button">刷新列表</button>
-        </div>
-        <div id="security-user-list" class="access-user-list">
-          <div class="note">管理员校验完成后，这里会显示可执行敏感操作的账号列表。</div>
-        </div>
-      </section>
-
-      <section class="panel section-panel" id="security-audit-link">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">审计关联</p>
-            <h2>高敏感动作会自动记入日志</h2>
-          </div>
-        </div>
-        <div class="state-banner compact-banner">
-          <div class="state-banner-copy">
-            <span class="state-banner-label">当前能力</span>
-            <strong>创建、重置密码、停用和删除账号都会进入审计日志</strong>
-            <p>如果你要追查某个账号为什么登不上、是谁删掉了某个用户，可以直接去审计日志页回看。</p>
-          </div>
-          <a class="panel-link-btn secondary" href="/users/audit">查看审计日志</a>
-        </div>
       </section>
     </main>
   </div>

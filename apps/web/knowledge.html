@@ -84,24 +84,12 @@
             <span class="breadcrumb-sep">/</span>
             <span id="page-breadcrumb-current">上传入库</span>
           </div>
-          <p class="panel-kicker">知识运营 · 上传入库</p>
-          <h2>上传资料并写入检索链路</h2>
-          <p class="topbar-copy">这里专门处理文档进入知识库的第一步。上传成功后，系统会立即写入当前来源，便于你马上回到问答页验证效果。</p>
+          <h2>上传入库</h2>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
-
-      <div class="page-utility-bar">
-        <div class="page-utility-links">
-          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
-          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
-          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
-        </div>
-        <p class="page-utility-note">上传完成后，最推荐立刻回到问答工作台做回测，这样最容易判断新资料有没有真正进入召回结果。</p>
-      </div>
 
       <nav class="module-nav-bar" aria-label="知识运营子导航">
         <a class="module-nav-link" data-module-nav="knowledge-upload" href="/knowledge">上传入库</a>
@@ -109,41 +97,12 @@
         <a class="module-nav-link" data-module-nav="knowledge-sources" href="/knowledge/sources">数据源管理</a>
       </nav>
 
-      <nav class="section-nav-bar" aria-label="页内导航">
-        <a class="section-link" data-section-link href="#knowledge-panel">上传表单</a>
-        <a class="section-link" data-section-link href="#upload-ledger">最近记录</a>
-        <a class="section-link" data-section-link href="#ops-guide">运营建议</a>
-      </nav>
-
-      <section class="page-summary-strip">
-        <article class="summary-card">
-          <span>当前角色</span>
-          <strong id="knowledge-summary-role">检查中</strong>
-          <p>只有管理员可以上传和入库，普通用户只保留查看说明。</p>
-        </article>
-        <article class="summary-card">
-          <span>可用来源</span>
-          <strong id="knowledge-summary-source-count">0</strong>
-          <p>来源越清晰，后续做权限和回测就越容易收口。</p>
-        </article>
-        <article class="summary-card">
-          <span>最近记录数</span>
-          <strong id="knowledge-summary-history-count">0</strong>
-          <p>最近的上传结果会保留在本地，方便你快速回看。</p>
-        </article>
-        <article class="summary-card">
-          <span>入库模式</span>
-          <strong id="knowledge-summary-mode">增量补充</strong>
-          <p>默认建议走增量补充，只有确定整源替换时才做覆盖重建。</p>
-        </article>
-      </section>
-
-      <section class="split-panel-grid">
+      <section class="knowledge-workbench">
         <section class="panel upload-panel" id="knowledge-panel">
           <div class="panel-head">
             <div>
               <p class="panel-kicker">上传入库</p>
-              <h2>文档上传</h2>
+              <h2>上传文件</h2>
             </div>
             <span class="status-chip">管理员可用</span>
           </div>
@@ -169,9 +128,8 @@
 
             <label id="upload-drop-zone" class="file-drop" for="upload-file-input">
               <input id="upload-file-input" name="files" type="file" multiple accept=".txt,.md,.markdown,.html,.htm,.pdf,.docx,.ppt,.pptx">
-              <strong>点击选择文件或直接拖拽到这里</strong>
-              <span>支持 PDF、DOCX、TXT、Markdown、HTML、PPT 和 PPTX。</span>
-              <small>支持按来源批量上传。推荐每次只处理一个来源，方便后续验证和权限控制。</small>
+              <strong>拖拽文件到这里，或点击选择</strong>
+              <span>PDF / DOCX / TXT / Markdown / HTML / PPT / PPTX</span>
             </label>
 
             <div id="upload-file-list" class="file-list">
@@ -198,47 +156,49 @@
 
             <div class="upload-actions">
               <button id="upload-submit-btn" class="send-btn" type="submit">上传并入库</button>
-              <p class="hint">如果你是从“数据源管理”页跳过来的，来源会自动帮你选好。</p>
+              <p class="hint">从数据源页进入时，来源会自动带入。</p>
             </div>
           </form>
 
           <div id="upload-result" class="upload-result note">暂时还没有上传结果。</div>
         </section>
 
-        <section class="panel guide-panel" id="upload-ledger">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">上传记录</p>
-              <h2>最近入库结果</h2>
+        <aside class="knowledge-side" aria-label="上传辅助信息">
+          <section class="panel guide-panel" id="ops-guide">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">入库建议</p>
+                <h2>少量、同源、可回测</h2>
+              </div>
             </div>
-          </div>
-          <div id="upload-history-list" class="upload-history-list">
-            <div class="note">最近上传记录会显示在这里。</div>
-          </div>
-        </section>
-      </section>
+            <div class="guide-list knowledge-ops-list">
+              <div class="guide-item">
+                <strong>按来源拆文档</strong>
+                <p>一个来源一批资料，后续权限和召回更容易判断。</p>
+              </div>
+              <div class="guide-item">
+                <strong>默认增量补充</strong>
+                <p>只有确定整源替换时，再勾选覆盖旧索引。</p>
+              </div>
+              <div class="guide-item">
+                <strong>上传后回测</strong>
+                <p>完成后去问答页确认新资料是否进入引用。</p>
+              </div>
+            </div>
+          </section>
 
-      <section class="panel guide-panel" id="ops-guide">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">运营建议</p>
-            <h2>推荐做法</h2>
-          </div>
-        </div>
-        <div class="guide-list guide-list-three">
-          <div class="guide-item">
-            <strong>按来源拆文档</strong>
-            <p>课程、FAQ、制度、行业资料最好分开上传，后续检索和权限都更容易控制。</p>
-          </div>
-          <div class="guide-item">
-            <strong>覆盖重建要谨慎</strong>
-            <p>确认要整源替换时再勾选“覆盖旧索引”，否则优先走增量补充。</p>
-          </div>
-          <div class="guide-item">
-            <strong>上传后回测问答</strong>
-            <p>最稳的做法是立刻回到问答页确认答案是否引用了刚刚上传的资料。</p>
-          </div>
-        </div>
+          <section class="panel guide-panel" id="upload-ledger">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">上传记录</p>
+                <h2>最近入库结果</h2>
+              </div>
+            </div>
+            <div id="upload-history-list" class="upload-history-list">
+              <div class="note">最近上传记录会显示在这里。</div>
+            </div>
+          </section>
+        </aside>
       </section>
     </main>
   </div>

@@ -82,30 +82,12 @@
             <span class="breadcrumb-sep">/</span>
             <span id="page-breadcrumb-current">总览</span>
           </div>
-          <p class="panel-kicker">后台首页</p>
-          <h2>把复杂能力拆成清晰页面</h2>
-          <p class="topbar-copy">从这里进入问答、知识运营和权限治理。每一类任务都有自己的独立页面，不再在一张页面上堆满所有功能。</p>
+          <h2>基础库总览</h2>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
-
-      <div class="page-utility-bar">
-        <div class="page-utility-links">
-          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
-          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
-          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
-        </div>
-        <p class="page-utility-note">先判断当前账号范围，再进入具体业务页操作，可以明显减少误点和误配。</p>
-      </div>
-
-      <nav class="section-nav-bar" aria-label="页内导航">
-        <a class="section-link" data-section-link href="#entry-cards">功能入口</a>
-        <a class="section-link" data-section-link href="#recommended-flow">推荐流程</a>
-        <a class="section-link" data-section-link href="#design-principles">设计原则</a>
-      </nav>
 
       <section class="overview-strip" id="entry-cards">
         <article class="overview-card">
@@ -121,7 +103,7 @@
         <article class="overview-card">
           <span>当前模式</span>
           <strong id="dashboard-quick-status">加载中</strong>
-          <p>总览页只做导航和状态提示，不承载上传、提问和授权等重操作。</p>
+          <p>选择下方入口进入对应工作区。</p>
         </article>
       </section>
 
@@ -135,8 +117,8 @@
           </div>
           <div class="guide-list">
             <div class="guide-item">
-              <strong>适合做什么</strong>
-              <p>提问、看路由、看引用证据、管理当前会话和最近历史。</p>
+              <strong>提问、追溯引用、管理会话</strong>
+              <p>适合先验证现有知识库回答质量。</p>
             </div>
           </div>
           <a class="panel-link-btn" href="/qa">进入问答页</a>
@@ -151,76 +133,44 @@
           </div>
           <div class="guide-list">
             <div class="guide-item">
-              <strong>适合做什么</strong>
-              <p>上传 PDF、Word、Markdown 等资料，查看入库结果和最近上传记录。</p>
+              <strong>上传资料、查看入库结果</strong>
+              <p>适合补充或更新知识来源。</p>
             </div>
           </div>
           <a class="panel-link-btn" href="/knowledge">进入知识运营页</a>
         </article>
 
-        <article class="panel guide-panel link-panel" data-admin-nav>
+        <article class="panel guide-panel link-panel">
           <div class="panel-head">
             <div>
               <p class="panel-kicker">页面三</p>
+              <h2>数据源管理</h2>
+            </div>
+          </div>
+          <div class="guide-list">
+            <div class="guide-item">
+              <strong>来源清单、上传入口、重建入口</strong>
+              <p>适合先确认来源边界再进入操作。</p>
+            </div>
+          </div>
+          <a class="panel-link-btn tertiary" href="/knowledge/sources">查看数据源</a>
+        </article>
+
+        <article class="panel guide-panel link-panel" data-admin-nav>
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">页面四</p>
               <h2>权限管理</h2>
             </div>
           </div>
           <div class="guide-list">
             <div class="guide-item">
-              <strong>适合做什么</strong>
-              <p>创建用户、分配角色、控制来源可见范围、重置密码和停用账号。</p>
+              <strong>用户、角色、来源权限</strong>
+              <p>适合收口账号与访问范围。</p>
             </div>
           </div>
           <a class="panel-link-btn" href="/users">进入权限页</a>
         </article>
-      </section>
-
-      <section class="split-panel-grid">
-        <section class="panel guide-panel" id="recommended-flow">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">推荐路径</p>
-              <h2>常用操作流程</h2>
-            </div>
-          </div>
-          <div class="guide-list">
-            <div class="guide-item">
-              <strong>1. 先进入问答页验证现状</strong>
-              <p>先问几个代表性问题，确认当前知识库的回答情况，再决定是否需要补资料。</p>
-            </div>
-            <div class="guide-item">
-              <strong>2. 再去知识运营页补资料</strong>
-              <p>管理员上传新文档后，马上回到问答页复测，确认引用是否命中新资料。</p>
-            </div>
-            <div class="guide-item">
-              <strong>3. 最后在权限页收口访问范围</strong>
-              <p>当某些成员只应看到部分内容时，再按来源收紧或放开权限。</p>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel guide-panel" id="design-principles">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">设计原则</p>
-              <h2>为什么拆成多页</h2>
-            </div>
-          </div>
-          <div class="guide-list">
-            <div class="guide-item">
-              <strong>降低认知负担</strong>
-              <p>提问、上传和授权的操作复杂度完全不同，拆页后更符合真实后台使用习惯。</p>
-            </div>
-            <div class="guide-item">
-              <strong>减少误操作</strong>
-              <p>管理员不会在提问时误点上传，普通用户也不会总看到一整块与自己无关的管理功能。</p>
-            </div>
-            <div class="guide-item">
-              <strong>后续更容易扩展</strong>
-              <p>后面要加来源管理、系统诊断、离线评测时，也能继续作为独立页面扩展。</p>
-            </div>
-          </div>
-        </section>
       </section>
     </main>
   </div>

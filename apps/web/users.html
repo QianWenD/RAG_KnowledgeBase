@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RAGPro 权限管理 · 用户总览</title>
+  <title>RAGPro 权限管理 · 用户管理</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body class="console-page" data-page="users" data-page-view="users-overview" data-page-label="用户总览">
+<body class="console-page" data-page="users" data-page-view="users-overview" data-page-label="用户管理">
   <div class="scene-grid" aria-hidden="true"></div>
   <div class="scene-glow" aria-hidden="true"></div>
 
@@ -20,8 +20,8 @@
           <p class="brand-kicker">RAGPro 后台</p>
           <span class="brand-stamp">权限管理</span>
         </div>
-        <h1>用户总览</h1>
-        <p class="brand-copy">这一页先回答三个问题：现在有哪些账号、账号大致怎么分组、接下来应该去哪个权限子页处理。真正的修改动作已经拆到“角色与授权”和“安全操作”。</p>
+        <h1>用户管理</h1>
+        <p class="brand-copy">按后台台账方式查看账号，先筛选、再定位、最后进入授权或安全操作。</p>
         <div class="brand-strip">
           <span>账号分布</span>
           <span>授权入口</span>
@@ -80,146 +80,104 @@
           <div class="breadcrumb-row" aria-label="面包屑">
             <a class="breadcrumb-link" href="/">后台</a>
             <span class="breadcrumb-sep">/</span>
-            <span id="page-breadcrumb-current">用户总览</span>
+          <span id="page-breadcrumb-current">用户管理</span>
           </div>
-          <p class="panel-kicker">权限管理 · 用户总览</p>
-          <h2>先看清账号分布，再决定去哪里做操作</h2>
-          <p class="topbar-copy">总览页只负责信息归拢和路径引导，不承载重表单。这样管理员进入权限域后，先判断问题属于“授权”还是“安全”，再进入对应子页。</p>
+          <h2>用户管理</h2>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
 
-      <div class="page-utility-bar">
-        <div class="page-utility-links">
-          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
-          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
-          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
-        </div>
-        <p class="page-utility-note">推荐顺序：先看账号分布，再去调整来源授权，最后再做重置密码、停用和删除等敏感操作。</p>
-      </div>
-
       <nav class="module-nav-bar" aria-label="权限管理子导航">
-        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户总览</a>
+        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户管理</a>
         <a class="module-nav-link" data-module-nav="users-access" href="/users/access">角色与授权</a>
         <a class="module-nav-link" data-module-nav="users-security" href="/users/security">安全操作</a>
         <a class="module-nav-link" data-module-nav="users-audit" href="/users/audit">审计日志</a>
       </nav>
-
-      <nav class="section-nav-bar" aria-label="页内导航">
-        <a class="section-link" data-section-link href="#users-module-map">功能分区</a>
-        <a class="section-link" data-section-link href="#account-overview-panel">账号分布</a>
-        <a class="section-link" data-section-link href="#users-governance-guide">治理建议</a>
-      </nav>
-
-      <section class="page-summary-strip">
-        <article class="summary-card">
-          <span>账号总数</span>
-          <strong id="users-summary-total">0</strong>
-          <p>管理员和普通账号都会纳入这个统计，方便快速判断当前盘子大小。</p>
-        </article>
-        <article class="summary-card">
-          <span>管理员数</span>
-          <strong id="users-summary-admins">0</strong>
-          <p>管理员建议保持少量且可追溯，避免高权限账号持续膨胀。</p>
-        </article>
-        <article class="summary-card">
-          <span>启用账号</span>
-          <strong id="users-summary-active">0</strong>
-          <p>如果启用账号明显多于业务实际需要，就应该考虑收缩权限或停用。</p>
-        </article>
-        <article class="summary-card">
-          <span>可配来源</span>
-          <strong id="users-summary-sources">0</strong>
-          <p>来源仍然是权限边界的核心，后面所有业务扩展都建议沿用这个模型。</p>
-        </article>
-      </section>
 
       <section id="users-overview-note" class="section-banner hidden">
         <strong>当前无权限查看权限总览</strong>
         <p>只有管理员可以进入权限治理页面。普通用户可以继续使用问答和知识检索能力，但不会接触后台管理入口。</p>
       </section>
 
-      <section class="panel section-panel" id="users-module-map">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">功能分区</p>
-            <h2>接下来该去哪个子页</h2>
-          </div>
-        </div>
-        <div id="users-module-grid" class="source-card-grid">
-          <article class="source-card">
-            <div class="source-card-head">
-              <div>
-                <strong>角色与授权</strong>
-                <p>用于调整用户角色、启停状态和可见来源，是最常用的日常权限维护页。</p>
-              </div>
+      <section class="user-management-console" aria-label="用户管理台账">
+        <section class="panel legacy-filter-panel" aria-labelledby="users-filter-title">
+          <div class="legacy-section-title" id="users-filter-title">条件筛选</div>
+          <form id="users-filter-form" class="users-filter-form">
+            <label class="legacy-filter-field" for="users-filter-login">
+              <span>登录账号</span>
+              <input id="users-filter-login" type="search" autocomplete="off">
+            </label>
+            <label class="legacy-filter-field" for="users-filter-workno">
+              <span>工号</span>
+              <input id="users-filter-workno" type="search" autocomplete="off">
+            </label>
+            <label class="legacy-filter-field" for="users-filter-name">
+              <span>用户名</span>
+              <input id="users-filter-name" type="search" autocomplete="off">
+            </label>
+            <div class="legacy-filter-actions">
+              <button id="users-filter-submit" class="legacy-primary-btn" type="submit">查询</button>
+              <button id="users-filter-reset" class="legacy-plain-btn" type="button">重置</button>
             </div>
-            <div class="source-card-actions">
-              <a class="panel-link-btn" href="/users/access">进入授权页</a>
-            </div>
-          </article>
-          <article class="source-card">
-            <div class="source-card-head">
-              <div>
-                <strong>安全操作</strong>
-                <p>用于创建账号、重置密码、停用账号和删除账号，适合处理敏感动作。</p>
-              </div>
-            </div>
-            <div class="source-card-actions">
-              <a class="panel-link-btn secondary" href="/users/security">进入安全页</a>
-            </div>
-          </article>
-          <article class="source-card">
-            <div class="source-card-head">
-              <div>
-                <strong>审计日志</strong>
-                <p>当你想确认最近谁重置过密码、谁改过授权、谁删除过账号时，可以直接去审计日志页查看。</p>
-              </div>
-            </div>
-            <div class="source-card-actions">
-              <a class="panel-link-btn tertiary" href="/users/audit">查看审计日志</a>
-            </div>
-          </article>
-        </div>
-      </section>
+          </form>
+        </section>
 
-      <section class="panel section-panel" id="account-overview-panel">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">账号分布</p>
-            <h2>当前账号概览</h2>
+        <section class="panel user-table-panel" aria-labelledby="users-table-title">
+          <div class="user-table-toolbar">
+            <h2 id="users-table-title">用户信息</h2>
+            <div class="user-table-actions">
+              <a class="legacy-text-action" href="/users/security#security-create-panel">＋ 新增</a>
+              <button id="users-batch-delete" class="legacy-text-action danger" type="button" disabled>批量删除</button>
+              <button id="users-overview-refresh" class="legacy-text-action" type="button">刷新</button>
+            </div>
           </div>
-          <button id="users-overview-refresh" class="ghost-btn" type="button">刷新列表</button>
-        </div>
-        <div id="users-overview-grid" class="access-user-list">
-          <div class="note">管理员校验完成后，这里会显示按角色分组的账号概览。</div>
-        </div>
-      </section>
 
-      <section class="panel guide-panel" id="users-governance-guide">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">治理建议</p>
-            <h2>更适合长期维护的做法</h2>
+          <div id="users-table-wrap" class="users-table-wrap">
+            <table id="users-table" class="admin-data-table">
+              <thead>
+                <tr>
+                  <th class="row-number-col" scope="col"></th>
+                  <th class="check-col" scope="col">
+                    <input id="users-check-all" type="checkbox" aria-label="选择全部用户">
+                  </th>
+                  <th scope="col">登录账号 <span class="sort-mark" aria-hidden="true"></span></th>
+                  <th scope="col">工号 <span class="sort-mark" aria-hidden="true"></span></th>
+                  <th scope="col">用户名 <span class="sort-mark" aria-hidden="true"></span></th>
+                  <th scope="col">状态</th>
+                  <th scope="col">组织机构名称</th>
+                  <th scope="col">创建时间 <span class="sort-mark" aria-hidden="true"></span></th>
+                  <th class="operation-col" scope="col">操作</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body">
+                <tr>
+                  <td colspan="9" class="users-table-empty">管理员校验完成后，这里会显示用户信息。</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="guide-list guide-list-three">
-          <div class="guide-item">
-            <strong>权限边界围绕来源，而不是页面</strong>
-            <p>页面只是操作入口，真正需要控制的是谁能接触哪些知识域，所以建议长期沿用来源授权模型。</p>
+
+          <div class="users-table-pager" aria-label="用户列表分页">
+            <div class="users-pager-left">
+              <button id="users-page-prev" class="pager-btn" type="button" aria-label="上一页">‹</button>
+              <div id="users-page-numbers" class="users-page-numbers"></div>
+              <button id="users-page-next" class="pager-btn" type="button" aria-label="下一页">›</button>
+            </div>
+            <div class="users-pager-right">
+              <span>前往</span>
+              <input id="users-page-jump" class="users-page-jump" type="number" min="1" value="1" aria-label="跳转页码">
+              <span>页</span>
+              <select id="users-page-size" aria-label="每页条数">
+                <option value="10">10 条/页</option>
+                <option value="20">20 条/页</option>
+                <option value="50">50 条/页</option>
+              </select>
+              <span id="users-total-count">共 0 条</span>
+            </div>
           </div>
-          <div class="guide-item">
-            <strong>授权和安全操作分开处理</strong>
-            <p>把“分配来源”与“重置密码、删除账号”拆开，可以明显减少误操作，也更符合多数后台的管理习惯。</p>
-          </div>
-          <div class="guide-item">
-            <strong>先建总览，再做深层审计</strong>
-            <p>这一版已经把关键权限操作沉淀成审计日志，后面如果需要更细的搜索和筛选，可以继续扩展。</p>
-          </div>
-        </div>
+        </section>
       </section>
     </main>
   </div>

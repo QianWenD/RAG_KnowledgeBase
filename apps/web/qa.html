@@ -82,136 +82,53 @@
             <span class="breadcrumb-sep">/</span>
             <span id="page-breadcrumb-current">问答工作台</span>
           </div>
-          <p class="panel-kicker">问答页面</p>
-          <h2>提问、看路由、查证据</h2>
-          <p class="topbar-copy">所有与问答相关的内容都收敛在这里，包括来源过滤、会话管理、路由说明、引用证据和历史记录。</p>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
 
-      <div class="page-utility-bar">
-        <div class="page-utility-links">
-          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
-          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
-          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
-        </div>
-        <p class="page-utility-note">提问前先确认来源过滤和当前会话，再看右侧路由与引用，就能更快判断答案质量。</p>
-      </div>
-
-      <nav class="section-nav-bar" aria-label="页内导航">
-        <a class="section-link" data-section-link href="#qa-workbench">提问区</a>
-        <a class="section-link" data-section-link href="#route-insights">路由分析</a>
-        <a class="section-link" data-section-link href="#history-center">会话历史</a>
-      </nav>
-
-      <section class="page-summary-strip">
-        <article class="summary-card">
-          <span>当前会话</span>
-          <strong id="qa-summary-session">准备中</strong>
-          <p>进入页面后会自动创建新会话，你也可以手动重建。</p>
-        </article>
-        <article class="summary-card">
-          <span>可选来源</span>
-          <strong id="qa-summary-sources">0</strong>
-          <p>来源过滤只展示当前账号有权限访问的知识域。</p>
-        </article>
-        <article class="summary-card">
-          <span>回答模式</span>
-          <strong id="qa-summary-mode">流式回答</strong>
-          <p>适合现场演示；关闭后会返回一次性完整结果。</p>
-        </article>
-        <article class="summary-card">
-          <span>最近后端</span>
-          <strong id="qa-summary-backend">等待请求</strong>
-          <p>会在回答后显示实际命中的检索后端。</p>
-        </article>
-      </section>
-
-      <section class="state-banner">
-        <div class="state-banner-copy">
-          <span class="state-banner-label">快速开始</span>
-          <strong>先用典型问题验证当前知识库状态</strong>
-          <p>下面这组示例更适合用来演示路由、引用和会话链路，也方便你快速感受当前页面效果。</p>
-        </div>
-        <div id="qa-prompt-suggestions" class="suggestion-strip">
-          <button class="suggestion-chip" type="button" data-prompt-suggestion="什么是大语言模型？">什么是大语言模型？</button>
-          <button class="suggestion-chip" type="button" data-prompt-suggestion="当前 AI 资料里有哪些重点内容？">当前 AI 资料里有哪些重点内容？</button>
-          <button class="suggestion-chip" type="button" data-prompt-suggestion="请总结这个知识库最值得先学习的三个方向。">请总结这个知识库最值得先学习的三个方向。</button>
-        </div>
-      </section>
-
-      <section class="meta-grid">
-        <article class="meta-card">
-          <span>当前路由</span>
-          <strong id="meta-route">-</strong>
-        </article>
-        <article class="meta-card">
-          <span>识别意图</span>
-          <strong id="meta-intent">-</strong>
-        </article>
-        <article class="meta-card">
-          <span>检索策略</span>
-          <strong id="meta-strategy">-</strong>
-        </article>
-        <article class="meta-card">
-          <span>检索后端</span>
-          <strong id="meta-backend">-</strong>
-        </article>
-        <article class="meta-card">
-          <span>上下文数</span>
-          <strong id="meta-context">0</strong>
-        </article>
-      </section>
-
       <section class="content-grid">
         <section class="primary-column">
-          <section class="panel section-panel" id="qa-workbench">
-            <div class="panel-head">
-              <div>
-                <p class="panel-kicker">提问主区</p>
-                <h2>问答工作台</h2>
-              </div>
-              <span class="status-chip">核心链路</span>
-            </div>
-            <div class="section-banner">
-              <strong>使用方式</strong>
-              <p>先选择来源过滤，再输入问题。系统会自动在 FAQ、通用对话和 RAG 检索之间路由，并在右侧展示引用证据和策略说明。</p>
-            </div>
-
+          <section class="panel section-panel qa-workbench-panel" id="qa-workbench">
             <section class="panel conversation">
               <div id="message-list" class="message-list">
                 <article class="message system">
                   <span class="message-tag">系统</span>
-                  <div class="message-body">问答页已就绪。请输入你的问题，系统会返回答案、路由信息和引用证据。</div>
+                  <div class="message-body">可以直接提问。我会在这里给出回答，右侧保留路由、引用和最近记录。</div>
                 </article>
               </div>
 
               <div class="composer-wrap">
-                <div class="controls">
-                  <label class="control-field stacked" for="source-filter">
-                    <span>来源过滤</span>
-                    <select id="source-filter">
-                      <option value="">正在加载来源</option>
-                    </select>
-                  </label>
-                  <label class="toggle">
-                    <input id="stream-mode" type="checkbox" checked>
-                    <span>流式回答</span>
-                  </label>
-                </div>
-
                 <div class="composer">
-                  <textarea id="query-input" placeholder="请输入问题，例如：什么是大语言模型？当前 AI 资料里有哪些重点内容？"></textarea>
-                  <div class="composer-telemetry" aria-live="polite">
-                    <span id="query-input-meter">0 字</span>
-                    <span>Enter 发送，Shift + Enter 换行</span>
-                    <span id="query-source-hint">建议先确认来源过滤</span>
+                  <div id="qa-prompt-suggestions" class="qa-suggestion-row" aria-label="示例问题">
+                    <button class="suggestion-chip" type="button" data-prompt-suggestion="什么是大语言模型？">什么是大语言模型？</button>
+                    <button class="suggestion-chip" type="button" data-prompt-suggestion="当前 AI 资料里有哪些重点内容？">当前 AI 资料重点</button>
+                    <button class="suggestion-chip" type="button" data-prompt-suggestion="请总结这个知识库最值得先学习的三个方向。">总结三个学习方向</button>
                   </div>
-                  <div class="composer-actions">
-                    <button id="send-btn" class="send-btn" type="button">发送问题</button>
+                  <textarea id="query-input" placeholder="请输入问题，例如：什么是大语言模型？当前 AI 资料里有哪些重点内容？"></textarea>
+
+                  <div class="composer-footer">
+                    <div class="composer-toolbar-main" aria-live="polite">
+                      <label class="composer-source-control" for="source-filter">
+                        <span class="composer-tool-label">源</span>
+                        <select id="source-filter">
+                          <option value="">正在加载来源</option>
+                        </select>
+                      </label>
+                      <label class="toggle composer-stream-toggle">
+                        <input id="stream-mode" type="checkbox" checked>
+                        <span>流式</span>
+                      </label>
+                      <span id="query-input-meter" class="composer-meter">0 字</span>
+                      <span id="query-source-hint" class="composer-source-hint" hidden></span>
+                    </div>
+                    <div class="composer-actions">
+                      <button id="send-btn" class="send-btn" type="button" aria-label="发送问题" data-loading="false">
+                        <span class="send-btn-icon" aria-hidden="true">↑</span>
+                        <span class="send-btn-label">发送问题</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -220,70 +137,106 @@
         </section>
 
         <aside class="workspace-side">
-          <section class="panel session-panel">
-            <div class="panel-head">
-              <div>
-                <p class="panel-kicker">会话状态</p>
-                <h2>当前会话</h2>
-              </div>
-              <button id="new-session-btn" class="ghost-btn" type="button">新建会话</button>
+          <section class="panel qa-context-panel" aria-label="问答上下文">
+            <div class="qa-context-tabs" role="tablist" aria-label="上下文切换">
+              <button class="qa-context-tab" id="qa-tab-session" type="button" role="tab" aria-selected="false" aria-controls="qa-context-session" data-qa-context-tab="session">会话</button>
+              <button class="qa-context-tab is-active" id="qa-tab-route" type="button" role="tab" aria-selected="true" aria-controls="route-insights" data-qa-context-tab="route">路由</button>
+              <button class="qa-context-tab" id="qa-tab-citations" type="button" role="tab" aria-selected="false" aria-controls="qa-context-citations" data-qa-context-tab="citations">引用</button>
+              <button class="qa-context-tab" id="qa-tab-history" type="button" role="tab" aria-selected="false" aria-controls="history-center" data-qa-context-tab="history">历史</button>
             </div>
-            <div class="session-row">
-              <span class="label">会话 ID</span>
-              <code id="session-id">尚未创建</code>
+            <div class="qa-current-turn" aria-live="polite">
+              <span>当前问题</span>
+              <strong id="qa-current-question">尚未提问</strong>
+              <small id="qa-current-stage">等待输入</small>
             </div>
-            <div class="session-actions">
-              <button id="copy-session-btn" class="ghost-btn" type="button">复制会话 ID</button>
-              <button id="clear-history-btn" class="ghost-btn danger" type="button">清空历史</button>
-            </div>
-          </section>
 
-          <section class="panel citations-panel" id="route-insights">
-            <div class="panel-head">
-              <div>
-                <p class="panel-kicker">路由说明</p>
-                <h2>决策备注</h2>
+            <section class="qa-context-pane" id="qa-context-session" role="tabpanel" aria-labelledby="qa-tab-session" data-qa-context-pane="session" hidden>
+              <div class="qa-context-head">
+                <div>
+                  <p class="panel-kicker">会话状态</p>
+                  <h2>当前会话</h2>
+                </div>
+                <button id="new-session-btn" class="ghost-btn" type="button">新建会话</button>
               </div>
-            </div>
-            <div class="meta-notes">
-              <article class="status-line session-row">
-                <span class="label">路由原因</span>
-                <p id="route-reason">等待请求。</p>
-              </article>
-              <article class="status-line session-row">
-                <span class="label">策略原因</span>
-                <p id="strategy-reason">等待请求。</p>
-              </article>
-            </div>
-          </section>
+              <div class="session-row">
+                <span class="label">会话 ID</span>
+                <code id="session-id">尚未创建</code>
+              </div>
+              <div class="session-actions">
+                <button id="copy-session-btn" class="ghost-btn" type="button">复制会话 ID</button>
+                <button id="clear-history-btn" class="ghost-btn danger" type="button">清空历史</button>
+              </div>
+            </section>
 
-          <section class="panel citations-panel">
-            <div class="panel-head">
-              <div>
-                <p class="panel-kicker">引用证据</p>
-                <h2>检索命中</h2>
+            <section class="qa-context-pane is-active" id="route-insights" role="tabpanel" aria-labelledby="qa-tab-route" data-qa-context-pane="route">
+              <div class="qa-context-head">
+                <div>
+                  <p class="panel-kicker">路由说明</p>
+                  <h2>决策备注</h2>
+                </div>
               </div>
-            </div>
-            <div id="citations-list" class="citation-list">
-              <div class="note">当前还没有引用内容。</div>
-            </div>
-          </section>
+              <div class="qa-meta-rail" aria-label="最近一次回答状态">
+                <div class="qa-meta-pill">
+                  <span>路由</span>
+                  <strong id="meta-route">-</strong>
+                </div>
+                <div class="qa-meta-pill">
+                  <span>意图</span>
+                  <strong id="meta-intent">-</strong>
+                </div>
+                <div class="qa-meta-pill">
+                  <span>策略</span>
+                  <strong id="meta-strategy">-</strong>
+                </div>
+                <div class="qa-meta-pill">
+                  <span>后端</span>
+                  <strong id="meta-backend">-</strong>
+                </div>
+                <div class="qa-meta-pill">
+                  <span>上下文</span>
+                  <strong id="meta-context">0</strong>
+                </div>
+              </div>
+              <div class="meta-notes">
+                <article class="status-line session-row">
+                  <span class="label">路由原因</span>
+                  <p id="route-reason">等待请求。</p>
+                </article>
+                <article class="status-line session-row">
+                  <span class="label">策略原因</span>
+                  <p id="strategy-reason">等待请求。</p>
+                </article>
+              </div>
+            </section>
 
-          <section class="panel history-panel" id="history-center">
-            <div class="panel-head">
-              <div>
-                <p class="panel-kicker">会话历史</p>
-                <h2>最近记录</h2>
+            <section class="qa-context-pane" id="qa-context-citations" role="tabpanel" aria-labelledby="qa-tab-citations" data-qa-context-pane="citations" hidden>
+              <div class="qa-context-head">
+                <div>
+                  <p class="panel-kicker">引用证据</p>
+                  <h2>检索命中</h2>
+                </div>
               </div>
-              <button id="refresh-history-btn" class="ghost-btn" type="button">刷新历史</button>
-            </div>
-            <div class="session-row">
-              <span class="label">历史条数</span>
-              <span id="history-count" class="subtle">0 条</span>
-            </div>
-            <div id="history-list" class="history-list">
-              <div class="note">当前还没有加载历史记录。</div>
-            </div>
+              <div id="citations-list" class="citation-list">
+                <div class="note">当前还没有引用内容。</div>
+              </div>
+            </section>
+
+            <section class="qa-context-pane" id="history-center" role="tabpanel" aria-labelledby="qa-tab-history" data-qa-context-pane="history" hidden>
+              <div class="qa-context-head">
+                <div>
+                  <p class="panel-kicker">会话历史</p>
+                  <h2>最近记录</h2>
+                </div>
+                <button id="refresh-history-btn" class="ghost-btn" type="button">刷新历史</button>
+              </div>
+              <div class="session-row">
+                <span class="label">历史条数</span>
+                <span id="history-count" class="subtle">0 条</span>
+              </div>
+              <div id="history-list" class="history-list">
+                <div class="note">当前还没有加载历史记录。</div>
+              </div>
+            </section>
           </section>
         </aside>
       </section>

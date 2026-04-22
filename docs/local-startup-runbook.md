@@ -120,6 +120,20 @@ Start Milvus Standalone in WSL:
 powershell -ExecutionPolicy Bypass -File .\scripts\start-milvus-wsl.ps1
 ```
 
+Startup-manager Milvus command from a fresh shell:
+
+```powershell
+Set-Location D:\dc\gz\codexItem\RAGPro
+powershell -ExecutionPolicy Bypass -File .\scripts\start-milvus-wsl.ps1
+```
+
+Verify Milvus from Windows:
+
+```powershell
+Test-NetConnection -ComputerName 127.0.0.1 -Port 19530
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/health
+```
+
 This creates or uses `/root/milvus-standalone` inside WSL and exposes:
 
 - `127.0.0.1:19530` for Milvus gRPC

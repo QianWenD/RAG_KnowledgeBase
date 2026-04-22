@@ -84,24 +84,12 @@
             <span class="breadcrumb-sep">/</span>
             <span id="page-breadcrumb-current">重建索引</span>
           </div>
-          <p class="panel-kicker">知识运营 · 重建索引</p>
-          <h2>把某个来源重新写回检索库</h2>
-          <p class="topbar-copy">如果某个来源的资料已经发生大规模更新，或者你需要从指定目录重新写入索引，就在这里操作。</p>
+          <h2>重建索引</h2>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
-
-      <div class="page-utility-bar">
-        <div class="page-utility-links">
-          <a class="topbar-link" data-nav="dashboard" href="/">总览</a>
-          <a class="topbar-link" data-nav="qa" href="/qa">问答</a>
-          <a class="topbar-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="topbar-link" data-nav="users" data-admin-nav href="/users">权限</a>
-        </div>
-        <p class="page-utility-note">重建索引建议在资料结构发生明显变化后再做，完成后最好立刻回问答页做回测。</p>
-      </div>
 
       <nav class="module-nav-bar" aria-label="知识运营子导航">
         <a class="module-nav-link" data-module-nav="knowledge-upload" href="/knowledge">上传入库</a>
@@ -109,41 +97,12 @@
         <a class="module-nav-link" data-module-nav="knowledge-sources" href="/knowledge/sources">数据源管理</a>
       </nav>
 
-      <nav class="section-nav-bar" aria-label="页内导航">
-        <a class="section-link" data-section-link href="#reindex-panel">重建表单</a>
-        <a class="section-link" data-section-link href="#reindex-ledger">最近任务</a>
-        <a class="section-link" data-section-link href="#reindex-guide">适用场景</a>
-      </nav>
-
-      <section class="page-summary-strip">
-        <article class="summary-card">
-          <span>当前角色</span>
-          <strong id="reindex-summary-role">检查中</strong>
-          <p>只有管理员可以执行重建，普通用户仅保留说明和来源范围查看。</p>
-        </article>
-        <article class="summary-card">
-          <span>可用来源</span>
-          <strong id="reindex-summary-source-count">0</strong>
-          <p>来源列表来自当前系统配置，可直接选择已有知识域。</p>
-        </article>
-        <article class="summary-card">
-          <span>最近任务数</span>
-          <strong id="reindex-summary-history-count">0</strong>
-          <p>最近重建任务会保留在本地，方便快速回看是否覆盖旧索引。</p>
-        </article>
-        <article class="summary-card">
-          <span>当前模式</span>
-          <strong id="reindex-summary-mode">覆盖重建</strong>
-          <p>默认会替换同来源旧索引，只有需要并存时才建议切到追加模式。</p>
-        </article>
-      </section>
-
-      <section class="split-panel-grid">
+      <section class="knowledge-workbench">
         <section class="panel" id="reindex-panel">
           <div class="panel-head">
             <div>
               <p class="panel-kicker">索引任务</p>
-              <h2>重建表单</h2>
+              <h2>重建来源</h2>
             </div>
             <span class="status-chip">管理员可用</span>
           </div>
@@ -174,55 +133,57 @@
 
             <div class="state-banner compact-banner">
               <div class="state-banner-copy">
-                <span class="state-banner-label">执行说明</span>
-                <strong>默认会替换同来源旧索引</strong>
-                <p>如果只是补充少量资料，请优先走上传入库页；只有在结构变化或需要整源重写时，再使用这里。</p>
+                <span class="state-banner-label">执行模式</span>
+                <strong>覆盖重建会先清理同来源旧索引</strong>
+                <p>只是补充少量资料时，优先回到上传入库页。</p>
               </div>
             </div>
 
             <div class="upload-actions">
               <button id="reindex-submit-btn" class="send-btn" type="submit">开始重建</button>
-              <p class="hint">支持通过 `?source=ai` 这种方式从数据源管理页直接带来源跳转过来。</p>
+              <p class="hint">支持从来源页带入 `?source=ai`。</p>
             </div>
           </form>
 
           <div id="reindex-result" class="upload-result note">暂时还没有重建结果。</div>
         </section>
 
-        <section class="panel guide-panel" id="reindex-ledger">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">任务记录</p>
-              <h2>最近重建任务</h2>
+        <aside class="knowledge-side" aria-label="重建辅助信息">
+          <section class="panel guide-panel" id="reindex-guide">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">重建判断</p>
+                <h2>什么时候用它</h2>
+              </div>
             </div>
-          </div>
-          <div id="reindex-history-list" class="upload-history-list">
-            <div class="note">最近重建任务会显示在这里。</div>
-          </div>
-        </section>
-      </section>
+            <div class="guide-list knowledge-ops-list">
+              <div class="guide-item">
+                <strong>整批资料替换</strong>
+                <p>章节结构或资料集合大改时，重建比增量更稳。</p>
+              </div>
+              <div class="guide-item">
+                <strong>目录迁移</strong>
+                <p>需要从指定目录重新写入时，在这里带目录执行。</p>
+              </div>
+              <div class="guide-item">
+                <strong>演示前校准</strong>
+                <p>正式回测前重建一次，可减少旧索引残留干扰。</p>
+              </div>
+            </div>
+          </section>
 
-      <section class="panel guide-panel" id="reindex-guide">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">适用场景</p>
-            <h2>什么时候应该重建</h2>
-          </div>
-        </div>
-        <div class="guide-list guide-list-three">
-          <div class="guide-item">
-            <strong>文档结构大改</strong>
-            <p>当整批资料被替换、章节结构明显变化或切块策略升级时，重建比增量更稳。</p>
-          </div>
-          <div class="guide-item">
-            <strong>来源目录迁移</strong>
-            <p>如果你希望从上传目录改回数据目录，或从某个子目录重新写入，这里更合适。</p>
-          </div>
-          <div class="guide-item">
-            <strong>回测前做一次整库校准</strong>
-            <p>当你准备正式演示某个来源时，先重建一次再测试，可以降低旧索引残留带来的干扰。</p>
-          </div>
-        </div>
+          <section class="panel guide-panel" id="reindex-ledger">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">任务记录</p>
+                <h2>最近重建任务</h2>
+              </div>
+            </div>
+            <div id="reindex-history-list" class="upload-history-list">
+              <div class="note">最近重建任务会显示在这里。</div>
+            </div>
+          </section>
+        </aside>
       </section>
     </main>
   </div>

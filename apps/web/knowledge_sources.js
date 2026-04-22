@@ -56,7 +56,7 @@ window.RagProPage = {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ source }),
         });
-        state.sources = helpers.mergeSourceValues(payload.sources || [], source);
+        state.sources = helpers.mergeSourceValues(payload.sources || [], [source]);
         if (payload.user) {
           state.user = payload.user;
         }

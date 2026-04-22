@@ -47,10 +47,11 @@
         "请使用管理员账号登录后查看权限操作记录。",
         "soft",
       );
-      elements.auditLogList.innerHTML = helpers.renderEmptyState(
+      renderEmptyRow(
+        elements.auditLogList,
+        7,
         "当前账号没有审计查看权限",
-        "审计日志只对管理员开放。",
-        "soft",
+        "审计日志只对管理员开放。"
       );
       helpers.setStatus("当前账号没有审计查看权限。", true);
       return;
@@ -59,6 +60,7 @@
     elements.refreshBtn?.addEventListener("click", () => loadAuditLogs({ preserveStatus: false }));
     elements.filterForm?.addEventListener("submit", handleFilterSubmit);
     elements.resetBtn?.addEventListener("click", resetFilters);
+    elements.auditLogList?.addEventListener("click", handleAuditLogClick);
     for (const button of elements.presetButtons) {
       button.addEventListener("click", () => applyTimePreset(button.dataset.auditRange || ""));
     }
@@ -127,10 +129,18 @@
     function renderSummary() {
       const sensitiveCount = pageState.logs.filter((item) => SENSITIVE_ACTIONS.has(item.action)).length;
       const latest = pageState.logs[0];
-      elements.summaryRole.textContent = helpers.isAdmin() ? "管理员可查看" : "只读说明";
-      elements.summaryTotal.textContent = String(pageState.logs.length);
-      elements.summarySensitive.textContent = String(sensitiveCount);
-      elements.summaryLatest.textContent = latest ? getActionLabel(latest.action) : "暂无";
+      if (elements.summaryRole) {
+        elements.summaryRole.textContent = helpers.isAdmin() ? "管理员可查看" : "只读说明";
+      }
+      if (elements.summaryTotal) {
+        elements.summaryTotal.textContent = String(pageState.logs.length);
+      }
+      if (elements.summarySensitive) {
+        elements.summarySensitive.textContent = String(sensitiveCount);
+      }
+      if (elements.summaryLatest) {
+        elements.summaryLatest.textContent = latest ? getActionLabel(latest.action) : "暂无";
+      }
     }
 
     function renderFilterState() {
@@ -182,14 +192,10 @@
       ];
 
       elements.auditHighlights.innerHTML = highlights.map((item) => `
-        <article class="source-card">
-          <div class="source-card-head">
-            <div>
-              <strong>${helpers.escapeHtml(item.title)}</strong>
-              <p>${helpers.escapeHtml(item.body)}</p>
-            </div>
-          </div>
-        </article>
+        <div class="audit-summary-item">
+          <span>${helpers.escapeHtml(item.title)}</span>
+          <strong>${helpers.escapeHtml(item.body)}</strong>
+        </div>
       `).join("");
     }
 
@@ -198,53 +204,112 @@
         const emptyDescription = hasActiveFilters()
           ? "没有找到符合条件的日志，请尝试切换动作类型或清空关键词。"
           : "完成一次注册、授权变更或安全操作后，这里会自动出现真实记录。";
-        elements.auditLogList.innerHTML = helpers.renderEmptyState(
+        renderEmptyRow(
+          elements.auditLogList,
+          7,
           "还没有审计日志",
-          emptyDescription,
-          "soft",
+          emptyDescription
         );
         return;
       }
 
-      elements.auditLogList.innerHTML = pageState.logs.map((log) => `
-        <article class="access-user-card audit-log-card">
-          <div class="panel-head compact">
-            <div>
-              <h3>${helpers.escapeHtml(getActionLabel(log.action))}</h3>
-              <p class="subtle">${helpers.escapeHtml(log.created_at || "未知时间")}</p>
-            </div>
-            <span class="status-chip ${SENSITIVE_ACTIONS.has(log.action) ? "is-warn" : "is-ok"}">
+      elements.auditLogList.innerHTML = pageState.logs.map((log, index) => `
+        <tr class="access-user-card audit-log-card">
+          <td class="row-number-col">${index + 1}</td>
+          <td class="date-cell">${helpers.escapeHtml(log.created_at || "未知时间")}</td>
+          <td class="strong-cell">${helpers.escapeHtml(getActionLabel(log.action))}</td>
+          <td>
+            <span class="table-status ${SENSITIVE_ACTIONS.has(log.action) ? "is-inactive" : "is-active"}">
               ${SENSITIVE_ACTIONS.has(log.action) ? "高风险" : "常规"}
             </span>
-          </div>
-          <div class="audit-meta-grid">
-            <div class="meta-card">
-              <span class="label">操作人</span>
+          </td>
+          <td>
+            <div class="table-user-cell">
               <strong>${helpers.escapeHtml(formatActor(log.actor_username))}</strong>
-              <p>${helpers.escapeHtml(log.actor_role || "未知角色")}</p>
+              <span>${helpers.escapeHtml(log.actor_role || "未知角色")}</span>
             </div>
-            <div class="meta-card">
-              <span class="label">目标账号</span>
+          </td>
+          <td>
+            <div class="table-user-cell">
               <strong>${helpers.escapeHtml(log.target_username || "无")}</strong>
-              <p>${helpers.escapeHtml(log.target_role || "无")}</p>
+              <span>${helpers.escapeHtml(log.target_role || "无")}</span>
             </div>
-          </div>
-          <div class="audit-metadata-list">${renderMetadata(log.metadata)}</div>
-        </article>
+          </td>
+          <td>
+            ${renderMetadataCell(log)}
+          </td>
+        </tr>
       `).join("");
     }
 
-    function renderMetadata(metadata) {
-      const entries = Object.entries(metadata || {}).filter(([, value]) => value !== null && value !== undefined && value !== "");
+    function handleAuditLogClick(event) {
+      const toggle = event.target.closest("[data-audit-meta-toggle]");
+      if (!toggle) {
+        return;
+      }
+      const row = toggle.closest(".audit-log-card");
+      const detail = row?.querySelector("[data-audit-meta-detail]");
+      if (!row || !detail) {
+        return;
+      }
+      const expanded = detail.hidden;
+      detail.hidden = !expanded;
+      toggle.setAttribute("aria-expanded", String(Boolean(expanded)));
+      row.classList.toggle("is-meta-open", Boolean(expanded));
+    }
+
+    function renderMetadataCell(log) {
+      const entries = getMetadataEntries(log.metadata);
       if (!entries.length) {
-        return '<div class="note">当前动作没有额外元信息。</div>';
+        return '<span class="table-muted">无额外元信息</span>';
+      }
+      const detailId = `audit-meta-${log.id || Math.random().toString(36).slice(2)}`;
+      return `
+        <div class="audit-metadata-cell">
+          <div class="audit-metadata-summary-row">
+            <span class="audit-meta-summary">${entries.length} 项元信息</span>
+            <button class="table-icon-btn" type="button" data-audit-meta-toggle aria-expanded="false" aria-controls="${helpers.escapeHtml(detailId)}" title="展开元信息" aria-label="展开审计元信息">${renderIcon("details")}</button>
+          </div>
+          <div id="${helpers.escapeHtml(detailId)}" class="audit-metadata-detail" data-audit-meta-detail hidden>
+            <div class="audit-metadata-inline">${renderMetadata(log.metadata)}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMetadata(metadata) {
+      const entries = getMetadataEntries(metadata);
+      if (!entries.length) {
+        return '<span class="table-muted">无额外元信息</span>';
       }
       return entries.map(([key, value]) => `
-        <div class="audit-metadata-item">
-          <span class="label">${helpers.escapeHtml(formatMetaKey(key))}</span>
-          <strong>${helpers.escapeHtml(formatMetaValue(value))}</strong>
-        </div>
+        <span class="audit-meta-chip">${helpers.escapeHtml(formatMetaKey(key))}：${helpers.escapeHtml(formatMetaValue(value))}</span>
       `).join("");
+    }
+
+    function getMetadataEntries(metadata) {
+      return Object.entries(metadata || {}).filter(([, value]) => value !== null && value !== undefined && value !== "");
+    }
+
+    function renderIcon(type) {
+      const icons = {
+        details: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01"></path><path d="M12 12h.01"></path><path d="M19 12h.01"></path></svg>',
+      };
+      return icons[type] || icons.details;
+    }
+
+    function renderEmptyRow(container, colSpan, title, body) {
+      if (!container) {
+        return;
+      }
+      container.innerHTML = `
+        <tr>
+          <td colspan="${colSpan}" class="users-table-empty">
+            <strong>${helpers.escapeHtml(title)}</strong>
+            <span>${helpers.escapeHtml(body)}</span>
+          </td>
+        </tr>
+      `;
     }
 
     function buildAuditQuery() {

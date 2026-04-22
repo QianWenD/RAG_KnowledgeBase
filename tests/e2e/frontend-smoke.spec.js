@@ -25,6 +25,17 @@ const inactiveUser = {
 };
 
 async function mockAuthenticatedShell(page) {
+  await page.route("**/fonts.googleapis.com/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/css",
+      body: "",
+    });
+  });
+  await page.route("**/fonts.gstatic.com/**", async (route) => {
+    await route.abort();
+  });
+
   await page.route("**/auth/me", async (route) => {
     await route.fulfill({
       status: 200,
@@ -185,20 +196,75 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator("#source-table")).toContainText("policy_2026");
   });
 
-  test("sidebar accordion keeps one navigation group open", async ({ page }) => {
+  test("dashboard overview keeps compact top and separated entry cards", async ({ page }) => {
+    await page.goto(`${baseURL}/`);
+    const topbar = page.locator(".topbar");
+    const overviewStrip = page.locator(".overview-strip");
+    const entryGrid = page.locator(".split-panel-grid-3");
+    const topbarHeight = () => topbar.evaluate((element) => Math.round(element.getBoundingClientRect().height));
+    const overviewGap = () => overviewStrip.evaluate((element) => parseFloat(getComputedStyle(element).columnGap));
+    const entryGap = () => entryGrid.evaluate((element) => parseFloat(getComputedStyle(element).columnGap));
+
+    await expect(topbar).toBeVisible();
+    await expect(topbar).toContainText("基础库总览");
+    await expect(page.locator(".topbar-copy")).toHaveCount(0);
+    await expect(page.locator(".page-utility-bar")).toHaveCount(0);
+    await expect(page.locator(".section-nav-bar")).toHaveCount(0);
+    await expect.poll(topbarHeight).toBeLessThan(90);
+    await expect(page.locator(".overview-card")).toHaveCount(3);
+    await expect(page.locator(".link-panel")).toHaveCount(4);
+    await expect(page.locator(".link-panel", { hasText: "数据源管理" })).toBeVisible();
+    await expect.poll(overviewGap).toBeGreaterThanOrEqual(18);
+    await expect.poll(entryGap).toBeGreaterThanOrEqual(20);
+  });
+
+  test("sidebar navigation mirrors kbms collapsed rail and independent groups", async ({ page }) => {
     await page.goto(`${baseURL}/knowledge/sources`);
+    const shell = page.locator(".shell");
+    const rail = page.locator(".rail");
+    const headerToggle = page.locator("#chrome-menu-toggle");
     const dataGroup = page.locator(".side-nav-group", { hasText: "数据管理" });
     const knowledgeGroup = page.locator(".side-nav-group", { hasText: "知识库" });
     const baseGroup = page.locator(".side-nav-group", { hasText: "基础库" });
+    const firstColumnWidth = () =>
+      shell.evaluate((element) => parseFloat(getComputedStyle(element).gridTemplateColumns.split(" ")[0]));
+    const baseGroupHeight = () =>
+      baseGroup.evaluate((element) => Math.round(element.getBoundingClientRect().height));
+    const dataGroupHeight = () =>
+      dataGroup.evaluate((element) => Math.round(element.getBoundingClientRect().height));
 
+    await expect(rail).toBeVisible();
+    await expect(page.locator(".brand")).not.toBeVisible();
+    await expect(headerToggle).toBeVisible();
+    await expect(headerToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("[data-sidebar-toggle]")).toHaveCount(0);
+    await expect.poll(firstColumnWidth).toBeGreaterThan(200);
     await expect(dataGroup).toHaveAttribute("open", "");
     await expect(knowledgeGroup).not.toHaveAttribute("open", "");
     await expect(baseGroup).not.toHaveAttribute("open", "");
+    await expect.poll(baseGroupHeight).toBeLessThan(60);
 
     await knowledgeGroup.locator("summary").click();
     await expect(knowledgeGroup).toHaveAttribute("open", "");
-    await expect(dataGroup).not.toHaveAttribute("open", "");
+    await expect(dataGroup).toHaveAttribute("open", "");
     await expect(knowledgeGroup.locator('a[href="/knowledge"]')).toBeVisible();
+
+    await headerToggle.click();
+    await expect(page.locator("body")).toHaveClass(/sidebar-collapsed/);
+    await expect(headerToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(rail).toBeVisible();
+    await expect(headerToggle).toBeVisible();
+    await expect.poll(firstColumnWidth).toBeLessThan(90);
+    await expect(dataGroup.locator(".side-nav-label")).not.toBeVisible();
+    await expect(dataGroup.locator(".side-nav-list")).not.toBeVisible();
+    await expect.poll(dataGroupHeight).toBeLessThan(60);
+    await expect.poll(baseGroupHeight).toBeLessThan(60);
+
+    await headerToggle.click();
+    await expect(page.locator("body")).not.toHaveClass(/sidebar-collapsed/);
+    await expect(headerToggle).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(firstColumnWidth).toBeGreaterThan(200);
+    await expect(dataGroup.locator(".side-nav-list")).toBeVisible();
   });
 
   test("audit quick time presets write range filters into API request and URL", async ({ page }) => {
@@ -263,6 +329,7 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(analystCard).toBeVisible();
 
     await analystCard.locator("[data-role-select]").selectOption("admin");
+    await analystCard.locator("[data-source-edit-toggle]").click();
     await analystCard.locator('[data-user-source="java"]').check();
     await analystCard.locator("[data-user-source-custom]").fill("policy_2026");
     await analystCard.locator("[data-active-toggle]").uncheck();
@@ -387,6 +454,16 @@ test.describe("RAGPro auth pages", () => {
   test.beforeEach(async ({ page }) => {
     consoleErrors = captureConsoleErrors(page);
     isAuthenticated = false;
+    await page.route("**/fonts.googleapis.com/**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/css",
+        body: "",
+      });
+    });
+    await page.route("**/fonts.gstatic.com/**", async (route) => {
+      await route.abort();
+    });
     await page.route("**/auth/me", async (route) => {
       await route.fulfill({
         status: isAuthenticated ? 200 : 401,
