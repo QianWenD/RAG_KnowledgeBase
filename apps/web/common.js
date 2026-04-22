@@ -778,9 +778,42 @@
         message = text;
       }
     }
-    const wrapped = new Error(message);
+    const wrapped = new Error(localizeHttpErrorMessage(message));
     wrapped.status = response.status;
     return wrapped;
+  }
+
+  function localizeHttpErrorMessage(message) {
+    const raw = String(message || "").trim();
+    const normalized = raw.replace(/[.。]\s*$/, "").toLowerCase();
+    const exactMessages = {
+      "username already exists": "用户名已存在，请换一个账号名。",
+      "invalid username or password": "用户名或密码不正确。",
+      "account is disabled": "账号已停用，请联系管理员。",
+      "authentication required": "登录状态已失效，请重新登录。",
+      "current password is incorrect": "当前密码不正确。",
+      "user not found": "用户不存在或已被删除。",
+      "administrators cannot delete their own account": "管理员不能删除自己的账号。",
+      "unsupported role": "不支持的角色，请选择 admin 或 user。",
+      "username is too long": "用户名过长，最多 64 位。",
+      "username can only contain letters, numbers, underscore, dash, and dot": "用户名只能包含字母、数字、下划线、短横线和点。",
+      "invalid sources: use 1-50 letters, numbers, underscores, or hyphens": "来源格式不正确，只能使用 1-50 位字母、数字、下划线或短横线。",
+    };
+    if (exactMessages[normalized]) {
+      return exactMessages[normalized];
+    }
+    const usernameMinMatch = raw.match(/Username must be at least (\d+) characters long/i);
+    if (usernameMinMatch) {
+      return `用户名至少需要 ${usernameMinMatch[1]} 位。`;
+    }
+    const passwordMinMatch = raw.match(/Password must be at least (\d+) characters long/i);
+    if (passwordMinMatch) {
+      return `密码至少需要 ${passwordMinMatch[1]} 位。`;
+    }
+    if (raw.startsWith("[") || raw.startsWith("{")) {
+      return "提交内容不符合要求，请检查用户名、密码、角色和来源格式。";
+    }
+    return raw;
   }
 
   function formatBytes(bytes) {

@@ -449,6 +449,16 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.getByRole("dialog", { name: "新增用户" })).toBeVisible();
     await expect(page.locator("#users-create-feedback")).toHaveClass(/is-error/);
     await expect(page.locator("#users-create-feedback")).toContainText("自定义来源");
+    await expect
+      .poll(async () => page.evaluate(async () => {
+        const response = new Response(JSON.stringify({ detail: "Username already exists." }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+        const error = await window.RagProCommon.helpers.buildHttpError(response);
+        return error.message;
+      }))
+      .toBe("用户名已存在，请换一个账号名。");
   });
 
   test("users security page creates accounts and triggers sensitive actions", async ({ page }) => {
