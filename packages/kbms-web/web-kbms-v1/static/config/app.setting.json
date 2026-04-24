@@ -1,0 +1,22 @@
+{
+  "api": {
+    "upms": "http://192.168.2.231:8081/",
+    "kbms": "http://192.168.2.231:8082/",
+    "uploadPctrue": "http://192.168.1.55/024/"
+  },
+  "config": {
+    "SYSTEM_TITLE1": "新疆医疗数据科技有限公司",
+    "SYSTEM_TITLE2": "知识库&规则库",
+    "SYSTEM_THEME": "blue",
+    "ELEMENT_SIZE": "mini",
+    "VERSION": "company",
+    "HEADER_MENU_USE": false,
+    "REQUEST_TIME_OUT": 300000
+  },
+  "constant": {
+    "USER_TOKEN": "USER_TOKEN",
+    "USER_INFO": "USER_INFO",
+    "USER_MENU": "USER_MENU",
+    "USER_MENUTREE": "USER_MENUTREE"
+  }
+}

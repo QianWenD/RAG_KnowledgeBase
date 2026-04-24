@@ -1,0 +1,96 @@
+/* Element Chalk Variables */
+
+// 主题色
+$--color-primary: #3CA0EC;
+$--color-success: #67c23a !default;
+$--color-warning: #e6a23c !default;
+$--color-danger: #f56c6c !default;
+$--color-info: #909399 !default;
+
+// button
+$--button-mini-padding-vertical: 6px !default;
+$--button-mini-padding-horizontal: 14px !default;
+
+// 边框色
+$--border-color-lighter: #e4e4e4 !default;
+
+// inline form 默认宽度
+$--form-input-width: 175px;
+
+/* Colors
+-------------------------- */
+$--color-text-primary: #3c3c3c !default;
+$--color-text-regular: #333333 !default;
+$--color-text-secondary: #475156 !default;
+$--color-text-placeholder: #c0c4cc !default;
+
+/* Table
+-------------------------- */
+// $--table-border-color: $--border-color-lighter !default;
+// $--table-border: 2px solid #b3e4fc !default;
+$--table-text-color: #262626 !default;
+$--table-header-color: #3a434a !default;
+$--table-row-hover-background: #e2e8f1 !default;
+$--table-current-row-background: #b3e4fc !default;
+$--table-header-background: #F0F2F4 !default;
+// $--table-footer-background: $--color-text-placeholder !default;
+$--table-fixed-box-shadow: 0 0 0 rgba(0, 0, 0, .12) !default;
+
+/* Border
+-------------------------- */
+$--border-color-base: #cadee7 !default;
+
+/* Button
+-------------------------- */
+$--button-border-radius: 0px !default;
+$--button-medium-border-radius: 0 !default;
+$--button-small-border-radius: 0 !default;
+$--button-mini-border-radius: 4px !default;
+$--button-default-color: #ffffff !default;
+$--button-primary-color: #ffffff !default;
+$--button-default-fill: #3CA0EC !default;
+$--button-primary-fill: #3CA0EC !default;
+$--button-default-border: #3CA0EC !default;
+$--button-primary-border: #3CA0EC !default;
+$--button-small-font-size: 15px !default;
+$--button-mini-font-size: 15px !default;
+
+$--button-padding-vertical: 5px !default;
+$--button-padding-horizontal: 20px !default;
+$--button-medium-padding-vertical: 5px !default;
+$--button-medium-padding-horizontal: 20px !default;
+$--button-mini-padding-vertical: 5px !default;
+$--button-mini-padding-horizontal: 16px !default;
+
+/* Tab
+-------------------------- */
+$--tab-font-size: 14px !default;
+
+/* Dialog
+-------------------------- */
+$--dialog-close-hover-color: #3ca0ec !default;
+$--dialog-title-font-size: 17px !default;
+$--dialog-padding-primary: 10px !default;
+$--dialog-line-height: 18px !default;
+
+/* Input
+-------------------------- */
+$--input-border-color: #7f9db9 !default;
+$--input-border-radius: 4px !default;
+$--input-disabled-fill: #f0f0f0 !default;
+$--input-disabled-color: #343d45 !default;
+
+$--input-medium-font-size: 14px !default;
+$--input-medium-height: 26px !default;
+
+$--input-small-font-size: 14px !default;
+$--input-small-height: 26px !default;
+
+$--input-mini-font-size: 15px !default;
+$--input-mini-height: 26px !default;
+
+/* Message Box
+-------------------------- */
+$--msgbox-border-radius: 0 !default;
+$--msgbox-padding-primary: 10px !default;
+$--msgbox-font-size: 13px !default;

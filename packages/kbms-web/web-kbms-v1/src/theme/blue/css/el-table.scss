@@ -1,0 +1,62 @@
+/* Table
+-------------------------- */
+.el-table {
+  font-size: 13px;
+  th {
+    font-size: 15px;
+    background-color: #F0F2F4;
+    .cell {
+      line-height: 30px;
+    }
+  }
+  th, td {
+    padding: 0;
+    height: 30px;
+  }
+  &.el-table--medium {
+    font-size: 13px;
+    th, td {
+      padding: 0;
+    }
+  }
+
+  &.el-table--small {
+    font-size: 13px;
+    th, td {
+      padding: 0;
+    }
+  }
+
+  &.el-table--mini {
+    font-size: 13px;
+    th, td {
+      padding: 0;
+    }
+  }
+  .caret-wrapper {
+    height: 14px;
+    width: 18px;
+  }
+
+  .sort-caret {
+    left: 5px;
+
+    &.ascending {
+      top: -4px;
+    }
+
+    &.descending {
+      bottom: -3px;
+    }
+  }
+}
+.el-table__body {
+  tr:hover, tr.hover-row, tr.hover-row.el-table__row--striped {
+    > td {
+      background-color: #e2e8f1;
+    }
+  }
+}
+.el-table-column--selection .cell {
+  padding: 0 0 0 8px;
+}

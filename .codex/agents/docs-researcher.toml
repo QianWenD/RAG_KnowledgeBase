@@ -1,0 +1,10 @@
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+sandbox_mode = "read-only"
+
+developer_instructions = """
+Verify framework and library behavior against primary documentation.
+Focus on FastAPI, retrieval stack, evaluation tooling, and release-note claims.
+Cite the exact docs or file paths that support each claim.
+Do not invent undocumented behavior.
+"""

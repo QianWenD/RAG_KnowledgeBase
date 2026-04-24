@@ -1,0 +1,267 @@
+/* @Author: 吴慧慧
+ *菜单：知识库-诊疗-手术限价规则
+<template>
+  <div>
+    <kindo-box title="查询条件" icon="xx">
+      <el-form :model="search" label-position="right" onsubmit="return false;" inline
+        @keyup.enter.prevent.native="get('table')">
+        <el-form-item label="诊疗项目">
+          <el-input v-model.trim="search.itemName" clearable placeholder="请输入名称或编码"></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="control">
+        <el-button icon="el-icon-search" type="primary" @click="get('table')">查询</el-button>
+      </div>
+    </kindo-box>
+    <kindo-box title="手术限价规则">
+      <kindo-table ref="table" :url="table.url" :default-sort="tableSort" :queryParam="search"
+        @selection-change="(selection) => selectionChange(selection, 'selection')"
+        @filter-change="(filters)=>filterChange(filters,'table', 'search')">
+        <el-table-column type="selection" fixed="left" width="30"></el-table-column>
+        <el-table-column label="组号" prop="groupingCode" width="70" header-align="center" sortable='custom'
+          show-overflow-tooltip></el-table-column>
+        <el-table-column label="组名称" prop="groupingName" min-width="140" header-align="center" sortable='custom'
+          show-overflow-tooltip></el-table-column>
+        <el-table-column label="诊疗项目编码" prop="itemCode" width="130" header-align="center" sortable='custom'
+          show-overflow-tooltip></el-table-column>
+        <el-table-column label="诊疗项目名称" prop="itemName" min-width="140" header-align="center" sortable='custom'
+          show-overflow-tooltip></el-table-column>
+        <el-table-column label="市级限价" prop="cityPrice" :formatter="(r,c,v) => kindo.util.formatNum(v)" width="100" align="right" header-align="center"
+        sortable  show-overflow-tooltip>
+        </el-table-column>
+        <el-table-column label="限价限价" prop="countyPrice" :formatter="(r,c,v) => kindo.util.formatNum(v)" width="100" align="right" header-align="center"
+        sortable  show-overflow-tooltip>
+        </el-table-column>
+        <el-table-column label="非公立限价" prop="nonPublicPrice" :formatter="(r,c,v) => kindo.util.formatNum(v)" width="120" align="right" header-align="center"
+        sortable  show-overflow-tooltip>
+        </el-table-column>
+        <el-table-column label="描述" prop="remark" min-width="140" align="left" header-align="center"
+          show-overflow-tooltip></el-table-column>
+        <el-table-column label="审核状态" prop="status" width="100" align="center" header-align="center" columnKey='status'
+          :filters="filtersDict.AUDIT_STATUS" :filter-method="filterHandler" :filter-multiple="false"
+          filter-placement="bottom-end" show-overflow-tooltip>
+          <template slot-scope="scope">
+            <el-tag v-if="scope.row.status" :type="scope.row.status === '1'?'success':'info'" close-transition>
+              {{kindo.dictionary.getLabel(dict.AUDIT_STATUS,scope.row.status)}}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" align="center" fixed="right">
+          <template slot-scope="scope">
+            <el-tooltip class="item" effect="dark" :open-delay="300" content="新增" placement="top-start">
+              <el-button type="text" icon="el-icon-plus" @click="addRow(scope.row)"></el-button>
+            </el-tooltip>
+            <el-tooltip class="item" effect="dark" :open-delay="300" content="编辑" placement="top-start">
+              <el-button type="text" icon="el-icon-edit" @click="editRow(scope.row)">
+              </el-button>
+            </el-tooltip>
+            <el-tooltip class="item" effect="dark" :open-delay="300" content="删除" placement="top-start">
+              <el-button type="text" icon="el-icon-delete" @click="deleteOne(scope.row.id, 'table')"></el-button>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+      </kindo-table>
+      <div slot="control">
+        <el-button icon="el-icon-plus" type="text" @click="insert('visible', 'form', 'tableInsert')">新增</el-button>
+        <el-button icon="el-icon-delete" type="text" @click="batch('selection', 'table', 'delete')">删除</el-button>
+        <el-button icon="el-icon-view" type="text" @click="batch('selection', 'table', 'audit')">审核</el-button>
+        <!-- <el-button icon="el-icon-k-sys-export" type="text" @click="exportData">导出</el-button> -->
+        <!-- <el-button icon="el-icon-k-sys-import" type="text" @click="exportData">导入</el-button> -->
+      </div>
+    </kindo-box>
+    <el-dialog v-drag top="0" :visible.sync="visible" :title="(form.id?'编辑':'新增') +'诊疗项目'"
+      :close-on-click-modal="false">
+      <el-form :model="form" label-position="right" ref="form" class="box" label-width="110px" :rules="formRules">
+        <el-form-item label="组编码" prop="groupingCode">
+          <el-input disabled v-model.trim="form.groupingCode" clearable></el-input>
+        </el-form-item>
+        <el-form-item label="组名称" prop="groupingName">
+          <el-input :disabled="form.groupingCode !== ''" v-model.trim="form.groupingName" clearable></el-input>
+        </el-form-item>
+        <el-form-item label="诊疗项目" style="display:block;" prop="itemCode">
+          <el-select v-model.trim="form.itemCode" size="mini" :disabled="form.id !== ''"
+            @blur="(ev)=>{blurSel(ev,form,'itemCode','commonDrugList')}" placeholder="请输入选择" clearable filterable
+            :loading="loading" remote :remote-method="(query) => getDictRemote('commonDrugList', 'itemName', query)">
+            <li class="title">
+              <span>代码值</span>
+              <span>代码标题</span>
+            </li>
+            <li class="tip">
+              <span>
+                &lt;请选择&gt;
+              </span>
+            </li>
+            <el-option v-for="item in list.commonDrugList" :key="item.value" :label="item.label" :value="item.value">
+              <span>{{ item.value }}</span>
+              <span>{{ item.label }}</span>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="市级限价" prop="cityPrice" v-if="!form.groupingCode">
+          <el-input-number v-model="form.cityPrice" :precision="2" :max="99000000" :controls="false"></el-input-number>
+        </el-form-item>
+        <el-form-item label="县级限价" prop="countyPrice" v-if="!form.groupingCode">
+          <el-input-number v-model="form.countyPrice" :precision="2" :max="99000000" :controls="false">
+          </el-input-number>
+        </el-form-item>
+        <el-form-item label="非公立限价" prop="nonPublicPrice" v-if="!form.groupingCode">
+          <el-input-number v-model="form.nonPublicPrice" :precision="2" :max="99000000" :controls="false">
+          </el-input-number>
+        </el-form-item>
+        <el-form-item label="描述" prop="remark">
+          <el-input type="textarea" :rows="2" placeholder="请输入内容" v-model.trim="form.remark"></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" icon="fa fa-floppy-o" @click="saveData">保 存</el-button>
+        <el-button @click="visible = false" icon="el-icon-close" type="primary">取 消</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import config from './config/index.js'
+import mixin from '@src/utils/helper/tableMixIn.js'
+
+export default {
+  name: 'serviceRule',
+  mixins: [mixin],
+  data() {
+    return {
+      // 表格默认排序
+      tableSort: {
+        prop: 'groupingCode',
+        order: 'descending'
+      },
+      dict: {
+        AUDIT_STATUS: []
+      },
+      filtersDict: {
+        // 表内筛选审核状态数组
+        AUDIT_STATUS: []
+      },
+      list: {
+        commonDrugList: []
+      },
+      table: {
+        url: config.api.table
+      },
+      selection: [],
+      loading: false,
+      search: {
+        itemName: '',
+        status: ''
+      },
+      // 下拉列表项目
+      form: {
+        id: '',
+        groupingName: '',
+        groupingCode: '',
+        itemCode: '',
+        cityPrice: undefined,
+        countyPrice: undefined,
+        nonPublicPrice: undefined,
+        remark: ''
+      },
+      formRules: {
+        groupingName: [{ required: true, message: '请输入', trigger: 'blur' }],
+        itemCode: [{ required: true, message: '请选择', trigger: 'blur' }],
+        remark: [{ min: 0, max: 200, message: '长度不能超过200', trigger: 'blur' }]
+      },
+      visible: false
+    }
+  },
+
+  created() {
+    this._form = Object.assign({}, this.form)
+    // 审核状态数据字典获取
+    this.getDict(this.dict, this.filtersDict)
+  },
+
+  mounted() {
+    this.$nextTick(() => {
+      this.$refs.table.reloadData()
+    })
+  },
+
+  methods: {
+    // 诊疗项目远程查询
+    getDictRemote(dict, searchName, searchVal) {
+      let param = { rows: 200, [searchName]: searchVal }
+      this.$http.get(this.api.medicalTreatment, { params: param }).then(res => {
+        this.list[dict] =
+          res.data.rows.map(item => {
+            return { label: item.itemName, value: item.itemCode }
+          }) || []
+      })
+    },
+    // 新增
+    tableInsert() {
+      this.list.commonDrugList = []
+    },
+    // 行新增
+    addRow(row) {
+      kindo.util.promise(() => {
+        this.visible = true
+      }).then(() => {
+        this.$refs.form.resetFields()
+      }).then(() => {
+        this.form.id = ''
+        this.form.groupingCode = row.groupingCode
+        this.form.groupingName = row.groupingName
+      })
+    },
+    // 编辑
+    editRow(row) {
+      kindo.util.promise(() => {
+        this.visible = true
+      }).then(() => {
+        this.$refs.form.resetFields()
+        this.form.id = ''
+      }).then(() => {
+        for (var key in this.form) {
+          if (row[key] !== null) {
+            this.form[key] = row[key]
+          }
+        }
+      })
+    },
+    // 编辑
+    tableEdit(row) {
+      this.list.commonDrugList = [{ value: row.itemCode, label: row.itemName }]
+    },
+    // 保存
+    saveData() {
+      this.$refs.form.validate(valid => {
+        if (valid) {
+          let mainUrl = config.api.table
+          if (this.form.id === '' && this.form.groupingCode !== '') {
+            mainUrl = config.api.addRow
+          }
+          let requestType = 'post'
+          // 若有id则为编辑保存
+          if (this.form.id) {
+            requestType = 'put'
+          }
+          this.$http[requestType](mainUrl, this.form).then(res => {
+            kindo.util.alert(res.message, '提示', 'success')
+            this.visible = false
+            this.get('table')
+          })
+        }
+      })
+    },
+    // 导出
+    exportData() {
+      window.open(kindo.util.exportUrl(config.api.export, this.search))
+    }
+  },
+  watch: {
+    'form.itemCode': function (val) {
+      if (val === '') {
+        this.list.commonDrugList = []
+      }
+    }
+  }
+}
+</script>

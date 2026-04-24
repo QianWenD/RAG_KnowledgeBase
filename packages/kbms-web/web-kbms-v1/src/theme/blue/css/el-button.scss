@@ -1,0 +1,24 @@
+$buttonColor: #46A5ED;
+.el-button {
+  & + .el-button {
+    margin-left: 0;
+  }
+  &:hover {
+    background-color: $buttonColor;
+    border-color: $buttonColor;
+    color: #fff;
+  }
+  &.el-button--text {
+    color: $buttonColor;
+    &:hover,
+    &:focus {
+      border-color: transparent;
+      background-color: transparent;
+      color: $buttonColor;
+    }
+  }
+  i[class^='fa'],
+  [class*=' fa'] {
+    font-size: 13px;
+  }
+}

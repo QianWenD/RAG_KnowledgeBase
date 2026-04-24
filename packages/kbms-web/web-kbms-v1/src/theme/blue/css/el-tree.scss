@@ -1,0 +1,8 @@
+.el-tree {
+    .currentNode .custom-tree-node {
+        & {
+            color: #409eff;
+            font-weight: bolder;
+        }
+    }
+}

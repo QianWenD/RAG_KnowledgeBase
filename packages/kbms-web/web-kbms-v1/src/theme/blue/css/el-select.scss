@@ -1,0 +1,22 @@
+.el-select-dropdown__list {
+  .title {
+    span {
+      margin-left: 50px;
+      font-weight: bold;
+    }
+    span:nth-child(2) {
+      float: right;
+      margin-right: 50px;
+    }
+  }
+  .tip {
+    text-align: center;
+    span {
+    }
+  }
+  .el-select-dropdown__item {
+    span:nth-child(2) {
+      float: right;
+    }
+  }
+}

@@ -1,0 +1,29 @@
+#body {
+  .el-form.el-form--inline {
+    .el-form-item__content {
+      min-width: $--form-input-width;
+    }
+
+    .el-date-editor,
+    .el-form-item__content > .el-input,
+    .el-form-item__content > .el-select {
+      width: $--form-input-width;
+    }
+
+    .el-form-item__label {
+      width: 110px;
+    }
+
+    .el-range-editor {
+      width: 220px;
+
+      .el-range-input {
+        width: 80px;
+      }
+      .el-range-separator {
+        min-width: 14px;
+        padding: 0;
+      }
+    }
+  }
+}

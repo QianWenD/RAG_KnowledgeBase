@@ -1,0 +1,20 @@
+.el-message-box {
+  border: 5px solid #368ee5;
+  margin-right: -1px;
+  .el-message-box__header {
+    background-color: #368ee5;
+    padding: 0 10px;
+    height: 23px;
+    background-color: #368ee5;
+    .el-message-box__title {
+      color: #fff;
+      line-height: 20px;
+    }
+    .el-message-box__headerbtn {
+      top: 1px;
+      .el-message-box__close {
+        color: #fff;
+      }
+    }
+  }
+}

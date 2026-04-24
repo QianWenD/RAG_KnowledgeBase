@@ -1,0 +1,494 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>事中提醒</title>
+  <script src='jquery.min.js'></script>
+  <link rel="stylesheet" href="GB-paging.css">
+</head>
+
+<body>
+  <!-- <div id="cs">随页面走动</div>
+  <div style="height:900px;"></div>
+  <div id="status-box">静态层</div> -->
+  <div class="center">
+    <div class="coninput">
+      <span>
+        <b>项目类别：</b>
+        <select class="protype">
+          <option value="">全部</option>
+          <option value="0">药品</option>
+          <option value="1">医疗</option>
+          <option value="2">耗材</option>
+        </select>
+      </span>
+      <span>
+        <b>违规规则：</b>
+        <select class="rule">
+          <option value="">全部</option>
+          <option value="0">分解住院</option>
+          <option value="1">超量用药</option>
+        </select>
+      </span>
+      <span>
+        <b>是否填写原因：</b>
+        <select class="reason">
+          <option value="">全部</option>
+          <option value="0">已填写</option>
+          <option value="1">未填写</option>
+        </select>
+      </span>
+      <span>
+        <b>开立医生：</b>
+        <select class="doctor">
+          <option value="">全部</option>
+          <option value="0">张医生</option>
+          <option value="1">王医生</option>
+        </select>
+      </span>
+      <span>
+        <b>项目名称：</b>
+        <input type="text" class="proname" placeholder="填写项目名称" value="" />
+      </span>
+      <span>
+        <input type="submit" class="ckbtn" value="查询" />
+      </span>
+    </div>
+    <div class="conlist">
+      <table class="altrowstable" id="alternatecolor">
+        <tr>
+          <th>开立时间</th>
+          <th>开立医生</th>
+          <th>医院项目名称</th>
+          <th>医院项目编码</th>
+          <th>医保项目名称</th>
+          <th>医保项目编码</th>
+          <th>项目类别</th>
+          <th>违规规则</th>
+          <th>违规描述</th>
+          <!-- <th>坚持原因</th>
+          <th>佐证依据上传</th> -->
+        </tr>
+        <tbody id="resText">
+        </tbody>
+      </table>
+      <div id="gbpaging" class="gb-paging">
+      </div>
+    </div>
+  </div>
+
+  <div id="ruler" style="display:none;">
+    <div class="rulercon">
+      <span class="colsebtn" onclick="closeruler()">关闭</span>
+      <div class="rulermain">
+        <h2>填写坚持提交医嘱原因</h2>
+        <p>
+          <span>快速选择原因：</span>
+          <select class="quick">
+            <option value="">全部</option>
+            <option value="这是我的回答哈哈">这个问题是</option>
+            <option value="这个问题是回答哈哈">可能存在问题</option>
+          </select>
+        </p>
+        <p>
+          <span>编辑原因：</span>
+          <textarea class="editcon"></textarea>
+        </p>
+        <p>
+          <input type="submit" class="cknewbtn" value="新增模板" />
+          <input type="submit" class="cksuccessbtn" onclick="successbtn()" value="确定" />
+          <input type="submit" class="ckreturnbtn" onclick="closeruler()" value="返回" />
+        </p>
+      </div>
+    </div>
+  </div>
+  <div id="moban" style="display:none;">
+    <div class="rulercon">
+      <span class="colsebtn" onclick="closeruler()">关闭</span>
+      <div class="rulermain">
+        <h2>新增快速原因</h2>
+        <p>
+          <span>新增快速原因标题：</span>
+          <input type="text" class="newname" placeholder="填写项目名称" value="" />
+        </p>
+        <p>
+          <span>新增快速原因内容：</span>
+          <textarea class="newcon"></textarea>
+        </p>
+        <p>
+          <input type="submit" class="cksutobtn" value="保存" />
+          <input type="submit" class="ckgotobtn" value="返回" />
+        </p>
+      </div>
+    </div>
+  </div>
+  <script>
+    var getpage = 0
+  </script>
+  <script src="GB-paging.js"></script>
+  <script>
+    var condata = ''
+    var total = 111 // 总数量获得
+    gbPaging({
+      total: total,
+      size: 5,// 每页页数
+      paramName: 'p',
+      curPage: getPage('p', '#'),
+      prevText: '<',
+      nextText: '>',
+      pageInfo: '{{currentPage}}/{{totalPages}}',
+      eventType: 'click'
+    });
+    $(function () {
+      $(".ckbtn").click(function () {
+        var protype = $('.protype').val()
+        var rule = $('.rule').val()
+        var reason = $('.reason').val()
+        var doctor = $('.doctor').val()
+        var proname = $('.proname').val()
+        var dataParams = { protype: protype, rule: rule, reason: reason, doctor: doctor, proname: proname }
+        $.get("test.php", dataParams,
+          function (data) {
+            // console.log(dataParams)
+          });
+      });
+    })
+    function getPage(pname, other) {
+      var page = window.location.search.replace(other + pname + '=', '') || 1;
+      getPageNum(1)
+      return parseInt(page);
+    }
+    // 翻页方法
+    function getPageNum(page) {
+      // $.ajax({
+      //   url: "http://192.168.3.56:8080/mkdbms/datadict/kbmsAge?page=1&rows=15&name=&status=",
+      //   dataType: 'json',
+      //   type: 'GET',
+      //   beforeSend: function (xhr) {
+      //     xhr.setRequestHeader("Access-Control-Allow-Origin", "*");
+      //     xhr.setRequestHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS,DELETE,PUT");
+      //     xhr.setRequestHeader("Access-Control-Allow-Headers", "Test");
+      //   },
+      //   async: false,
+      //   cache: false,
+      //   //contentType: 'application/x-www-form-urlencoded',  
+      //   success: function (sResponse) {
+      //   }
+      // });
+      var data = { "code": 200, "message": "成功", "data": { "total": 4, "rows": [{ "id": "4489c1fef88143aca8c8d5c33af2d6e2", "name": "婴儿", "minAge": 0, "maxAge": 30, "unit": "0", "remark": null, "status": "1", "creator": null, "createTime": 1523432815000, "updator": null, "updateTime": null, "auditor": "root", "auditTime": 1523703132000 }, { "id": "95200672df9c47c28b043eabc099c197", "name": "儿童", "minAge": 1, "maxAge": 14, "unit": "2", "remark": null, "status": "1", "creator": null, "createTime": 1523272749000, "updator": null, "updateTime": null, "auditor": "root", "auditTime": 1523703132000 }, { "id": "adb7c49933ff4d5281c12e2f60140153", "name": "成人", "minAge": 18, "maxAge": 50, "unit": "0", "remark": null, "status": "1", "creator": "root", "createTime": 1523415959000, "updator": null, "updateTime": null, "auditor": "root", "auditTime": 1523703132000 }, { "id": "d552565c53354167b837d8ecd2b4a32b", "name": "测试", "minAge": 1, "maxAge": 10, "unit": "0", "remark": null, "status": "1", "creator": "root", "createTime": 1523416512000, "updator": null, "updateTime": null, "auditor": "root", "auditTime": 1523703132000 }] } }
+      var str = '';
+      $.each(data.data.rows, function (i, j) {
+        // str += "<tr>"; str += "<td>" + j.name + "</td><td>" + j.minAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td id='" + j.id + "' class='ckreson'><input type='text' value='" + j.maxAge + "' /></td><td id='" + j.id + "' class='ckupload'><input type='file' class='file'/><button type='button'>上传</button></td>"; str += "</tr>";
+        str += "<tr>"; str += "<td>" + j.name + "</td><td>" + j.minAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td><td>" + j.maxAge + "</td>"; str += "</tr>";
+      })
+      $("#resText").html(str)
+      altRows('alternatecolor')
+      $(".ckreson").change(function () {
+        console.log($(this).attr('id'))
+        console.log($(this).find('input').val())
+      });
+      $(".ckreson").dblclick(function () {
+        $("select").hide()
+        $(".quick").show()
+        condata = $(this).attr('id')
+        showruler()
+        // $(".editcon").html($(this).find('input').val())
+        // console.log($(this).attr('alt'))
+        // console.log($(this).find('input').val())
+      });
+      //   $("#resText").html(data)
+      // $.get("http://192.168.3.56:8080/mkdbms/datadict/kbmsAge?name=&status=", {
+      //   page: page,
+      //   rows: 10
+      // }, function (data, textStatus) {
+      //   console.log(data)
+      //   $.each(data.result, function (i, j) { str += "<tr>"; str += "<td></td>"; str += "</tr>"; })
+      //   $("#resText").html(data)
+      // })
+    }
+
+    $(function () {
+      $(".cknewbtn").click(function () {
+        $("select").hide()
+        showmoban()
+      });
+      $(".cksutobtn").click(function () {
+        if ($(".newname").val() !== '' && $(".newcon").val() !== '') {
+          $(".quick").append("<option value='" + $(".newcon").val() + "'>" + $(".newname").val() + "</option>")
+          $(".newname").val("")
+          $(".newcon").val("")
+          showruler()
+        } else {
+          alert("请先填写内容")
+        }
+      });
+      $(".ckgotobtn").click(function () {
+        showruler()
+      });
+      $(".quick").change(function () {
+        $(".editcon").val($(this).val())
+        // alert($(this).find("option:selected").text())
+      });
+      $(".ckupload button").click(function () {
+        $(this).prev('.file').click()
+      });
+      $(".file").change(function () {
+        var file = $(this)[0].files[0];
+        console.log(file)
+        // 文件上传方法
+        // var formData = new FormData();
+        // formData.append('file', $('#file')[0].files[0]);
+        // formData.append('description', $("#description").val());
+
+        // $.ajax({
+        //   type: "POST",
+        //   url: "file/upload",
+        //   data: formData,
+        //   contentType: false,
+        //   processData: false,
+        //   success: function (data) {
+        //     data = JSON.parse(data);
+        //     if (data.success) {
+        //       alert("上传成功");
+        //     } else {
+        //       alert(data.codes);
+        //     }
+        //   }
+        // });
+      });
+    });
+    function successbtn() {
+      $('#' + condata).find('input').val($(".editcon").val())
+      closeruler()
+    }
+
+    function showruler() {
+      $("#ruler").css("display", "block");    // 显示规则
+      $("#moban").css("display", "none");    // 显示规则
+      $(".quick").show()
+    }
+    function closeruler() {
+      $("select").show()
+      $(".quick").val("")
+      $(".newname").val("")
+      $(".editcon").val("")
+      $(".newcon").val("")
+      $("#ruler").css("display", "none");  // 点击弹出层，弹出层消失
+      $("#moban").css("display", "none");  // 点击弹出层，弹出层消失
+    }
+
+    function showmoban() {
+      $("#moban").css("display", "block");    // 显示规则
+      $("#ruler").css("display", "none");    // 显示规则
+    }
+    // 隔行换色
+    function altRows(id) {
+      if (document.getElementsByTagName) {
+        var table = document.getElementById(id);
+        var rows = table.getElementsByTagName("tr");
+        for (i = 0; i < rows.length; i++) {
+          if (i % 2 == 0) {
+            rows[i].className = "evenrowcolor";
+          } else {
+            rows[i].className = "oddrowcolor";
+          }
+        }
+      }
+    }
+
+    window.onload = function () {
+      altRows('alternatecolor')
+    }
+  </script>
+  <style>
+    .center {
+      text-align: center;
+      position: absolute;
+      left: 50%;
+      top: 2%;
+      width: 1100px;
+      height: 500px;
+      margin-left: -550px;
+    }
+
+    .coninput span {
+      font-size: 14px;
+      margin: 0 10px;
+    }
+
+    .coninput b {
+      color: #000;
+      font-weight: normal;
+      font-size: 14px;
+    }
+
+    .coninput select {
+      padding: 0 10px;
+    }
+
+    .file {
+      display: none
+    }
+
+    .gb-paging {
+      width: 40%;
+      margin: 0 auto
+    }
+
+    table.altrowstable {
+      width: 100%;
+      margin: 20px 0 0 0;
+      font-family: verdana, arial, sans-serif;
+      font-size: 12px;
+      color: #333333;
+      border-width: 1px;
+      border-color: #ebeef5;
+      border-collapse: collapse;
+    }
+
+    table.altrowstable th {
+      border-width: 1px;
+      padding: 8px;
+      border-style: solid;
+      border-color: #ebeef5;
+    }
+
+    table.altrowstable td {
+      border-width: 1px;
+      padding: 8px;
+      border-style: solid;
+      border-color: #ebeef5;
+    }
+
+    .oddrowcolor {
+      background-color: #ffffff;
+    }
+
+    .evenrowcolor {
+      background-color: #f9f9f9;
+    }
+
+    #ruler2 {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      display: none;
+      z-index: 20000;
+    }
+
+    #ruler {
+      width: 100%;
+      height: 100%;
+      _height: expression(this.scrollHeight < 800 ? "800px": "auto");
+      background-color: #999;
+      filter: alpha(opacity=90);
+      -moz-opacity: 0.9;
+      opacity: 0.9;
+      position: fixed;
+      _position: absolute;
+      z-index: 2000;
+      top: 0;
+      _top: expression(documentElement.scrollTop);
+      left: 0;
+    }
+
+    #moban {
+      width: 100%;
+      height: 100%;
+      _height: expression(this.scrollHeight < 800 ? "800px": "auto");
+      background-color: #999;
+      filter: alpha(opacity=90);
+      -moz-opacity: 0.9;
+      opacity: 0.9;
+      position: fixed;
+      _position: absolute;
+      z-index: 2000;
+      top: 0;
+      _top: expression(documentElement.scrollTop);
+      left: 0;
+    }
+
+    .colsebtn {
+      display: block;
+      width: 50px;
+      height: 30px;
+      float: right;
+      font-size: 16px;
+      cursor: pointer;
+      color: #333333
+    }
+
+    .colsebtn::before {
+      content: "\2716";
+    }
+
+    .rulermain {
+      margin: 50px auto;
+      width: 520px;
+    }
+
+    .rulermain p {
+      float: left;
+      width: 100%;
+    }
+
+    .rulermain h2 {
+      font-size: 18px;
+      color: #333;
+      text-align: center;
+    }
+
+    .rulermain span {
+      display: block;
+      float: left;
+      width: 200px;
+      text-align: right;
+      vertical-align: top
+    }
+
+    .rulermain .quick {
+      width: 300px;
+    }
+
+    .rulermain .editcon {
+      width: 300px;
+      height: 200px
+    }
+
+    .rulermain .newname {
+      width: 300px;
+    }
+
+    .rulermain .newcon {
+      width: 300px;
+      height: 200px
+    }
+
+    .rulercon {
+      position: fixed;
+      right: 20%;
+      top: 15%;
+      _margin: 150px 0 0 300px;
+      width: 60%;
+      height: 60%;
+      background: #fff;
+      z-index: 20001;
+    }
+
+    .cknewbtn {
+      margin-left: 200px;
+      margin-right: 50px;
+    }
+
+    .cksutobtn {
+      margin-left: 200px;
+      margin-right: 50px;
+    }
+  </style>
+</body>
+
+</html>

@@ -1,0 +1,17 @@
+@import './../iconfont/font-awesome-4.7.0/css/font-awesome.min.css';
+@import './../iconfont/kbms/iconfont';
+@import './../iconfont/monitor/iconfont';
+
+[class^='fa'],
+[class*=' fa'] {
+  display: inline-block;
+  font: normal normal normal 14px/1 FontAwesome;
+  font-size: inherit;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.el-button [class*='fa-'] + span {
+  margin-left: 5px;
+}

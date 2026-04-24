@@ -1,0 +1,16 @@
+#body {
+  .el-menu {
+    background: transparent;
+    border-right: 0;
+  }
+
+  .el-menu--horizontal > .el-menu-item {
+    color: #f1f1f1;
+  }
+
+  .el-menu--horizontal > .el-menu-item.is-active,
+  .el-menu--horizontal > .el-menu-item:not(.is-disabled):hover {
+    background: $--color-primary;
+    color: #fff;
+  }
+}
