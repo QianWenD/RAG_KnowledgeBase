@@ -38,13 +38,17 @@ class FakeRAGService:
         query: str,
         *,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         history: list[dict] | None = None,
         retrieval_query: str | None = None,
     ) -> dict:
+        citation_source = source_filter or (
+            ",".join(allowed_sources or ()) if allowed_sources else "all"
+        )
         return {
             "answer": f"RAG::{query}",
             "retrieval_query": retrieval_query or query,
-            "citations": [{"source": source_filter or "all", "timestamp": "2026-04-08"}],
+            "citations": [{"source": citation_source, "timestamp": "2026-04-08"}],
             "context_count": 1,
             "retrieval_backend": "local",
         }
@@ -54,13 +58,17 @@ class FakeRAGService:
         query: str,
         *,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         history: list[dict] | None = None,
         retrieval_query: str | None = None,
     ) -> tuple[dict, list[str]]:
+        citation_source = source_filter or (
+            ",".join(allowed_sources or ()) if allowed_sources else "all"
+        )
         return (
             {
                 "retrieval_query": retrieval_query or query,
-                "citations": [{"source": source_filter or "all", "timestamp": "2026-04-08"}],
+                "citations": [{"source": citation_source, "timestamp": "2026-04-08"}],
                 "context_count": 1,
                 "retrieval_backend": "local",
             },
@@ -74,6 +82,7 @@ class FakeFallbackRAGService:
         query: str,
         *,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         history: list[dict] | None = None,
         retrieval_query: str | None = None,
     ) -> dict:
@@ -90,6 +99,7 @@ class FakeFallbackRAGService:
         query: str,
         *,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         history: list[dict] | None = None,
         retrieval_query: str | None = None,
     ) -> tuple[dict, list[str]]:
@@ -182,6 +192,16 @@ class UnifiedRouterTests(unittest.TestCase):
         self.assertEqual(result["debug_info"]["retrieval"]["query"], "RAG 系统如何接入 Milvus")
         self.assertEqual(result["debug_info"]["retrieval"]["citation_count"], 1)
         self.assertFalse(result["debug_info"]["fallback_used"])
+
+    def test_professional_query_records_allowed_sources_when_auto_scoped(self) -> None:
+        router = UnifiedQueryRouter(
+            faq_service=FakeFAQService(),
+            rag_service=FakeRAGService(),
+            llm=lambda prompt: "LLM",
+        )
+        result = router.route("医保限制用药怎么录入", allowed_sources=("med", "policy"))
+        self.assertEqual(result["debug_info"]["allowed_sources"], ["med", "policy"])
+        self.assertEqual(result["debug_info"]["source_filter"], None)
 
     def test_rag_fallback_marks_low_confidence_and_debug_flag(self) -> None:
         router = UnifiedQueryRouter(

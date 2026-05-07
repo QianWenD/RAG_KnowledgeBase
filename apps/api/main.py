@@ -19,13 +19,20 @@ WEB_ROOT = PROJECT_ROOT / "apps" / "web"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from ragpro.auth import QueryAccessError, filter_sources_for_user, resolve_effective_source_filter
+from ragpro.auth import QueryAccessError, filter_sources_for_user, resolve_query_source_scope
 from ragpro.config import get_logger, get_settings
 from ragpro.runtime import run_healthcheck, run_preflight
 from ragpro.routing import UnifiedQueryRouter
 
 if TYPE_CHECKING:
-    from ragpro.auth import AuditLogRecord, AuthenticatedUser
+    from ragpro.auth import (
+        AuditLogRecord,
+        AuthenticatedUser,
+        MenuItemRecord,
+        MenuRoleRecord,
+        OrgUnitRecord,
+        QuerySourceScope,
+    )
     from ragpro.conversation.repository import ConversationMySQLRepository
 
 logger = get_logger("ragpro.api")
@@ -40,15 +47,29 @@ AUDIT_ACTIONS = (
     "logout",
     "change_password",
     "admin_create_user",
+    "update_user_profile",
     "update_user_access",
     "reset_password",
     "delete_user",
+    "create_org_unit",
+    "update_org_unit",
+    "delete_org_unit",
+    "create_menu_role",
+    "update_menu_role",
+    "delete_menu_role",
+    "create_menu_item",
+    "update_menu_item",
+    "delete_menu_item",
 )
 SENSITIVE_AUDIT_ACTIONS = (
     "reset_password",
     "delete_user",
     "change_password",
+    "update_user_profile",
     "update_user_access",
+    "delete_org_unit",
+    "delete_menu_role",
+    "delete_menu_item",
 )
 SOURCE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$")
 
@@ -130,8 +151,8 @@ def _normalize_source_name(source: str | None) -> str | None:
         raise HTTPException(
             status_code=400,
             detail=(
-                "Invalid source. Use 1-50 letters, numbers, underscores, or hyphens, "
-                "and start with a letter or number."
+                "数据源格式不正确。请使用 1-50 位字母、数字、下划线或短横线，"
+                "并以字母或数字开头。"
             ),
         )
     return normalized
@@ -152,6 +173,41 @@ def _validate_allowed_sources(values: list[str] | tuple[str, ...] | None) -> lis
             normalized.append(source)
             seen.add(source)
     return normalized
+
+
+def _merge_known_sources(*groups: list[str] | tuple[str, ...]) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for group in groups:
+        for value in group or ():
+            source = str(value).strip()
+            if source and source not in seen:
+                merged.append(source)
+                seen.add(source)
+    return merged
+
+
+def _available_sources_for_user(user: "AuthenticatedUser", auth_repository=None) -> list[str]:
+    if not user.is_admin:
+        return filter_sources_for_user(settings.valid_sources, user)
+
+    repository = auth_repository
+    owns_repository = repository is None
+    try:
+        if repository is None:
+            repository = _create_auth_repository()
+        if not hasattr(repository, "list_users"):
+            return filter_sources_for_user(settings.valid_sources, user)
+        known_sources = _merge_known_sources(settings.valid_sources)
+        for known_user in repository.list_users():
+            known_sources = _merge_known_sources(known_sources, known_user.allowed_sources)
+        return filter_sources_for_user(known_sources, user)
+    except Exception:  # pragma: no cover - defensive fallback
+        logger.exception("Failed to aggregate admin-visible sources; falling back to current user scope.")
+        return filter_sources_for_user(settings.valid_sources, user)
+    finally:
+        if owns_repository and repository is not None:
+            repository.close()
 
 
 def _normalize_audit_action(action: str | None) -> str | None:
@@ -268,7 +324,17 @@ def _serialize_user(user: AuthenticatedUser) -> dict:
         "role": user.role,
         "allowed_sources": list(user.allowed_sources),
         "is_active": user.is_active,
+        "status": "enabled" if user.is_active else "disabled",
         "created_at": user.created_at,
+        "display_name": user.display_name or user.username,
+        "name": user.display_name or user.username,
+        "work_no": user.work_no or user.username,
+        "employee_no": user.work_no or user.username,
+        "org_unit_id": user.org_unit_id,
+        "org_name": user.org_name,
+        "organization": user.org_name,
+        "menu_role_ids": list(user.menu_role_ids),
+        "menu_role_names": list(user.menu_role_names),
     }
 
 
@@ -284,6 +350,54 @@ def _serialize_audit_log(log: AuditLogRecord) -> dict:
         "target_role": log.target_role,
         "metadata": log.metadata,
         "created_at": log.created_at,
+    }
+
+
+def _serialize_org_unit(org_unit: OrgUnitRecord) -> dict:
+    return {
+        "id": org_unit.id,
+        "parent_id": org_unit.parent_id,
+        "org_code": org_unit.org_code,
+        "org_name": org_unit.org_name,
+        "org_type": org_unit.org_type,
+        "org_desc": org_unit.org_desc,
+        "sort_order": org_unit.sort_order,
+        "assigned_user_count": org_unit.assigned_user_count,
+        "created_at": org_unit.created_at,
+        "updated_at": org_unit.updated_at,
+    }
+
+
+def _serialize_menu_role(role: MenuRoleRecord) -> dict:
+    return {
+        "id": role.id,
+        "role_code": role.role_code,
+        "role_name": role.role_name,
+        "role_desc": role.role_desc,
+        "menu_ids": list(role.menu_ids),
+        "menu_codes": list(role.menu_codes),
+        "menu_names": list(role.menu_names),
+        "assigned_user_count": role.assigned_user_count,
+        "created_at": role.created_at,
+        "updated_at": role.updated_at,
+    }
+
+
+def _serialize_menu_item(item: MenuItemRecord) -> dict:
+    return {
+        "id": item.id,
+        "parent_id": item.parent_id,
+        "menu_code": item.menu_code,
+        "name": item.name,
+        "router_name": item.router_name,
+        "router_path": item.router_path,
+        "icon_url": item.icon_url,
+        "href": item.href,
+        "is_visible": item.is_visible,
+        "remark": item.remark,
+        "sort_order": item.sort_order,
+        "created_at": item.created_at,
+        "updated_at": item.updated_at,
     }
 
 
@@ -367,19 +481,19 @@ def _try_get_authenticated_user(request: Request):
 def _require_admin_user(request: Request):
     user = _require_authenticated_user(request)
     if not user.is_admin:
-        raise HTTPException(status_code=403, detail="Administrator permission required.")
+        raise HTTPException(status_code=403, detail="当前账号没有管理员权限。")
     return user
 
 
-def _resolve_query_source_filter_for_user(
+def _resolve_query_source_scope_for_user(
     *,
     query: str,
     requested_source_filter: str | None,
     user: AuthenticatedUser,
-) -> str | None:
+) -> "QuerySourceScope":
     requested_source_filter = _validate_source_filter(requested_source_filter)
     try:
-        return resolve_effective_source_filter(
+        return resolve_query_source_scope(
             query=query,
             requested_source_filter=requested_source_filter,
             user=user,
@@ -424,6 +538,7 @@ class UserAccessUpdateRequest(BaseModel):
     role: str | None = Field(default=None, description="Role to assign: admin or user")
     allowed_sources: list[str] | None = Field(default=None, description="Allowed knowledge sources")
     is_active: bool | None = Field(default=None, description="Whether the account is active")
+    menu_role_ids: list[int] | None = Field(default=None, description="Assigned menu role ids")
 
 
 class AdminCreateUserRequest(BaseModel):
@@ -432,6 +547,18 @@ class AdminCreateUserRequest(BaseModel):
     role: str = Field(default="user", description="Role to assign: admin or user")
     allowed_sources: list[str] | None = Field(default=None, description="Allowed knowledge sources")
     is_active: bool = Field(default=True, description="Whether the account is active")
+    display_name: str | None = Field(default=None, max_length=64, description="Display name shown in console")
+    work_no: str | None = Field(default=None, max_length=64, description="Employee/work number")
+    org_unit_id: int | None = Field(default=None, description="Organization unit id")
+    menu_role_ids: list[int] | None = Field(default=None, description="Assigned menu role ids")
+
+
+class UserProfileUpdateRequest(BaseModel):
+    username: str | None = Field(default=None, min_length=3, max_length=64)
+    display_name: str | None = Field(default=None, max_length=64)
+    work_no: str | None = Field(default=None, max_length=64)
+    org_unit_id: int | None = Field(default=None)
+    menu_role_ids: list[int] | None = Field(default=None)
 
 
 class ResetPasswordRequest(BaseModel):
@@ -441,6 +568,64 @@ class ResetPasswordRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(..., min_length=8, max_length=128)
     new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class OrgUnitRequest(BaseModel):
+    org_code: str = Field(..., min_length=2, max_length=64)
+    org_name: str = Field(..., min_length=1, max_length=128)
+    org_type: str = Field(default="department", min_length=2, max_length=32)
+    parent_id: int | None = Field(default=None)
+    org_desc: str | None = Field(default=None, max_length=255)
+    sort_order: int = Field(default=100, ge=0, le=9999)
+
+
+class OrgUnitUpdateRequest(BaseModel):
+    org_code: str | None = Field(default=None, min_length=2, max_length=64)
+    org_name: str | None = Field(default=None, min_length=1, max_length=128)
+    org_type: str | None = Field(default=None, min_length=2, max_length=32)
+    parent_id: int | None = Field(default=None)
+    org_desc: str | None = Field(default=None, max_length=255)
+    sort_order: int | None = Field(default=None, ge=0, le=9999)
+
+
+class MenuRoleRequest(BaseModel):
+    role_code: str = Field(..., min_length=2, max_length=64)
+    role_name: str = Field(..., min_length=1, max_length=64)
+    role_desc: str | None = Field(default=None, max_length=255)
+    menu_ids: list[int] | None = Field(default=None)
+
+
+class MenuRoleUpdateRequest(BaseModel):
+    role_code: str | None = Field(default=None, min_length=2, max_length=64)
+    role_name: str | None = Field(default=None, min_length=1, max_length=64)
+    role_desc: str | None = Field(default=None, max_length=255)
+    menu_ids: list[int] | None = Field(default=None)
+
+
+class MenuItemRequest(BaseModel):
+    menu_code: str = Field(..., min_length=2, max_length=64)
+    name: str = Field(..., min_length=1, max_length=128)
+    parent_id: int | None = Field(default=None)
+    router_name: str | None = Field(default=None, max_length=64)
+    router_path: str | None = Field(default=None, max_length=255)
+    icon_url: str | None = Field(default=None, max_length=255)
+    href: str | None = Field(default=None, max_length=255)
+    is_visible: bool = Field(default=True)
+    remark: str | None = Field(default=None, max_length=255)
+    sort_order: int = Field(default=100, ge=0, le=9999)
+
+
+class MenuItemUpdateRequest(BaseModel):
+    menu_code: str | None = Field(default=None, min_length=2, max_length=64)
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    parent_id: int | None = Field(default=None)
+    router_name: str | None = Field(default=None, max_length=64)
+    router_path: str | None = Field(default=None, max_length=255)
+    icon_url: str | None = Field(default=None, max_length=255)
+    href: str | None = Field(default=None, max_length=255)
+    is_visible: bool | None = Field(default=None)
+    remark: str | None = Field(default=None, max_length=255)
+    sort_order: int | None = Field(default=None, ge=0, le=9999)
 
 
 def _serve_web_page(filename: str):
@@ -493,6 +678,11 @@ def users_page():
 @app.get("/users/access")
 def users_access_page():
     return _serve_web_page("users_access.html")
+
+
+@app.get("/users/org")
+def users_org_page():
+    return _serve_web_page("users_org.html")
 
 
 @app.get("/users/security")
@@ -612,13 +802,406 @@ def change_password(payload: ChangePasswordRequest, request: Request, response: 
 
 
 @app.get("/auth/users")
-def list_users(request: Request) -> dict:
+def list_users(
+    request: Request,
+    login: str | None = None,
+    work_no: str | None = None,
+    display_name: str | None = None,
+    org_unit_id: int | None = None,
+) -> dict:
     _require_admin_user(request)
     auth_repository = None
     try:
         auth_repository = _create_auth_repository()
         auth_service = _auth_service_from_repository(auth_repository)
-        return {"users": [_serialize_user(user) for user in auth_service.list_users()]}
+        users = auth_service.list_users(
+            login=login,
+            work_no=work_no,
+            display_name=display_name,
+            org_unit_id=org_unit_id,
+        )
+        return {
+            "users": [_serialize_user(user) for user in users],
+            "count": len(users),
+            "filters": {
+                "login": (login or "").strip() or None,
+                "work_no": (work_no or "").strip() or None,
+                "display_name": (display_name or "").strip() or None,
+                "org_unit_id": org_unit_id,
+            },
+        }
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.get("/auth/permission-bootstrap")
+def get_permission_bootstrap(request: Request) -> dict:
+    _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        return auth_service.get_permission_bootstrap()
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.get("/auth/org-units")
+def list_org_units(request: Request) -> dict:
+    _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        org_units = auth_service.list_org_units()
+        return {"items": [_serialize_org_unit(item) for item in org_units], "count": len(org_units)}
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.get("/auth/org-units/tree")
+def get_org_unit_tree(request: Request) -> dict:
+    _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        org_units = auth_service.list_org_unit_tree()
+        return {"items": org_units, "count": len(org_units)}
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.post("/auth/org-units")
+def create_org_unit(payload: OrgUnitRequest, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        created = auth_service.create_org_unit(
+            org_code=payload.org_code,
+            org_name=payload.org_name,
+            org_type=payload.org_type,
+            parent_id=payload.parent_id,
+            org_desc=payload.org_desc,
+            sort_order=payload.sort_order,
+        )
+        _record_auth_audit(
+            auth_repository,
+            action="create_org_unit",
+            actor=admin_user,
+            metadata={
+                "org_code": created.org_code,
+                "org_name": created.org_name,
+                "org_type": created.org_type,
+                "parent_id": created.parent_id,
+            },
+        )
+        return {"item": _serialize_org_unit(created)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.patch("/auth/org-units/{org_unit_id}")
+def update_org_unit(org_unit_id: int, payload: OrgUnitUpdateRequest, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        updated = auth_service.update_org_unit(
+            org_unit_id=org_unit_id,
+            org_code=payload.org_code,
+            org_name=payload.org_name,
+            org_type=payload.org_type,
+            parent_id=payload.parent_id,
+            org_desc=payload.org_desc,
+            sort_order=payload.sort_order,
+        )
+        _record_auth_audit(
+            auth_repository,
+            action="update_org_unit",
+            actor=admin_user,
+            metadata={
+                "org_unit_id": updated.id,
+                "org_code": updated.org_code,
+                "org_name": updated.org_name,
+                "parent_id": updated.parent_id,
+            },
+        )
+        return {"item": _serialize_org_unit(updated)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.delete("/auth/org-units/{org_unit_id}")
+def delete_org_unit(org_unit_id: int, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        deleted = auth_service.delete_org_unit(org_unit_id=org_unit_id)
+        _record_auth_audit(
+            auth_repository,
+            action="delete_org_unit",
+            actor=admin_user,
+            metadata={
+                "org_unit_id": deleted.id,
+                "org_code": deleted.org_code,
+                "org_name": deleted.org_name,
+            },
+        )
+        return {"deleted": True, "item": _serialize_org_unit(deleted)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.get("/auth/menu-roles")
+def list_menu_roles(request: Request) -> dict:
+    _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        roles = auth_service.list_menu_roles()
+        return {"items": [_serialize_menu_role(role) for role in roles], "count": len(roles)}
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.post("/auth/menu-roles")
+def create_menu_role(payload: MenuRoleRequest, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        created = auth_service.create_menu_role(
+            role_code=payload.role_code,
+            role_name=payload.role_name,
+            role_desc=payload.role_desc,
+            menu_ids=payload.menu_ids,
+        )
+        _record_auth_audit(
+            auth_repository,
+            action="create_menu_role",
+            actor=admin_user,
+            metadata={
+                "role_code": created.role_code,
+                "role_name": created.role_name,
+                "menu_ids": list(created.menu_ids),
+            },
+        )
+        return {"item": _serialize_menu_role(created)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.patch("/auth/menu-roles/{menu_role_id}")
+def update_menu_role(menu_role_id: int, payload: MenuRoleUpdateRequest, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        updated = auth_service.update_menu_role(
+            menu_role_id=menu_role_id,
+            role_code=payload.role_code,
+            role_name=payload.role_name,
+            role_desc=payload.role_desc,
+            menu_ids=payload.menu_ids,
+        )
+        _record_auth_audit(
+            auth_repository,
+            action="update_menu_role",
+            actor=admin_user,
+            metadata={
+                "menu_role_id": updated.id,
+                "role_code": updated.role_code,
+                "role_name": updated.role_name,
+                "menu_ids": list(updated.menu_ids),
+            },
+        )
+        return {"item": _serialize_menu_role(updated)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.delete("/auth/menu-roles/{menu_role_id}")
+def delete_menu_role(menu_role_id: int, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        deleted = auth_service.delete_menu_role(menu_role_id=menu_role_id)
+        _record_auth_audit(
+            auth_repository,
+            action="delete_menu_role",
+            actor=admin_user,
+            metadata={
+                "menu_role_id": deleted.id,
+                "role_code": deleted.role_code,
+                "role_name": deleted.role_name,
+            },
+        )
+        return {"deleted": True, "item": _serialize_menu_role(deleted)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.get("/auth/menu-items")
+def list_menu_items(request: Request) -> dict:
+    _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        items = auth_service.list_menu_items()
+        return {"items": [_serialize_menu_item(item) for item in items], "count": len(items)}
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.get("/auth/menu-items/tree")
+def list_menu_item_tree(request: Request) -> dict:
+    _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        items = auth_service.list_menu_item_tree()
+        return {"items": items, "count": len(items)}
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.post("/auth/menu-items")
+def create_menu_item(payload: MenuItemRequest, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        created = auth_service.create_menu_item(
+            menu_code=payload.menu_code,
+            name=payload.name,
+            parent_id=payload.parent_id,
+            router_name=payload.router_name,
+            router_path=payload.router_path,
+            icon_url=payload.icon_url,
+            href=payload.href,
+            is_visible=payload.is_visible,
+            remark=payload.remark,
+            sort_order=payload.sort_order,
+        )
+        _record_auth_audit(
+            auth_repository,
+            action="create_menu_item",
+            actor=admin_user,
+            metadata={
+                "menu_item_id": created.id,
+                "menu_code": created.menu_code,
+                "name": created.name,
+                "parent_id": created.parent_id,
+            },
+        )
+        return {"item": _serialize_menu_item(created)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.patch("/auth/menu-items/{menu_item_id}")
+def update_menu_item(menu_item_id: int, payload: MenuItemUpdateRequest, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        updated = auth_service.update_menu_item(
+            menu_item_id=menu_item_id,
+            menu_code=payload.menu_code,
+            name=payload.name,
+            parent_id=payload.parent_id,
+            router_name=payload.router_name,
+            router_path=payload.router_path,
+            icon_url=payload.icon_url,
+            href=payload.href,
+            is_visible=payload.is_visible,
+            remark=payload.remark,
+            sort_order=payload.sort_order,
+        )
+        _record_auth_audit(
+            auth_repository,
+            action="update_menu_item",
+            actor=admin_user,
+            metadata={
+                "menu_item_id": updated.id,
+                "menu_code": updated.menu_code,
+                "name": updated.name,
+                "parent_id": updated.parent_id,
+                "href": updated.href,
+            },
+        )
+        return {"item": _serialize_menu_item(updated)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.delete("/auth/menu-items/{menu_item_id}")
+def delete_menu_item(menu_item_id: int, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        deleted = auth_service.delete_menu_item(menu_item_id=menu_item_id)
+        _record_auth_audit(
+            auth_repository,
+            action="delete_menu_item",
+            actor=admin_user,
+            metadata={
+                "menu_item_id": deleted.id,
+                "menu_code": deleted.menu_code,
+                "name": deleted.name,
+            },
+        )
+        return {"deleted": True, "item": _serialize_menu_item(deleted)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         if auth_repository is not None:
             auth_repository.close()
@@ -686,15 +1269,61 @@ def create_user_by_admin(payload: AdminCreateUserRequest, request: Request) -> d
             role=payload.role,
             allowed_sources=_validate_allowed_sources(payload.allowed_sources),
             is_active=payload.is_active,
+            display_name=payload.display_name,
+            work_no=payload.work_no,
+            org_unit_id=payload.org_unit_id,
+            menu_role_ids=payload.menu_role_ids,
         )
         _record_auth_audit(
             auth_repository,
             action="admin_create_user",
             actor=admin_user,
             target=created,
-            metadata={"allowed_sources": list(created.allowed_sources), "is_active": created.is_active},
+            metadata={
+                "allowed_sources": list(created.allowed_sources),
+                "is_active": created.is_active,
+                "display_name": created.display_name,
+                "work_no": created.work_no,
+                "org_unit_id": created.org_unit_id,
+                "menu_role_ids": list(created.menu_role_ids),
+            },
         )
         return {"user": _serialize_user(created)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
+
+
+@app.patch("/auth/users/{user_id}")
+def update_user_profile(user_id: int, payload: UserProfileUpdateRequest, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        auth_repository = _create_auth_repository()
+        auth_service = _auth_service_from_repository(auth_repository)
+        updated = auth_service.update_user_profile(
+            target_user_id=user_id,
+            username=payload.username,
+            display_name=payload.display_name,
+            work_no=payload.work_no,
+            org_unit_id=payload.org_unit_id,
+            menu_role_ids=payload.menu_role_ids,
+        )
+        _record_auth_audit(
+            auth_repository,
+            action="update_user_profile",
+            actor=admin_user,
+            target=updated,
+            metadata={
+                "display_name": updated.display_name,
+                "work_no": updated.work_no,
+                "org_unit_id": updated.org_unit_id,
+                "menu_role_ids": list(updated.menu_role_ids),
+            },
+        )
+        return {"user": _serialize_user(updated)}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
@@ -715,6 +1344,7 @@ def update_user_access(user_id: int, payload: UserAccessUpdateRequest, request: 
             role=payload.role,
             allowed_sources=allowed_sources,
             is_active=payload.is_active,
+            menu_role_ids=payload.menu_role_ids,
         )
         _record_auth_audit(
             auth_repository,
@@ -725,6 +1355,7 @@ def update_user_access(user_id: int, payload: UserAccessUpdateRequest, request: 
                 "role": payload.role,
                 "allowed_sources": allowed_sources,
                 "is_active": payload.is_active,
+                "menu_role_ids": payload.menu_role_ids,
             },
         )
         return {"user": _serialize_user(updated)}
@@ -782,7 +1413,7 @@ def create_session(request: Request, payload: dict | None = None) -> dict:
 @app.get("/sources")
 def get_sources(request: Request) -> dict:
     user = _require_authenticated_user(request)
-    return {"sources": filter_sources_for_user(settings.valid_sources, user)}
+    return {"sources": _available_sources_for_user(user)}
 
 
 @app.post("/sources")
@@ -810,7 +1441,7 @@ def register_source(payload: SourceRegistrationRequest, request: Request) -> dic
         )
         return {
             "source": source,
-            "sources": filter_sources_for_user(settings.valid_sources, updated),
+            "sources": _available_sources_for_user(updated, auth_repository=auth_repository),
             "user": _serialize_user(updated),
         }
     except ValueError as exc:
@@ -956,7 +1587,7 @@ def unified_query(payload: QueryRequest, request: Request):
     faq_repository = None
     conversation_repository = None
     try:
-        effective_source_filter = _resolve_query_source_filter_for_user(
+        query_scope = _resolve_query_source_scope_for_user(
             query=payload.query,
             requested_source_filter=payload.source_filter,
             user=user,
@@ -986,7 +1617,7 @@ def unified_query(payload: QueryRequest, request: Request):
                     faq_repository=faq_repository,
                     conversation_repository=conversation_repository,
                     user_id=user.id,
-                    effective_source_filter=effective_source_filter,
+                    query_scope=query_scope,
                 ),
                 media_type="text/event-stream",
             )
@@ -997,7 +1628,8 @@ def unified_query(payload: QueryRequest, request: Request):
         result = router.route(
             payload.query,
             threshold=payload.threshold,
-            source_filter=effective_source_filter,
+            source_filter=query_scope.source_filter,
+            allowed_sources=query_scope.allowed_sources,
             history=history,
         )
         updated_history = history
@@ -1019,7 +1651,7 @@ def unified_query(payload: QueryRequest, request: Request):
         raise
     except Exception as exc:
         logger.exception("Unified query endpoint failed.")
-        raise HTTPException(status_code=503, detail=f"Unified query unavailable: {exc}") from exc
+        raise HTTPException(status_code=503, detail="问答服务暂时不可用，请稍后重试。") from exc
     finally:
         if faq_repository is not None:
             faq_repository.close()
@@ -1037,13 +1669,14 @@ def _stream_query_response(
     faq_repository,
     conversation_repository,
     user_id: int,
-    effective_source_filter: str | None,
+    query_scope,
 ):
     try:
         metadata, stream = router.stream_route(
             payload.query,
             threshold=payload.threshold,
-            source_filter=effective_source_filter,
+            source_filter=query_scope.source_filter,
+            allowed_sources=query_scope.allowed_sources,
             history=history,
         )
         yield _sse_message(
@@ -1094,7 +1727,7 @@ def _stream_query_response(
             {
                 "event": "error",
                 "session_id": session_id,
-                "error": str(exc),
+                "error": "本次问答暂时没有完成，请稍后重试。",
                 "is_complete": True,
             }
         )

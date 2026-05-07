@@ -2,227 +2,191 @@ window.RagProPage = {
   async init({ state, helpers }) {
     const pageState = {
       users: [],
-      filteredUsers: [],
-      selectedIds: new Set(),
-      page: 1,
-      pageSize: 10,
       filters: {
         login: "",
         workNo: "",
         name: "",
+        orgUnitId: "",
       },
+      bootstrap: {
+        orgUnits: [],
+        menuRoles: [],
+      },
+      editorMode: "create",
+      editingUser: null,
+      accessUser: null,
     };
 
     const elements = {
       overviewNote: document.getElementById("users-overview-note"),
-      refreshBtn: document.getElementById("users-overview-refresh"),
-      createToggle: document.getElementById("users-create-toggle"),
-      createPanel: document.getElementById("users-create-panel"),
-      createForm: document.getElementById("users-create-form"),
-      createUsername: document.getElementById("users-create-username"),
-      createPassword: document.getElementById("users-create-password"),
-      createRole: document.getElementById("users-create-role"),
-      createSources: document.getElementById("users-create-sources"),
-      createCancel: document.getElementById("users-create-cancel"),
-      createClose: document.getElementById("users-create-close"),
-      createSubmit: document.getElementById("users-create-submit"),
-      createFeedback: document.getElementById("users-create-feedback"),
       filterForm: document.getElementById("users-filter-form"),
       filterLogin: document.getElementById("users-filter-login"),
       filterWorkNo: document.getElementById("users-filter-workno"),
       filterName: document.getElementById("users-filter-name"),
+      filterOrg: document.getElementById("users-filter-org"),
       filterReset: document.getElementById("users-filter-reset"),
+      refreshBtn: document.getElementById("users-overview-refresh"),
+      createToggle: document.getElementById("users-create-toggle"),
       tableBody: document.getElementById("users-table-body"),
-      checkAll: document.getElementById("users-check-all"),
-      batchDelete: document.getElementById("users-batch-delete"),
-      pagePrev: document.getElementById("users-page-prev"),
-      pageNext: document.getElementById("users-page-next"),
-      pageNumbers: document.getElementById("users-page-numbers"),
-      pageJump: document.getElementById("users-page-jump"),
-      pageSize: document.getElementById("users-page-size"),
-      totalCount: document.getElementById("users-total-count"),
       summaryTotal: document.getElementById("users-summary-total"),
-      summaryAdmins: document.getElementById("users-summary-admins"),
       summaryActive: document.getElementById("users-summary-active"),
-      summarySources: document.getElementById("users-summary-sources"),
+      summaryAdmins: document.getElementById("users-summary-admins"),
+      summaryRoles: document.getElementById("users-summary-roles"),
+      editorModal: document.getElementById("user-editor-modal"),
+      editorForm: document.getElementById("user-editor-form"),
+      editorTitle: document.getElementById("user-editor-title"),
+      editorCopy: document.getElementById("user-editor-copy"),
+      editorId: document.getElementById("user-editor-id"),
+      editorUsername: document.getElementById("user-editor-username"),
+      editorDisplayName: document.getElementById("user-editor-display-name"),
+      editorWorkNo: document.getElementById("user-editor-work-no"),
+      editorPasswordRow: document.getElementById("user-editor-password-row"),
+      editorPassword: document.getElementById("user-editor-password"),
+      editorRole: document.getElementById("user-editor-role"),
+      editorStatus: document.getElementById("user-editor-status"),
+      editorOrg: document.getElementById("user-editor-org"),
+      editorMenuRoles: document.getElementById("user-editor-menu-roles"),
+      editorSources: document.getElementById("user-editor-sources"),
+      editorFeedback: document.getElementById("user-editor-feedback"),
+      editorSubmit: document.getElementById("user-editor-submit"),
+      editorClose: document.getElementById("user-editor-close"),
+      editorCancel: document.getElementById("user-editor-cancel"),
+      editorAccessFields: Array.from(document.querySelectorAll("[data-user-editor-access]")),
+      accessModal: document.getElementById("user-access-modal"),
+      accessForm: document.getElementById("user-access-form"),
+      accessTitle: document.getElementById("user-access-title"),
+      accessCopy: document.getElementById("user-access-copy"),
+      accessUser: document.getElementById("user-access-user"),
+      accessMeta: document.getElementById("user-access-meta"),
+      accessOrg: document.getElementById("user-access-org"),
+      accessRoleCount: document.getElementById("user-access-role-count"),
+      accessSourceCount: document.getElementById("user-access-source-count"),
+      accessRole: document.getElementById("user-access-role"),
+      accessStatus: document.getElementById("user-access-status"),
+      accessMenuRoles: document.getElementById("user-access-menu-roles"),
+      accessSources: document.getElementById("user-access-sources"),
+      accessFeedback: document.getElementById("user-access-feedback"),
+      accessSubmit: document.getElementById("user-access-submit"),
+      accessClose: document.getElementById("user-access-close"),
+      accessCancel: document.getElementById("user-access-cancel"),
     };
-    let createDialogReturnFocus = null;
+    let dialogReturnFocus = null;
 
     bindEvents();
-    renderSummary();
-    renderCreateSourceSelector();
-    renderTable();
 
     if (!helpers.isAdmin()) {
       elements.overviewNote?.classList.remove("hidden");
-      helpers.setStatus("当前账号没有权限查看用户管理。", true);
-      renderEmptyTable("当前账号没有权限查看用户信息", "请使用管理员账号登录后再进入用户管理。");
+      helpers.setStatus("当前账号没有用户管理权限。", true);
+      renderEmptyTable("当前账号没有用户管理权限", "请使用管理员账号登录后查看用户信息。");
       return;
     }
 
-    await loadUsers();
-    helpers.setStatus("用户管理已就绪，可以筛选账号并进入编辑、删除或审计操作。", false);
+    await Promise.all([loadBootstrap(), loadUsers()]);
+    helpers.setStatus("用户信息页已就绪，可以新增、编辑、分配菜单角色、重置密码和删除账号。", false);
 
     function bindEvents() {
+      elements.filterForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await loadUsers();
+      });
+      elements.filterReset?.addEventListener("click", async () => {
+        resetFilters();
+        await loadUsers();
+      });
       elements.refreshBtn?.addEventListener("click", () => refreshUsers(elements.refreshBtn));
-      elements.createToggle?.addEventListener("click", () => {
-        setCreatePanelOpen(elements.createPanel?.classList.contains("hidden"));
+      elements.createToggle?.addEventListener("click", async () => {
+        await refreshDialogSources();
+        openEditor("create");
       });
-      elements.createCancel?.addEventListener("click", () => {
-        resetCreateForm();
-        setCreatePanelOpen(false);
+      elements.editorClose?.addEventListener("click", () => closeEditor());
+      elements.editorCancel?.addEventListener("click", () => closeEditor());
+      elements.accessClose?.addEventListener("click", () => closeAccessEditor());
+      elements.accessCancel?.addEventListener("click", () => closeAccessEditor());
+      elements.editorModal?.addEventListener("click", (event) => {
+        if (event.target === elements.editorModal) {
+          closeEditor();
+        }
       });
-      elements.createClose?.addEventListener("click", () => {
-        resetCreateForm();
-        setCreatePanelOpen(false);
-      });
-      elements.createPanel?.addEventListener("click", (event) => {
-        if (event.target === elements.createPanel) {
-          resetCreateForm();
-          setCreatePanelOpen(false);
+      elements.accessModal?.addEventListener("click", (event) => {
+        if (event.target === elements.accessModal) {
+          closeAccessEditor();
         }
       });
       document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && !elements.createPanel?.classList.contains("hidden")) {
-          resetCreateForm();
-          setCreatePanelOpen(false);
-        }
-      });
-      elements.createForm?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        await handleCreateUser();
-      });
-      elements.filterForm?.addEventListener("submit", (event) => {
-        event.preventDefault();
-        applyFiltersFromForm();
-      });
-      elements.filterReset?.addEventListener("click", resetFilters);
-      elements.checkAll?.addEventListener("change", toggleCurrentPageSelection);
-      elements.batchDelete?.addEventListener("click", deleteSelectedUsers);
-      elements.pagePrev?.addEventListener("click", () => goToPage(pageState.page - 1));
-      elements.pageNext?.addEventListener("click", () => goToPage(pageState.page + 1));
-      elements.pageSize?.addEventListener("change", () => {
-        pageState.pageSize = Number(elements.pageSize.value) || 10;
-        pageState.page = 1;
-        renderTable();
-      });
-      elements.pageJump?.addEventListener("change", () => {
-        goToPage(Number(elements.pageJump.value) || 1);
-      });
-      elements.pageNumbers?.addEventListener("click", (event) => {
-        const button = event.target.closest("[data-page-number]");
-        if (!button) {
+        if (event.key !== "Escape") {
           return;
         }
-        goToPage(Number(button.dataset.pageNumber));
-      });
-      elements.tableBody?.addEventListener("change", (event) => {
-        const checkbox = event.target.closest("[data-user-select]");
-        if (!checkbox) {
+        if (!elements.accessModal?.classList.contains("hidden")) {
+          closeAccessEditor();
           return;
         }
-        toggleUserSelection(checkbox.dataset.userSelect, checkbox.checked);
+        if (!elements.editorModal?.classList.contains("hidden")) {
+          closeEditor();
+        }
       });
+      elements.editorForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await submitEditor();
+      });
+      elements.accessForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await submitAccessEditor();
+      });
+      elements.accessForm?.addEventListener("change", updateAccessSelectionMeta);
+      elements.accessForm?.addEventListener("input", updateAccessSelectionMeta);
       elements.tableBody?.addEventListener("click", async (event) => {
         const action = event.target.closest("[data-user-action]");
         if (!action) {
           return;
         }
-        await handleRowAction(action.dataset.userAction, Number(action.dataset.userId), action);
+        const userId = Number(action.dataset.userId);
+        const user = pageState.users.find((item) => item.id === userId);
+        if (!user) {
+          return;
+        }
+        await handleRowAction(action.dataset.userAction, user, action);
       });
     }
 
-    function setCreatePanelOpen(open) {
-      if (!elements.createPanel || !elements.createToggle) {
-        return;
-      }
-      if (open) {
-        createDialogReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : elements.createToggle;
-      }
-      elements.createPanel.classList.toggle("hidden", !open);
-      elements.createToggle.setAttribute("aria-expanded", open ? "true" : "false");
-      document.body.classList.toggle("users-create-dialog-open", open);
-      if (open) {
-        setCreateFeedback("填写账号信息后点击创建，系统会自动刷新列表。");
-        elements.createUsername?.focus();
-      } else {
-        createDialogReturnFocus?.focus?.();
-        createDialogReturnFocus = null;
+    async function loadBootstrap() {
+      try {
+        const payload = await helpers.getPermissionBootstrap();
+        pageState.bootstrap.orgUnits = flattenTree(payload.org_units || [], "children");
+        pageState.bootstrap.menuRoles = payload.menu_roles || [];
+        renderOrgOptions();
+        renderEditorMenuRoles([]);
+        renderEditorSources([]);
+        renderAccessMenuRoles([]);
+        renderAccessSources([]);
+      } catch (error) {
+        helpers.setStatus(`加载权限配置失败：${error.message}`, true);
       }
     }
 
-    function setCreateFeedback(message, isError = false) {
-      if (!elements.createFeedback) {
-        return;
+    async function loadUsers() {
+      syncFiltersFromForm();
+      const params = new URLSearchParams();
+      if (pageState.filters.login) {
+        params.set("login", pageState.filters.login);
       }
-      elements.createFeedback.textContent = message;
-      elements.createFeedback.classList.toggle("is-error", Boolean(isError));
-    }
-
-    function renderCreateSourceSelector() {
-      helpers.renderAdminCreateSourceSelector({
-        container: elements.createSources,
-        sources: state.sources,
-        checkboxAttribute: "data-users-create-source",
-        customInputId: "users-create-source-custom",
-      });
-    }
-
-    function resetCreateForm() {
-      elements.createForm?.reset();
-      renderCreateSourceSelector();
-      if (elements.createRole) {
-        elements.createRole.value = "user";
+      if (pageState.filters.workNo) {
+        params.set("work_no", pageState.filters.workNo);
       }
-      setCreateFeedback("填写账号信息后点击创建，系统会自动刷新列表。");
-    }
-
-    function focusCreatedUser(username) {
-      if (elements.filterLogin) {
-        elements.filterLogin.value = username;
+      if (pageState.filters.name) {
+        params.set("display_name", pageState.filters.name);
       }
-      if (elements.filterWorkNo) {
-        elements.filterWorkNo.value = "";
+      if (pageState.filters.orgUnitId) {
+        params.set("org_unit_id", pageState.filters.orgUnitId);
       }
-      if (elements.filterName) {
-        elements.filterName.value = "";
-      }
-      pageState.filters = { login: normalize(username), workNo: "", name: "" };
-      pageState.page = 1;
-    }
-
-    async function handleCreateUser() {
-      const { payload, error } = helpers.collectAdminCreateUserPayload({
-        usernameInput: elements.createUsername,
-        passwordInput: elements.createPassword,
-        roleSelect: elements.createRole,
-        sourceContainer: elements.createSources,
-        checkboxAttribute: "data-users-create-source",
-        customInputId: "users-create-source-custom",
-        missingMessage: "请填写新用户的用户名和初始密码。",
-      });
-      if (error) {
-        setCreateFeedback(error, true);
-        helpers.setStatus(error, true);
-        return;
-      }
-
-      setCreateFeedback(`正在创建用户 ${payload.username}...`);
-      const result = await helpers.runUiAction({
-        control: elements.createSubmit,
-        pendingMessage: `正在创建用户 ${payload.username}...`,
-        successMessage: `已创建用户 ${payload.username}，并筛选到新账号。`,
-        errorPrefix: "创建用户失败",
-        action: () => helpers.createAdminUser(payload),
-        onSuccess: async () => {
-          resetCreateForm();
-          setCreatePanelOpen(false);
-          focusCreatedUser(payload.username);
-          await loadUsers();
-        },
-      });
-      if (!result.ok) {
-        setCreateFeedback(`创建用户失败：${result.error.message}`, true);
+      const query = params.toString();
+      try {
+        const payload = await helpers.apiJson(`/auth/users${query ? `?${query}` : ""}`);
+        pageState.users = payload.users || [];
+        renderSummary();
+        renderTable();
+      } catch (error) {
+        helpers.setStatus(`加载用户信息失败：${error.message}`, true);
+        renderEmptyTable("加载用户信息失败", error.message);
       }
     }
 
@@ -232,40 +196,15 @@ window.RagProPage = {
         pendingMessage: "正在刷新用户信息...",
         successMessage: "用户信息已刷新。",
         errorPrefix: "刷新用户信息失败",
-        action: () => loadUsers({ showError: false, throwOnError: true }),
+        action: () => loadUsers(),
       });
     }
 
-    async function loadUsers(options = {}) {
-      const { showError = true, throwOnError = false } = options;
-      try {
-        const payload = await helpers.apiJson("/auth/users");
-        pageState.users = payload.users || [];
-        pageState.selectedIds = new Set(
-          Array.from(pageState.selectedIds).filter((id) => pageState.users.some((user) => String(user.id) === id)),
-        );
-        applyFilters();
-        renderSummary();
-      } catch (error) {
-        if (showError) {
-          helpers.setStatus(`加载用户信息失败：${error.message}`, true);
-          renderEmptyTable("加载用户信息失败", error.message);
-        }
-        if (throwOnError) {
-          throw error;
-        }
+    async function refreshDialogSources() {
+      if (typeof helpers.loadSources !== "function") {
+        return state.sources || [];
       }
-    }
-
-    function applyFiltersFromForm() {
-      pageState.filters = {
-        login: normalize(elements.filterLogin?.value),
-        workNo: normalize(elements.filterWorkNo?.value),
-        name: normalize(elements.filterName?.value),
-      };
-      pageState.page = 1;
-      applyFilters();
-      helpers.setStatus("已按条件筛选用户信息。", false);
+      return helpers.loadSources();
     }
 
     function resetFilters() {
@@ -278,89 +217,88 @@ window.RagProPage = {
       if (elements.filterName) {
         elements.filterName.value = "";
       }
-      pageState.filters = { login: "", workNo: "", name: "" };
-      pageState.page = 1;
-      applyFilters();
-      helpers.setStatus("已重置用户筛选条件。", false);
+      if (elements.filterOrg) {
+        elements.filterOrg.value = "";
+      }
+      pageState.filters = { login: "", workNo: "", name: "", orgUnitId: "" };
     }
 
-    function applyFilters() {
-      pageState.filteredUsers = pageState.users.filter((user) => {
-        const login = normalize(user.username);
-        const workNo = normalize(formatWorkNo(user));
-        const name = normalize(formatDisplayName(user));
-        return (
-          (!pageState.filters.login || login.includes(pageState.filters.login)) &&
-          (!pageState.filters.workNo || workNo.includes(pageState.filters.workNo)) &&
-          (!pageState.filters.name || name.includes(pageState.filters.name))
-        );
-      });
-      clampPage();
-      renderTable();
+    function syncFiltersFromForm() {
+      pageState.filters = {
+        login: elements.filterLogin?.value.trim() || "",
+        workNo: elements.filterWorkNo?.value.trim() || "",
+        name: elements.filterName?.value.trim() || "",
+        orgUnitId: elements.filterOrg?.value || "",
+      };
+    }
+
+    function renderOrgOptions() {
+      const options = ['<option value="">全部机构</option>'].concat(
+        pageState.bootstrap.orgUnits.map((item) => (
+          `<option value="${helpers.escapeHtml(String(item.id))}">${helpers.escapeHtml(item.pathLabel)}</option>`
+        ))
+      );
+      if (elements.filterOrg) {
+        elements.filterOrg.innerHTML = options.join("");
+      }
+      if (elements.editorOrg) {
+        elements.editorOrg.innerHTML = ['<option value="">请选择机构</option>'].concat(
+          pageState.bootstrap.orgUnits.map((item) => (
+            `<option value="${helpers.escapeHtml(String(item.id))}">${helpers.escapeHtml(item.pathLabel)}</option>`
+          ))
+        ).join("");
+      }
+    }
+
+    function renderSummary() {
+      const total = pageState.users.length;
+      const active = pageState.users.filter((item) => item.is_active).length;
+      const admins = pageState.users.filter((item) => item.role === "admin").length;
+      const roleSet = new Set();
+      pageState.users.forEach((item) => (item.menu_role_names || []).forEach((name) => roleSet.add(name)));
+      if (elements.summaryTotal) {
+        elements.summaryTotal.textContent = String(total);
+      }
+      if (elements.summaryActive) {
+        elements.summaryActive.textContent = String(active);
+      }
+      if (elements.summaryAdmins) {
+        elements.summaryAdmins.textContent = String(admins);
+      }
+      if (elements.summaryRoles) {
+        elements.summaryRoles.textContent = String(roleSet.size);
+      }
     }
 
     function renderTable() {
-      if (!elements.tableBody) {
-        return;
-      }
-      if (!helpers.isAdmin()) {
-        renderEmptyTable("当前账号没有权限查看用户信息", "请使用管理员账号登录后再进入用户管理。");
-        return;
-      }
       if (!pageState.users.length) {
-        renderEmptyTable("还没有可管理账号", "请先去安全操作页创建第一个业务账号或管理员账号。");
-        renderPager();
+        renderEmptyTable("没有匹配的用户信息", "你可以尝试调整筛选条件，或直接新增业务账号。");
         return;
       }
-      if (!pageState.filteredUsers.length) {
-        renderEmptyTable("没有匹配的用户", "换一个登录账号、工号或用户名条件再试试。");
-        renderPager();
-        return;
-      }
-
-      const users = getCurrentPageUsers();
-      const startIndex = (pageState.page - 1) * pageState.pageSize;
-      elements.tableBody.innerHTML = users.map((user, index) => renderUserRow(user, startIndex + index + 1)).join("");
-      renderPager();
-      syncSelectionControls();
-    }
-
-    function renderUserRow(user, rowNumber) {
-      const userId = String(user.id);
-      const checked = pageState.selectedIds.has(userId) ? "checked" : "";
-      const disabledDelete = state.user && user.id === state.user.id ? "disabled" : "";
-      const disabledTitle = disabledDelete ? "不能删除当前登录账号" : "删除";
-      return `
-        <tr data-user-id="${helpers.escapeHtml(userId)}">
-          <td class="row-number-col">${rowNumber}</td>
-          <td class="check-col">
-            <input type="checkbox" data-user-select="${helpers.escapeHtml(userId)}" aria-label="选择 ${helpers.escapeHtml(user.username)}" ${checked}>
-          </td>
+      elements.tableBody.innerHTML = pageState.users.map((user) => `
+        <tr data-user-id="${helpers.escapeHtml(String(user.id))}">
           <td class="strong-cell">${helpers.escapeHtml(user.username)}</td>
-          <td>${helpers.escapeHtml(formatWorkNo(user))}</td>
-          <td>${helpers.escapeHtml(formatDisplayName(user))}</td>
+          <td>${helpers.escapeHtml(user.work_no || "-")}</td>
+          <td>${helpers.escapeHtml(user.display_name || user.username)}</td>
+          <td><span class="table-status ${user.is_active ? "is-active" : "is-inactive"}">${user.is_active ? "启用" : "停用"}</span></td>
+          <td>${helpers.escapeHtml(user.org_name || "-")}</td>
+          <td>${renderRoleTags(user.menu_role_names || [])}</td>
+          <td>${renderSourceTags(user.allowed_sources || [])}</td>
+          <td class="date-cell">${helpers.formatDateTime(user.created_at)}</td>
           <td>
-            <span class="table-status ${user.is_active ? "is-active" : "is-inactive"}">${user.is_active ? "启用" : "停用"}</span>
-          </td>
-          <td>${helpers.escapeHtml(formatOrgName(user))}</td>
-          <td class="date-cell">${helpers.escapeHtml(formatDateTime(user.created_at))}</td>
-          <td>
-            <div class="table-operation-list">
-              <button class="table-icon-btn" type="button" data-user-action="edit" data-user-id="${helpers.escapeHtml(userId)}" title="编辑" aria-label="编辑 ${helpers.escapeHtml(user.username)}">${renderIcon("edit")}</button>
-              <button class="table-icon-btn danger" type="button" data-user-action="delete" data-user-id="${helpers.escapeHtml(userId)}" title="${disabledTitle}" aria-label="删除 ${helpers.escapeHtml(user.username)}" ${disabledDelete}>${renderIcon("trash")}</button>
-              <button class="table-icon-btn" type="button" data-user-action="security" data-user-id="${helpers.escapeHtml(userId)}" title="安全操作" aria-label="安全操作 ${helpers.escapeHtml(user.username)}">${renderIcon("settings")}</button>
-              <button class="table-icon-btn" type="button" data-user-action="audit" data-user-id="${helpers.escapeHtml(userId)}" title="审计记录" aria-label="查看 ${helpers.escapeHtml(user.username)} 的审计记录">${renderIcon("more")}</button>
-              <button class="table-icon-btn" type="button" data-user-action="access" data-user-id="${helpers.escapeHtml(userId)}" title="授权" aria-label="授权 ${helpers.escapeHtml(user.username)}">${renderIcon("arrow")}</button>
+            <div class="permission-inline-actions">
+              <button class="legacy-inline-link" type="button" data-user-action="edit" data-user-id="${helpers.escapeHtml(String(user.id))}">编辑</button>
+              <button class="legacy-inline-link" type="button" data-user-action="access" data-user-id="${helpers.escapeHtml(String(user.id))}">菜单角色</button>
+              <button class="legacy-inline-link" type="button" data-user-action="reset-password" data-user-id="${helpers.escapeHtml(String(user.id))}">重置密码</button>
+              <button class="legacy-inline-link danger" type="button" data-user-action="delete" data-user-id="${helpers.escapeHtml(String(user.id))}" ${state.user && state.user.id === user.id ? "disabled" : ""}>删除</button>
+              <a class="legacy-inline-link" href="/users/audit?search=${encodeURIComponent(user.username)}">审计</a>
             </div>
           </td>
         </tr>
-      `;
+      `).join("");
     }
 
     function renderEmptyTable(title, body) {
-      if (!elements.tableBody) {
-        return;
-      }
       elements.tableBody.innerHTML = `
         <tr>
           <td colspan="9" class="users-table-empty">
@@ -369,146 +307,469 @@ window.RagProPage = {
           </td>
         </tr>
       `;
-      syncSelectionControls();
     }
 
-    function renderPager() {
-      const total = pageState.filteredUsers.length;
-      const pageCount = getPageCount();
-      if (elements.totalCount) {
-        elements.totalCount.textContent = `共 ${total} 条`;
+    function renderRoleTags(roleNames) {
+      if (!roleNames.length) {
+        return '<span class="table-muted">未分配角色</span>';
       }
-      if (elements.pageJump) {
-        elements.pageJump.max = String(pageCount);
-        elements.pageJump.value = String(pageState.page);
+      return `<div class="tag-list compact-source-tags">${roleNames.map((item) => `<span class="tag muted">${helpers.escapeHtml(item)}</span>`).join("")}</div>`;
+    }
+
+    function renderSourceTags(sources) {
+      if (!sources.length) {
+        return '<span class="table-muted">未分配来源</span>';
       }
-      if (elements.pagePrev) {
-        elements.pagePrev.disabled = pageState.page <= 1;
-      }
-      if (elements.pageNext) {
-        elements.pageNext.disabled = pageState.page >= pageCount;
-      }
-      if (elements.pageNumbers) {
-        elements.pageNumbers.innerHTML = buildPageNumbers(pageCount).map((page) => `
-          <button class="pager-btn ${page === pageState.page ? "is-current" : ""}" type="button" data-page-number="${page}" aria-label="第 ${page} 页">${page}</button>
-        `).join("");
-      }
-      syncSelectionControls();
+      return `<div class="tag-list compact-source-tags">${sources.map((item) => `<span class="tag">${helpers.escapeHtml(item)}</span>`).join("")}</div>`;
     }
 
-    function buildPageNumbers(pageCount) {
-      const pages = [];
-      const start = Math.max(1, pageState.page - 2);
-      const end = Math.min(pageCount, start + 4);
-      for (let page = start; page <= end; page += 1) {
-        pages.push(page);
-      }
-      return pages.length ? pages : [1];
-    }
-
-    function getCurrentPageUsers() {
-      const start = (pageState.page - 1) * pageState.pageSize;
-      return pageState.filteredUsers.slice(start, start + pageState.pageSize);
-    }
-
-    function getPageCount() {
-      return Math.max(1, Math.ceil(pageState.filteredUsers.length / pageState.pageSize));
-    }
-
-    function goToPage(page) {
-      pageState.page = Math.min(Math.max(1, page), getPageCount());
-      renderTable();
-    }
-
-    function clampPage() {
-      pageState.page = Math.min(Math.max(1, pageState.page), getPageCount());
-    }
-
-    function toggleCurrentPageSelection(event) {
-      const checked = Boolean(event.target.checked);
-      getCurrentPageUsers().forEach((user) => toggleUserSelection(String(user.id), checked, false));
-      renderTable();
-    }
-
-    function toggleUserSelection(userId, checked, sync = true) {
-      if (!userId) {
+    async function handleRowAction(action, user, control) {
+      if (action === "edit") {
+        openEditor("edit", user, control);
         return;
       }
-      if (checked) {
-        pageState.selectedIds.add(String(userId));
-      } else {
-        pageState.selectedIds.delete(String(userId));
+      if (action === "access") {
+        await refreshDialogSources();
+        openAccessEditor(user, control);
+        return;
       }
-      if (sync) {
-        syncSelectionControls();
-      }
-    }
-
-    function syncSelectionControls() {
-      const currentPageUsers = getCurrentPageUsers();
-      const selectableCount = currentPageUsers.length;
-      const selectedOnPage = currentPageUsers.filter((user) => pageState.selectedIds.has(String(user.id))).length;
-      if (elements.checkAll) {
-        elements.checkAll.checked = selectableCount > 0 && selectedOnPage === selectableCount;
-        elements.checkAll.indeterminate = selectedOnPage > 0 && selectedOnPage < selectableCount;
-      }
-      if (elements.batchDelete) {
-        const deletableSelected = getSelectedUsers().filter((user) => !state.user || user.id !== state.user.id);
-        elements.batchDelete.disabled = deletableSelected.length === 0;
-      }
-    }
-
-    function getSelectedUsers() {
-      return pageState.users.filter((user) => pageState.selectedIds.has(String(user.id)));
-    }
-
-    async function handleRowAction(action, userId, control) {
-      const user = pageState.users.find((item) => item.id === userId);
-      if (!user) {
+      if (action === "reset-password") {
+        await resetPassword(user, control);
         return;
       }
       if (action === "delete") {
         await deleteUser(user, control);
-        return;
-      }
-      const href = helpers.getUserAdminActionHref(action, user);
-      if (href) {
-        window.location.href = href;
       }
     }
 
-    async function deleteSelectedUsers() {
-      const selectedUsers = getSelectedUsers();
-      const deletableUsers = selectedUsers.filter((user) => !state.user || user.id !== state.user.id);
-      if (!deletableUsers.length) {
-        helpers.setStatus("当前选择里没有可删除的账号。", true);
+    function showDialog(modal) {
+      modal?.classList.remove("hidden");
+      helpers.lockBodyScroll();
+    }
+
+    function hideDialog(modal) {
+      modal?.classList.add("hidden");
+      const editorHidden = elements.editorModal?.classList.contains("hidden") ?? true;
+      const accessHidden = elements.accessModal?.classList.contains("hidden") ?? true;
+      if (editorHidden && accessHidden) {
+        helpers.unlockBodyScroll();
+      }
+    }
+
+    function toggleEditorAccessFields(visible) {
+      elements.editorAccessFields.forEach((node) => {
+        node.hidden = !visible;
+      });
+    }
+
+    function openEditor(mode, user = null, trigger = null) {
+      closeAccessEditor({ restoreFocus: false });
+      pageState.editorMode = mode;
+      pageState.editingUser = user;
+      dialogReturnFocus = trigger || document.activeElement;
+      showDialog(elements.editorModal);
+      if (mode === "create") {
+        toggleEditorAccessFields(true);
+        elements.editorTitle.textContent = "新增用户";
+        elements.editorCopy.textContent = "创建完成后会自动刷新列表，并定位到新账号。";
+        elements.editorSubmit.textContent = "创建用户";
+        elements.editorPasswordRow.hidden = false;
+        elements.editorForm.reset();
+        elements.editorId.value = "";
+        elements.editorRole.value = "user";
+        elements.editorStatus.value = "enabled";
+        renderEditorMenuRoles([]);
+        renderEditorSources([]);
+        setEditorFeedback("请填写用户信息后创建账号。");
+      } else if (user) {
+        toggleEditorAccessFields(false);
+        elements.editorTitle.textContent = "编辑基础信息";
+        elements.editorCopy.textContent = "这里维护登录账号、姓名、工号和组织归属；菜单角色与来源范围请在“菜单角色”动作里调整。";
+        elements.editorSubmit.textContent = "保存基础信息";
+        elements.editorPasswordRow.hidden = true;
+        elements.editorId.value = String(user.id);
+        elements.editorUsername.value = user.username || "";
+        elements.editorDisplayName.value = user.display_name || user.username || "";
+        elements.editorWorkNo.value = user.work_no || "";
+        elements.editorPassword.value = "";
+        elements.editorRole.value = user.role || "user";
+        elements.editorStatus.value = user.is_active ? "enabled" : "disabled";
+        elements.editorOrg.value = user.org_unit_id ? String(user.org_unit_id) : "";
+        renderEditorMenuRoles(user.menu_role_ids || []);
+        renderEditorSources(user.allowed_sources || []);
+        setEditorFeedback("修改后点击保存，系统会自动刷新列表。");
+      }
+      window.requestAnimationFrame(() => elements.editorUsername?.focus());
+    }
+
+    function closeEditor({ restoreFocus = true } = {}) {
+      hideDialog(elements.editorModal);
+      pageState.editingUser = null;
+      toggleEditorAccessFields(true);
+      setEditorFeedback("请填写用户信息后保存。");
+      if (restoreFocus) {
+        dialogReturnFocus?.focus?.();
+        dialogReturnFocus = null;
+      }
+    }
+
+    function openAccessEditor(user, trigger = null) {
+      closeEditor({ restoreFocus: false });
+      pageState.accessUser = user;
+      dialogReturnFocus = trigger || document.activeElement;
+      showDialog(elements.accessModal);
+      elements.accessTitle.textContent = `设置 ${user.display_name || user.username} 的菜单角色`;
+      elements.accessCopy.textContent = "参考原系统的独立菜单角色弹层，把系统角色、账号状态和来源边界集中维护。";
+      elements.accessUser.textContent = user.display_name || user.username;
+      elements.accessMeta.textContent = `${user.username} · 工号 ${user.work_no || "-"}`;
+      elements.accessOrg.textContent = user.org_name || "未分配组织机构";
+      elements.accessRole.value = user.role || "user";
+      elements.accessStatus.value = user.is_active ? "enabled" : "disabled";
+      renderAccessMenuRoles(user.menu_role_ids || []);
+      renderAccessSources(user.allowed_sources || []);
+      setAccessEditorFeedback("请调整菜单角色和来源范围后保存。");
+      updateAccessSelectionMeta();
+      window.requestAnimationFrame(() => elements.accessRole?.focus());
+    }
+
+    function closeAccessEditor({ restoreFocus = true } = {}) {
+      hideDialog(elements.accessModal);
+      pageState.accessUser = null;
+      setAccessEditorFeedback("请调整菜单角色和来源范围后保存。");
+      if (elements.accessUser) {
+        elements.accessUser.textContent = "-";
+      }
+      if (elements.accessMeta) {
+        elements.accessMeta.textContent = "-";
+      }
+      if (elements.accessOrg) {
+        elements.accessOrg.textContent = "-";
+      }
+      if (elements.accessRoleCount) {
+        elements.accessRoleCount.textContent = "0 个菜单角色";
+      }
+      if (elements.accessSourceCount) {
+        elements.accessSourceCount.textContent = "0 个来源";
+      }
+      if (restoreFocus) {
+        dialogReturnFocus?.focus?.();
+        dialogReturnFocus = null;
+      }
+    }
+
+    function renderMenuRoleChecklist({ container, selectedIds, checkboxAttribute }) {
+      if (!container) {
         return;
       }
-      const suffix = selectedUsers.length !== deletableUsers.length ? "，当前登录账号会被自动跳过" : "";
-      if (!window.confirm(`确认删除 ${deletableUsers.length} 个用户吗${suffix}？`)) {
+      if (!pageState.bootstrap.menuRoles.length) {
+        container.innerHTML = '<div class="note">当前还没有菜单角色，请先到“菜单角色”页创建。</div>';
+        return;
+      }
+      const selectedSet = new Set((selectedIds || []).map((item) => Number(item)));
+      container.innerHTML = pageState.bootstrap.menuRoles.map((role) => `
+        <label class="permission-check-card">
+          <input type="checkbox" ${checkboxAttribute}="${helpers.escapeHtml(String(role.id))}" ${selectedSet.has(role.id) ? "checked" : ""}>
+          <span class="permission-check-card-title">${helpers.escapeHtml(role.role_name)}</span>
+          <span class="permission-check-card-copy">${helpers.escapeHtml(role.role_desc || "未填写角色说明")}</span>
+        </label>
+      `).join("");
+    }
+
+    function renderEditorMenuRoles(selectedIds) {
+      renderMenuRoleChecklist({
+        container: elements.editorMenuRoles,
+        selectedIds,
+        checkboxAttribute: "data-user-menu-role",
+      });
+    }
+
+    function renderAccessMenuRoles(selectedIds) {
+      renderMenuRoleChecklist({
+        container: elements.accessMenuRoles,
+        selectedIds,
+        checkboxAttribute: "data-user-access-menu-role",
+      });
+    }
+
+    function renderSourceSelector({ container, selectedSources, checkboxAttribute, customInputId }) {
+      helpers.renderAdminCreateSourceSelector({
+        container,
+        sources: state.sources,
+        checkboxAttribute,
+        customInputId,
+        customLabel: "添加自定义来源",
+      });
+      const selectedSet = new Set(selectedSources || []);
+      Array.from(container?.querySelectorAll(`[${checkboxAttribute}]`) || []).forEach((node) => {
+        const source = node.getAttribute(checkboxAttribute);
+        node.checked = selectedSet.has(source);
+      });
+      const customSources = (selectedSources || []).filter((source) => !(state.sources || []).includes(source));
+      const customInput = document.getElementById(customInputId);
+      if (customInput) {
+        customInput.value = customSources.join(", ");
+      }
+    }
+
+    function renderEditorSources(selectedSources) {
+      renderSourceSelector({
+        container: elements.editorSources,
+        selectedSources,
+        checkboxAttribute: "data-user-source",
+        customInputId: "user-editor-source-custom",
+      });
+    }
+
+    function renderAccessSources(selectedSources) {
+      renderSourceSelector({
+        container: elements.accessSources,
+        selectedSources,
+        checkboxAttribute: "data-user-access-source",
+        customInputId: "user-access-source-custom",
+      });
+    }
+
+    function setEditorFeedback(message, isError = false) {
+      if (!elements.editorFeedback) {
+        return;
+      }
+      elements.editorFeedback.textContent = message;
+      elements.editorFeedback.classList.toggle("is-error", Boolean(isError));
+    }
+
+    function setAccessEditorFeedback(message, isError = false) {
+      if (!elements.accessFeedback) {
+        return;
+      }
+      elements.accessFeedback.textContent = message;
+      elements.accessFeedback.classList.toggle("is-error", Boolean(isError));
+    }
+
+    function formatCreateEditorErrorFeedback(message) {
+      const guidance = "提交内容不符合要求，请检查账号、密码、角色、菜单和来源配置。";
+      const detail = String(message || "").trim();
+      if (!detail || detail === guidance || detail.startsWith(`${guidance}\n`)) {
+        return guidance;
+      }
+      return `${guidance}\n具体原因：${detail}`;
+    }
+
+    function collectSelectedMenuRoleIds(container, checkboxAttribute) {
+      return Array.from(container?.querySelectorAll(`[${checkboxAttribute}]:checked`) || [])
+        .map((node) => Number(node.getAttribute(checkboxAttribute)))
+        .filter((value) => Number.isFinite(value));
+    }
+
+    function collectSelectedSources({ container, checkboxAttribute, customInputId }) {
+      const checkedSources = Array.from(container?.querySelectorAll(`[${checkboxAttribute}]:checked`) || [])
+        .map((node) => node.getAttribute(checkboxAttribute))
+        .filter(Boolean);
+      const customSources = String(document.getElementById(customInputId)?.value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const invalidCustom = customSources.find((item) => !helpers.isValidSourceName(item));
+      if (invalidCustom) {
+        return { error: "自定义来源只能使用 1-50 位字母、数字、下划线或短横线。" };
+      }
+      return {
+        allowedSources: helpers.mergeSourceValues(checkedSources, customSources),
+      };
+    }
+
+    function buildCreatePayload() {
+      const username = elements.editorUsername?.value.trim() || "";
+      const displayName = elements.editorDisplayName?.value.trim() || "";
+      const workNo = elements.editorWorkNo?.value.trim() || "";
+      const password = elements.editorPassword?.value || "";
+      const role = elements.editorRole?.value || "user";
+      const isActive = elements.editorStatus?.value !== "disabled";
+      const orgUnitId = elements.editorOrg?.value ? Number(elements.editorOrg.value) : null;
+      const menuRoleIds = collectSelectedMenuRoleIds(elements.editorMenuRoles, "data-user-menu-role");
+      const { allowedSources, error: sourceError } = collectSelectedSources({
+        container: elements.editorSources,
+        checkboxAttribute: "data-user-source",
+        customInputId: "user-editor-source-custom",
+      });
+
+      if (!username) {
+        return { error: "请填写登录账号。" };
+      }
+      if (!displayName) {
+        return { error: "请填写用户名。" };
+      }
+      if (!workNo) {
+        return { error: "请填写工号。" };
+      }
+      if (password.length < 8) {
+        return { error: "初始密码至少需要 8 位。" };
+      }
+      if (sourceError) {
+        return { error: sourceError };
+      }
+      return {
+        payload: {
+          username,
+          display_name: displayName,
+          work_no: workNo,
+          password,
+          role,
+          is_active: isActive,
+          org_unit_id: orgUnitId,
+          menu_role_ids: menuRoleIds,
+          allowed_sources: allowedSources,
+        },
+      };
+    }
+
+    function buildProfilePayload() {
+      const username = elements.editorUsername?.value.trim() || "";
+      const displayName = elements.editorDisplayName?.value.trim() || "";
+      const workNo = elements.editorWorkNo?.value.trim() || "";
+      const orgUnitId = elements.editorOrg?.value ? Number(elements.editorOrg.value) : null;
+      if (!username) {
+        return { error: "请填写登录账号。" };
+      }
+      if (!displayName) {
+        return { error: "请填写用户名。" };
+      }
+      if (!workNo) {
+        return { error: "请填写工号。" };
+      }
+      return {
+        payload: {
+          username,
+          display_name: displayName,
+          work_no: workNo,
+          org_unit_id: orgUnitId,
+        },
+      };
+    }
+
+    function buildEditorPayload() {
+      return pageState.editorMode === "create" ? buildCreatePayload() : buildProfilePayload();
+    }
+
+    function buildAccessPayload() {
+      const role = elements.accessRole?.value || "user";
+      const isActive = elements.accessStatus?.value !== "disabled";
+      const menuRoleIds = collectSelectedMenuRoleIds(elements.accessMenuRoles, "data-user-access-menu-role");
+      const { allowedSources, error: sourceError } = collectSelectedSources({
+        container: elements.accessSources,
+        checkboxAttribute: "data-user-access-source",
+        customInputId: "user-access-source-custom",
+      });
+      if (sourceError) {
+        return { error: sourceError };
+      }
+      return {
+        payload: {
+          role,
+          is_active: isActive,
+          menu_role_ids: menuRoleIds,
+          allowed_sources: allowedSources,
+        },
+      };
+    }
+
+    function updateAccessSelectionMeta() {
+      const selectedRoles = collectSelectedMenuRoleIds(elements.accessMenuRoles, "data-user-access-menu-role");
+      const sourceState = collectSelectedSources({
+        container: elements.accessSources,
+        checkboxAttribute: "data-user-access-source",
+        customInputId: "user-access-source-custom",
+      });
+      if (elements.accessRoleCount) {
+        elements.accessRoleCount.textContent = `${selectedRoles.length} 个菜单角色`;
+      }
+      if (elements.accessSourceCount) {
+        const sourceTotal = sourceState.allowedSources?.length || 0;
+        elements.accessSourceCount.textContent = `${sourceTotal} 个来源`;
+      }
+    }
+
+    async function submitEditor() {
+      const { payload, error } = buildEditorPayload();
+      if (error) {
+        const feedback = pageState.editorMode === "create" ? formatCreateEditorErrorFeedback(error) : error;
+        setEditorFeedback(feedback, true);
+        helpers.setStatus(error, true);
+        return;
+      }
+      const isCreate = pageState.editorMode === "create";
+      const actionLabel = isCreate ? `正在创建用户 ${payload.username}...` : `正在保存用户 ${payload.username} 的基础信息...`;
+      setEditorFeedback(actionLabel);
+      const result = await helpers.runUiAction({
+        control: elements.editorSubmit,
+        pendingMessage: actionLabel,
+        successMessage: isCreate ? `已创建用户 ${payload.username}。` : `已更新用户 ${payload.username} 的基础信息。`,
+        errorPrefix: isCreate ? "创建用户失败" : "保存基础信息失败",
+        action: async () => {
+          if (isCreate) {
+            return helpers.createAdminUser(payload);
+          }
+          const userId = Number(elements.editorId.value);
+          return helpers.updateAdminUserProfile(userId, payload);
+        },
+        onSuccess: async () => {
+          closeEditor();
+          await Promise.all([loadBootstrap(), loadUsers()]);
+        },
+      });
+      if (!result.ok) {
+        const shouldUseCreateGuidance = pageState.editorMode === "create" && (
+          result.error?.status === 422 ||
+          result.error?.message === "提交内容不符合要求，请检查账号、密码、角色、菜单和来源配置。"
+        );
+        setEditorFeedback(
+          shouldUseCreateGuidance ? formatCreateEditorErrorFeedback(result.error.message) : result.error.message,
+          true
+        );
+      }
+    }
+
+    async function submitAccessEditor() {
+      if (!pageState.accessUser) {
+        return;
+      }
+      const { payload, error } = buildAccessPayload();
+      if (error) {
+        setAccessEditorFeedback(error, true);
+        helpers.setStatus(error, true);
+        return;
+      }
+      const username = pageState.accessUser.username;
+      const result = await helpers.runUiAction({
+        control: elements.accessSubmit,
+        pendingMessage: `正在保存 ${username} 的权限配置...`,
+        successMessage: `已更新 ${username} 的权限配置。`,
+        errorPrefix: "保存权限失败",
+        action: () => helpers.updateAdminUserAccess(pageState.accessUser.id, payload),
+        onSuccess: async () => {
+          closeAccessEditor();
+          await Promise.all([loadBootstrap(), loadUsers()]);
+        },
+      });
+      if (!result.ok) {
+        setAccessEditorFeedback(result.error.message, true);
+      }
+    }
+
+    async function resetPassword(user, control) {
+      const newPassword = window.prompt(`请输入 ${user.username} 的新密码`, "NewPassword123");
+      if (!newPassword) {
         return;
       }
       await helpers.runUiAction({
-        control: elements.batchDelete,
-        pendingMessage: `正在删除 ${deletableUsers.length} 个用户...`,
-        successMessage: `已删除 ${deletableUsers.length} 个用户。`,
-        errorPrefix: "批量删除失败",
-        action: async () => {
-          for (const user of deletableUsers) {
-            await helpers.deleteAdminUser(user.id);
-            pageState.selectedIds.delete(String(user.id));
-          }
-        },
-        onSuccess: loadUsers,
+        control,
+        pendingMessage: `正在重置 ${user.username} 的密码...`,
+        successMessage: `已重置 ${user.username} 的密码。`,
+        errorPrefix: "重置密码失败",
+        action: () => helpers.resetAdminUserPassword(user.id, newPassword),
       });
-      syncSelectionControls();
     }
 
     async function deleteUser(user, control) {
-      if (state.user && user.id === state.user.id) {
-        helpers.setStatus("不能删除当前登录账号。", true);
-        return;
-      }
       if (!window.confirm(`确认删除用户 ${user.username} 吗？`)) {
         return;
       }
@@ -518,72 +779,18 @@ window.RagProPage = {
         successMessage: `已删除用户 ${user.username}。`,
         errorPrefix: "删除用户失败",
         action: () => helpers.deleteAdminUser(user.id),
-        onSuccess: async () => {
-          pageState.selectedIds.delete(String(user.id));
-          await loadUsers();
-        },
+        onSuccess: loadUsers,
       });
     }
 
-    function renderSummary() {
-      const total = pageState.users.length;
-      const adminCount = pageState.users.filter((item) => item.role === "admin").length;
-      const activeCount = pageState.users.filter((item) => item.is_active).length;
-      const sourceCount = Array.isArray(state.sources) ? state.sources.length : 0;
-      if (elements.summaryTotal) {
-        elements.summaryTotal.textContent = String(total);
-      }
-      if (elements.summaryAdmins) {
-        elements.summaryAdmins.textContent = String(adminCount);
-      }
-      if (elements.summaryActive) {
-        elements.summaryActive.textContent = String(activeCount);
-      }
-      if (elements.summarySources) {
-        elements.summarySources.textContent = String(sourceCount);
-      }
-    }
-
-    function normalize(value) {
-      return String(value || "").trim().toLowerCase();
-    }
-
-    function formatWorkNo(user) {
-      return user.work_no || user.employee_no || user.job_number || user.username || `U${String(user.id).padStart(4, "0")}`;
-    }
-
-    function formatDisplayName(user) {
-      return user.display_name || user.name || user.full_name || user.username || "-";
-    }
-
-    function formatOrgName(user) {
-      if (user.organization || user.org_name) {
-        return user.organization || user.org_name;
-      }
-      return user.role === "admin" ? "权限管理组" : "业务用户组";
-    }
-
-    function formatDateTime(value) {
-      if (!value) {
-        return "-";
-      }
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) {
-        return String(value);
-      }
-      const pad = (number) => String(number).padStart(2, "0");
-      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-    }
-
-    function renderIcon(type) {
-      const icons = {
-        edit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.7V20h3.3L17.1 10.2l-3.3-3.3L4 16.7Z"></path><path d="m15 5.7 1.2-1.2a1.8 1.8 0 0 1 2.6 0l.7.7a1.8 1.8 0 0 1 0 2.6L18.3 9"></path></svg>',
-        trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="m9 7 .8-2h4.4l.8 2"></path><path d="m7 7 1 13h8l1-13"></path></svg>',
-        settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path><path d="m19 12 .9-1.7-2-3.4-1.9.1a7.8 7.8 0 0 0-1.5-.9L13.5 4h-4l-.9 2.1c-.5.2-1 .5-1.5.9L5.2 6.9l-2 3.4L4 12l-.9 1.7 2 3.4 1.9-.1c.5.4 1 .7 1.5.9l1 2.1h4l1-2.1c.5-.2 1-.5 1.5-.9l1.9.1 2-3.4L19 12Z"></path></svg>',
-        more: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01"></path><path d="M12 12h.01"></path><path d="M19 12h.01"></path></svg>',
-        arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 9 12l6 6"></path></svg>',
-      };
-      return icons[type] || icons.more;
+    function flattenTree(items, childKey, parentPath = "") {
+      const results = [];
+      (items || []).forEach((item) => {
+        const currentLabel = parentPath ? `${parentPath} / ${item.org_name}` : item.org_name;
+        results.push({ ...item, pathLabel: currentLabel });
+        results.push(...flattenTree(item[childKey] || [], childKey, currentLabel));
+      });
+      return results;
     }
   },
 };

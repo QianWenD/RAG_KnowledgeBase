@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RAGPro 权限管理 · 用户管理</title>
+  <title>RAGPro 权限系统 - 用户信息</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260422-user-cn-password">
+  <link rel="stylesheet" href="/static/styles.css?v=20260427-permission-org">
 </head>
-<body class="console-page" data-page="users" data-page-view="users-overview" data-page-label="用户管理">
+<body class="console-page" data-page="users" data-page-view="users-overview" data-page-label="用户信息">
   <div class="scene-grid" aria-hidden="true"></div>
   <div class="scene-glow" aria-hidden="true"></div>
 
@@ -18,14 +18,14 @@
       <section class="brand dossier">
         <div class="brand-topline">
           <p class="brand-kicker">RAGPro 后台</p>
-          <span class="brand-stamp">权限管理</span>
+          <span class="brand-stamp">权限系统</span>
         </div>
-        <h1>用户管理</h1>
-        <p class="brand-copy">按后台台账方式查看账号，先筛选、再定位、最后进入授权或安全操作。</p>
+        <h1>用户信息管理</h1>
+        <p class="brand-copy">这里按参考系统的后台结构，统一处理登录账号、工号、用户名、组织机构、菜单角色和来源范围。</p>
         <div class="brand-strip">
-          <span>账号分布</span>
-          <span>授权入口</span>
-          <span>安全入口</span>
+          <span>筛选</span>
+          <span>新增</span>
+          <span>编辑</span>
           <span>审计追踪</span>
         </div>
       </section>
@@ -41,7 +41,7 @@
           <a class="nav-link" data-nav="dashboard" href="/">总览</a>
           <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
           <a class="nav-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限管理</a>
+          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限系统</a>
         </div>
       </section>
 
@@ -80,31 +80,34 @@
           <div class="breadcrumb-row" aria-label="面包屑">
             <a class="breadcrumb-link" href="/">后台</a>
             <span class="breadcrumb-sep">/</span>
-          <span id="page-breadcrumb-current">用户管理</span>
+            <a class="breadcrumb-link" href="/users">权限系统</a>
+            <span class="breadcrumb-sep">/</span>
+            <span id="page-breadcrumb-current">用户信息</span>
           </div>
-          <h2>用户管理</h2>
+          <h2>用户信息</h2>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
 
-      <nav class="module-nav-bar" aria-label="权限管理子导航">
-        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户管理</a>
-        <a class="module-nav-link" data-module-nav="users-access" href="/users/access">角色与授权</a>
-        <a class="module-nav-link" data-module-nav="users-security" href="/users/security">安全操作</a>
+      <nav class="module-nav-bar" aria-label="权限系统子导航">
+        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户信息</a>
+        <a class="module-nav-link" data-module-nav="users-org" href="/users/org">组织机构</a>
+        <a class="module-nav-link" data-module-nav="users-access" href="/users/access">菜单角色</a>
+        <a class="module-nav-link" data-module-nav="users-security" href="/users/security">菜单管理</a>
         <a class="module-nav-link" data-module-nav="users-audit" href="/users/audit">审计日志</a>
       </nav>
 
       <section id="users-overview-note" class="section-banner hidden">
-        <strong>当前无权限查看权限总览</strong>
-        <p>只有管理员可以进入权限治理页面。普通用户可以继续使用问答和知识检索能力，但不会接触后台管理入口。</p>
+        <strong>当前账号没有用户管理权限</strong>
+        <p>只有管理员可以查看和维护权限系统中的用户信息。</p>
       </section>
 
-      <section class="user-management-console" aria-label="用户管理台账">
-        <section class="panel legacy-filter-panel" aria-labelledby="users-filter-title">
-          <div class="legacy-section-title" id="users-filter-title">条件筛选</div>
-          <form id="users-filter-form" class="users-filter-form">
+      <section class="user-management-console permission-workspace" id="users-overview-grid">
+        <section class="panel legacy-filter-panel">
+          <div class="legacy-section-title">条件筛选</div>
+          <form id="users-filter-form" class="users-filter-form permission-toolbar-grid">
             <label class="legacy-filter-field" for="users-filter-login">
               <span>登录账号</span>
               <input id="users-filter-login" type="search" autocomplete="off">
@@ -117,6 +120,12 @@
               <span>用户名</span>
               <input id="users-filter-name" type="search" autocomplete="off">
             </label>
+            <label class="legacy-filter-field" for="users-filter-org">
+              <span>组织机构</span>
+              <select id="users-filter-org">
+                <option value="">全部机构</option>
+              </select>
+            </label>
             <div class="legacy-filter-actions">
               <button id="users-filter-submit" class="legacy-primary-btn" type="submit">查询</button>
               <button id="users-filter-reset" class="legacy-plain-btn" type="button">重置</button>
@@ -124,54 +133,33 @@
           </form>
         </section>
 
-        <section class="panel user-table-panel" aria-labelledby="users-table-title">
-          <div class="user-table-toolbar">
-            <h2 id="users-table-title">用户信息</h2>
-            <div class="user-table-actions">
-              <button id="users-create-toggle" class="legacy-text-action" type="button" aria-expanded="false" aria-controls="users-create-panel">＋ 新增</button>
-              <button id="users-batch-delete" class="legacy-text-action danger" type="button" disabled>批量删除</button>
-              <button id="users-overview-refresh" class="legacy-text-action" type="button">刷新</button>
-            </div>
+        <section class="panel permission-summary-panel">
+          <div class="permission-summary-grid">
+            <article class="permission-summary-card">
+              <span>账号总数</span>
+              <strong id="users-summary-total">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>启用账号</span>
+              <strong id="users-summary-active">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>管理员</span>
+              <strong id="users-summary-admins">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>菜单角色</span>
+              <strong id="users-summary-roles">0</strong>
+            </article>
           </div>
+        </section>
 
-          <div id="users-create-panel" class="users-create-panel hidden" role="dialog" aria-modal="true" aria-labelledby="users-create-title">
-            <div class="users-create-card" role="document">
-              <div class="users-create-header">
-                <div>
-                  <p class="users-create-kicker">账号台账</p>
-                  <h3 id="users-create-title">新增用户</h3>
-                </div>
-                <button id="users-create-close" class="users-create-close" type="button" aria-label="关闭新增用户弹框">×</button>
-              </div>
-              <p class="users-create-copy">创建后会自动刷新用户信息，并定位到新账号。</p>
-              <form id="users-create-form" class="security-create-form-table users-create-form" novalidate>
-                <label class="legacy-filter-field" for="users-create-username">
-                  <span>用户名</span>
-                  <input id="users-create-username" type="text" autocomplete="off" placeholder="例如 ops_user" required minlength="3" maxlength="64">
-                </label>
-                <label class="legacy-filter-field" for="users-create-password">
-                  <span>初始密码</span>
-                  <input id="users-create-password" type="password" autocomplete="new-password" placeholder="建议至少 8 位" required minlength="8" maxlength="128">
-                </label>
-                <label class="legacy-filter-field" for="users-create-role">
-                  <span>角色</span>
-                  <select id="users-create-role">
-                    <option value="user">user</option>
-                    <option value="admin">admin</option>
-                  </select>
-                </label>
-                <div class="users-create-source-field">
-                  <span class="users-create-source-label">可见来源</span>
-                  <div id="users-create-sources" class="source-checkbox-grid security-create-sources">
-                    <div class="note">来源列表会在系统加载后显示。</div>
-                  </div>
-                </div>
-                <p id="users-create-feedback" class="users-create-feedback" role="status" aria-live="polite">填写账号信息后点击创建，系统会自动刷新列表。</p>
-                <div class="form-inline-actions users-create-footer">
-                  <button id="users-create-cancel" class="legacy-plain-btn" type="button">取消</button>
-                  <button id="users-create-submit" class="legacy-primary-btn" type="submit">创建账号</button>
-                </div>
-              </form>
+        <section class="panel user-table-panel">
+          <div class="user-table-toolbar">
+            <h2>用户信息</h2>
+            <div class="user-table-actions">
+              <button id="users-create-toggle" class="legacy-text-action" type="button">+ 新增</button>
+              <button id="users-overview-refresh" class="legacy-text-action" type="button">刷新</button>
             </div>
           </div>
 
@@ -179,17 +167,15 @@
             <table id="users-table" class="admin-data-table">
               <thead>
                 <tr>
-                  <th class="row-number-col" scope="col"></th>
-                  <th class="check-col" scope="col">
-                    <input id="users-check-all" type="checkbox" aria-label="选择全部用户">
-                  </th>
-                  <th scope="col">登录账号 <span class="sort-mark" aria-hidden="true"></span></th>
-                  <th scope="col">工号 <span class="sort-mark" aria-hidden="true"></span></th>
-                  <th scope="col">用户名 <span class="sort-mark" aria-hidden="true"></span></th>
+                  <th scope="col">登录账号</th>
+                  <th scope="col">工号</th>
+                  <th scope="col">用户名</th>
                   <th scope="col">状态</th>
-                  <th scope="col">组织机构名称</th>
-                  <th scope="col">创建时间 <span class="sort-mark" aria-hidden="true"></span></th>
-                  <th class="operation-col" scope="col">操作</th>
+                  <th scope="col">组织机构</th>
+                  <th scope="col">菜单角色</th>
+                  <th scope="col">来源范围</th>
+                  <th scope="col">创建时间</th>
+                  <th class="operation-col wide" scope="col">操作</th>
                 </tr>
               </thead>
               <tbody id="users-table-body">
@@ -199,31 +185,160 @@
               </tbody>
             </table>
           </div>
-
-          <div class="users-table-pager" aria-label="用户列表分页">
-            <div class="users-pager-left">
-              <button id="users-page-prev" class="pager-btn" type="button" aria-label="上一页">‹</button>
-              <div id="users-page-numbers" class="users-page-numbers"></div>
-              <button id="users-page-next" class="pager-btn" type="button" aria-label="下一页">›</button>
-            </div>
-            <div class="users-pager-right">
-              <span>前往</span>
-              <input id="users-page-jump" class="users-page-jump" type="number" min="1" value="1" aria-label="跳转页码">
-              <span>页</span>
-              <select id="users-page-size" aria-label="每页条数">
-                <option value="10">10 条/页</option>
-                <option value="20">20 条/页</option>
-                <option value="50">50 条/页</option>
-              </select>
-              <span id="users-total-count">共 0 条</span>
-            </div>
-          </div>
         </section>
       </section>
     </main>
   </div>
 
-  <script src="/static/common.js?v=20260422-user-cn-password"></script>
-  <script src="/static/users.js?v=20260422-user-cn-password"></script>
+  <div id="user-editor-modal" class="users-create-panel hidden" role="dialog" aria-modal="true" aria-labelledby="user-editor-title">
+    <div class="users-create-card permission-modal-card" role="document">
+      <div class="users-create-header">
+        <div>
+          <p class="users-create-kicker">用户台账</p>
+          <h3 id="user-editor-title">新增用户</h3>
+        </div>
+        <button id="user-editor-close" class="users-create-close" type="button" aria-label="关闭用户编辑弹框">×</button>
+      </div>
+      <p id="user-editor-copy" class="users-create-copy">创建完成后会自动刷新列表，并定位到新账号。</p>
+      <form id="user-editor-form" class="users-create-form permission-form-grid" novalidate>
+        <input id="user-editor-id" type="hidden">
+        <label class="legacy-filter-field" for="user-editor-username">
+          <span>登录账号</span>
+          <input id="user-editor-username" type="text" autocomplete="off" maxlength="64" placeholder="3-64 位，字母/数字/下划线/短横线/点">
+        </label>
+        <label class="legacy-filter-field" for="user-editor-display-name">
+          <span>用户名</span>
+          <input id="user-editor-display-name" type="text" autocomplete="off" maxlength="64" placeholder="1-64 位，例如 张三">
+        </label>
+        <label class="legacy-filter-field" for="user-editor-work-no">
+          <span>工号</span>
+          <input id="user-editor-work-no" type="text" autocomplete="off" maxlength="64" placeholder="1-64 位，例如 A1001">
+        </label>
+        <label id="user-editor-password-row" class="legacy-filter-field" for="user-editor-password">
+          <span>初始密码</span>
+          <input id="user-editor-password" type="password" autocomplete="new-password" maxlength="128" placeholder="至少 8 位，建议字母和数字组合">
+        </label>
+        <label id="user-editor-role-row" class="legacy-filter-field" for="user-editor-role" data-user-editor-access>
+          <span>系统角色</span>
+          <select id="user-editor-role">
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+          </select>
+        </label>
+        <label id="user-editor-status-row" class="legacy-filter-field" for="user-editor-status" data-user-editor-access>
+          <span>账号状态</span>
+          <select id="user-editor-status">
+            <option value="enabled">启用</option>
+            <option value="disabled">停用</option>
+          </select>
+        </label>
+        <label class="legacy-filter-field" for="user-editor-org">
+          <span>组织机构</span>
+          <select id="user-editor-org">
+            <option value="">请选择机构</option>
+          </select>
+        </label>
+
+        <div class="permission-form-span" data-user-editor-access>
+          <div class="permission-form-fieldset">
+            <div class="permission-form-legend">
+              <strong>菜单角色</strong>
+              <span>按参考系统方式分配后台能力。</span>
+            </div>
+            <div id="user-editor-menu-roles" class="permission-check-grid"></div>
+          </div>
+        </div>
+
+        <div class="permission-form-span" data-user-editor-access>
+          <div class="permission-form-fieldset">
+            <div class="permission-form-legend">
+              <strong>来源范围</strong>
+              <span>保留当前项目的 source 级访问控制。</span>
+            </div>
+            <div id="user-editor-sources" class="source-checkbox-grid security-create-sources"></div>
+          </div>
+        </div>
+
+        <p id="user-editor-feedback" class="users-create-feedback" role="status" aria-live="polite">请填写用户信息后保存。</p>
+        <div class="form-inline-actions users-create-footer">
+          <button id="user-editor-cancel" class="legacy-plain-btn" type="button">取消</button>
+          <button id="user-editor-submit" class="legacy-primary-btn" type="submit">保存用户</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="user-access-modal" class="users-create-panel hidden" role="dialog" aria-modal="true" aria-labelledby="user-access-title">
+    <div class="users-create-card permission-modal-card permission-access-card" role="document">
+      <div class="users-create-header">
+        <div>
+          <p class="users-create-kicker">权限分配</p>
+          <h3 id="user-access-title">设置菜单角色</h3>
+        </div>
+        <button id="user-access-close" class="users-create-close" type="button" aria-label="关闭权限分配弹框">×</button>
+      </div>
+      <p id="user-access-copy" class="users-create-copy">参考原系统的菜单角色弹层，集中调整角色、账号状态和来源范围。</p>
+      <div class="permission-access-shell">
+        <section class="permission-access-profile">
+          <div class="permission-access-profile-main">
+            <span class="permission-access-eyebrow">当前账号</span>
+            <strong id="user-access-user">-</strong>
+            <p id="user-access-meta">-</p>
+          </div>
+          <div class="permission-access-stats">
+            <span id="user-access-org" class="permission-access-pill">-</span>
+            <span id="user-access-role-count" class="permission-access-pill">0 个菜单角色</span>
+            <span id="user-access-source-count" class="permission-access-pill">0 个来源</span>
+          </div>
+        </section>
+
+        <form id="user-access-form" class="users-create-form permission-form-grid permission-access-form" novalidate>
+          <label class="legacy-filter-field" for="user-access-role">
+            <span>系统角色</span>
+            <select id="user-access-role">
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+            </select>
+          </label>
+          <label class="legacy-filter-field" for="user-access-status">
+            <span>账号状态</span>
+            <select id="user-access-status">
+              <option value="enabled">启用</option>
+              <option value="disabled">停用</option>
+            </select>
+          </label>
+
+          <div class="permission-form-span">
+            <div class="permission-form-fieldset">
+              <div class="permission-form-legend">
+                <strong>菜单角色</strong>
+                <span>像参考系统一样，把后台菜单能力集中放在这里维护。</span>
+              </div>
+              <div id="user-access-menu-roles" class="permission-check-grid"></div>
+            </div>
+          </div>
+
+          <div class="permission-form-span">
+            <div class="permission-form-fieldset">
+              <div class="permission-form-legend">
+                <strong>来源范围</strong>
+                <span>继续保留当前项目的 source 访问边界。</span>
+              </div>
+              <div id="user-access-sources" class="source-checkbox-grid security-create-sources"></div>
+            </div>
+          </div>
+
+          <p id="user-access-feedback" class="users-create-feedback" role="status" aria-live="polite">请调整菜单角色和来源范围后保存。</p>
+          <div class="form-inline-actions users-create-footer">
+            <button id="user-access-cancel" class="legacy-plain-btn" type="button">取消</button>
+            <button id="user-access-submit" class="legacy-primary-btn" type="submit">保存权限</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/common.js?v=20260427-permission-org"></script>
+  <script src="/static/users.js?v=20260427-permission-org"></script>
 </body>
 </html>

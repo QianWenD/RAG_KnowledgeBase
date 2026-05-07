@@ -7,6 +7,7 @@ window.RagProPage = {
       uploadFiles: [],
       uploadHistory: loadUploadHistory(),
     };
+    let sourceRefreshPromise = null;
     const preferredSource = new URLSearchParams(window.location.search).get("source") || "";
 
     const elements = {
@@ -42,14 +43,14 @@ window.RagProPage = {
       return;
     }
 
-    helpers.populateSourceSelect(elements.uploadSource, state.sources || [], "请选择来源");
-    if (preferredSource) {
-      helpers.setSourceSelectValue(elements.uploadSource, preferredSource);
-    }
+    applyUploadSourceOptions(preferredSource);
     bindEvents();
     helpers.setStatus("知识运营页已就绪，可以上传资料并写入检索链路。");
 
     function bindEvents() {
+      elements.uploadSource?.addEventListener("focus", () => {
+        void refreshUploadSources();
+      });
       elements.uploadFileInput?.addEventListener("change", () => {
         setUploadFiles(Array.from(elements.uploadFileInput.files || []));
       });
@@ -58,6 +59,12 @@ window.RagProPage = {
         uploadDocuments();
       });
       elements.uploadReplaceSource?.addEventListener("change", renderSummary);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          return;
+        }
+        void refreshUploadSources();
+      });
       if (elements.uploadDropZone) {
         for (const eventName of ["dragenter", "dragover"]) {
           elements.uploadDropZone.addEventListener(eventName, (event) => {
@@ -78,6 +85,34 @@ window.RagProPage = {
           }
         });
       }
+    }
+
+    function applyUploadSourceOptions(selectedSource = "") {
+      helpers.populateSourceSelect(elements.uploadSource, state.sources || [], "请选择来源");
+      if (selectedSource) {
+        helpers.setSourceSelectValue(elements.uploadSource, selectedSource);
+      }
+      renderSummary();
+    }
+
+    async function refreshUploadSources() {
+      if (!helpers.isAdmin()) {
+        return state.sources || [];
+      }
+      if (sourceRefreshPromise) {
+        return sourceRefreshPromise;
+      }
+      const preservedSource = helpers.getSourceSelectValue(elements.uploadSource) || preferredSource;
+      sourceRefreshPromise = (async () => {
+        if (typeof helpers.loadSources === "function") {
+          await helpers.loadSources();
+        }
+        applyUploadSourceOptions(preservedSource);
+        return state.sources || [];
+      })().finally(() => {
+        sourceRefreshPromise = null;
+      });
+      return sourceRefreshPromise;
     }
 
     function disableUploadView() {

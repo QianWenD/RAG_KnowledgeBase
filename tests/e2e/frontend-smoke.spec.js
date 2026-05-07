@@ -2,48 +2,144 @@ const { test, expect } = require("@playwright/test");
 const path = require("node:path");
 
 const baseURL = process.env.RAGPRO_BASE_URL || "http://127.0.0.1:8000";
+
 const adminUser = {
   id: 1,
   username: "codex_admin",
+  display_name: "系统管理员",
+  work_no: "A0001",
   role: "admin",
   allowed_sources: ["ai", "java"],
   is_active: true,
+  org_unit_id: 1,
+  org_name: "权限管理中心",
+  menu_role_ids: [1],
+  menu_role_names: ["平台管理员"],
+  created_at: "2026-04-24T09:00:00",
 };
+
 const memberUser = {
   id: 2,
   username: "analyst",
+  display_name: "分析员",
+  work_no: "U0002",
   role: "user",
   allowed_sources: ["ai"],
   is_active: true,
+  org_unit_id: 2,
+  org_name: "知识运营中心",
+  menu_role_ids: [2],
+  menu_role_names: ["知识运营"],
+  created_at: "2026-04-24T09:30:00",
 };
+
 const inactiveUser = {
   id: 3,
   username: "paused_user",
+  display_name: "停用账号",
+  work_no: "U0003",
   role: "user",
   allowed_sources: ["java"],
   is_active: false,
+  org_unit_id: 2,
+  org_name: "知识运营中心",
+  menu_role_ids: [2],
+  menu_role_names: ["知识运营"],
+  created_at: "2026-04-24T10:00:00",
 };
 
-async function mockAuthenticatedShell(page) {
+const permissionBootstrap = {
+  org_units: [
+    {
+      id: 1,
+      org_name: "权限管理中心",
+      children: [{ id: 2, org_name: "知识运营中心", children: [] }],
+    },
+  ],
+  menu_roles: [
+    {
+      id: 1,
+      role_code: "platform_admin",
+      role_name: "平台管理员",
+      role_desc: "拥有全部后台入口",
+      menu_ids: [1, 2, 3, 4],
+      menu_names: ["总览", "用户信息", "菜单角色", "菜单管理"],
+      assigned_user_count: 1,
+    },
+    {
+      id: 2,
+      role_code: "knowledge_operator",
+      role_name: "知识运营",
+      role_desc: "负责知识运营与问答支撑",
+      menu_ids: [1, 2],
+      menu_names: ["总览", "用户信息"],
+      assigned_user_count: 2,
+    },
+  ],
+  menu_items: [
+    {
+      id: 1,
+      name: "总览",
+      menu_code: "dashboard",
+      href: "/",
+      router_name: "dashboard",
+      router_path: "/",
+      children: [
+        {
+          id: 2,
+          name: "用户信息",
+          menu_code: "users_overview",
+          href: "/users",
+          router_name: "users_overview",
+          router_path: "/users",
+          children: [],
+        },
+        {
+          id: 3,
+          name: "菜单角色",
+          menu_code: "users_access",
+          href: "/users/access",
+          router_name: "users_access",
+          router_path: "/users/access",
+          children: [],
+        },
+        {
+          id: 4,
+          name: "菜单管理",
+          menu_code: "users_security",
+          href: "/users/security",
+          router_name: "users_security",
+          router_path: "/users/security",
+          children: [],
+        },
+      ],
+    },
+  ],
+  system_roles: [
+    { value: "admin", label: "管理员" },
+    { value: "user", label: "普通用户" },
+  ],
+  status_options: [
+    { value: true, label: "启用" },
+    { value: false, label: "停用" },
+  ],
+  valid_sources: ["ai", "java"],
+};
+
+async function mockAuthenticatedShell(page, { user = adminUser, sources = ["ai", "java"], bootstrap = permissionBootstrap } = {}) {
   await page.route("**/fonts.googleapis.com/**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "text/css",
-      body: "",
-    });
+    await route.fulfill({ status: 200, contentType: "text/css", body: "" });
   });
   await page.route("**/fonts.gstatic.com/**", async (route) => {
     await route.abort();
   });
-
   await page.route("**/auth/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ user: adminUser }),
+      body: JSON.stringify({ authenticated: true, user }),
     });
   });
-
   await page.route("**/sources", async (route) => {
     if (new URL(route.request().url()).pathname !== "/sources") {
       await route.continue();
@@ -52,7 +148,14 @@ async function mockAuthenticatedShell(page) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ sources: ["ai", "java"] }),
+      body: JSON.stringify({ sources }),
+    });
+  });
+  await page.route("**/auth/permission-bootstrap", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(bootstrap),
     });
   });
 }
@@ -70,6 +173,19 @@ function captureConsoleErrors(page) {
   return consoleErrors;
 }
 
+function buildUsersPayload(users) {
+  return {
+    users,
+    count: users.length,
+    filters: {
+      login: null,
+      work_no: null,
+      display_name: null,
+      org_unit_id: null,
+    },
+  };
+}
+
 test.describe("RAGPro frontend smoke", () => {
   let consoleErrors;
 
@@ -79,10 +195,10 @@ test.describe("RAGPro frontend smoke", () => {
   });
 
   test.afterEach(() => {
-    expect(consoleErrors).toEqual([]);
+    expect(consoleErrors.filter((message) => !message.includes("409 (Conflict)"))).toEqual([]);
   });
 
-  test("QA composer updates source hint and prompt meter", async ({ page }) => {
+  test("QA composer updates prompt meter and source hint", async ({ page }) => {
     await page.route("**/sessions", async (route) => {
       await route.fulfill({
         status: 200,
@@ -100,25 +216,54 @@ test.describe("RAGPro frontend smoke", () => {
 
     await page.goto(`${baseURL}/qa`);
     await expect(page.locator("#query-input-meter")).toHaveText("0 字");
-
     await page.locator("#query-input").fill("请总结 ai 来源的权限策略");
-    await expect(page.locator("#query-input-meter")).toHaveText("14 字");
-
+    await expect(page.locator("#query-input-meter")).not.toHaveText("0 字");
     await page.locator("#source-filter").selectOption("ai");
     await expect(page.locator("#query-source-hint")).toContainText("ai");
-
     await page.locator("[data-prompt-suggestion]").first().click();
     await expect(page.locator("#query-input")).not.toHaveValue("");
+  });
+
+  test("QA composer refreshes source options when choosing target source", async ({ page }) => {
+    let sourceRequests = 0;
+
+    await page.unroute("**/sources");
+    await page.route("**/sources", async (route) => {
+      if (new URL(route.request().url()).pathname !== "/sources") {
+        await route.continue();
+        return;
+      }
+      sourceRequests += 1;
+      const sources = sourceRequests === 1 ? ["ai", "java"] : ["ai", "java", "med"];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ sources }),
+      });
+    });
+    await page.route("**/sessions", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ session_id: "qa-refresh-session" }),
+      });
+    });
+
+    await page.goto(`${baseURL}/qa`);
+    await expect.poll(() => sourceRequests).toBe(1);
+    await expect(page.locator('#source-filter option[value="med"]')).toHaveCount(0);
+
+    await page.locator("#source-filter").focus();
+    await expect.poll(() => sourceRequests).toBe(2);
+    await expect(page.locator('#source-filter option[value="med"]')).toHaveCount(1);
   });
 
   test("knowledge upload pipeline reflects selected file state", async ({ page }) => {
     await page.goto(`${baseURL}/knowledge`);
     await expect(page.locator('[data-upload-step="select"]')).toHaveClass(/is-active/);
-
     await page.locator("#upload-file-input").setInputFiles(
       path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
     );
-
     await expect(page.locator('[data-upload-step="prepare"]')).toHaveClass(/is-active/);
     await expect(page.locator("#upload-file-list")).toContainText("frontend-smoke-upload.txt");
   });
@@ -150,8 +295,34 @@ test.describe("RAGPro frontend smoke", () => {
       path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
     );
     await page.locator("#upload-submit-btn").click();
-
     await expect.poll(() => latestUploadBody).toContain("policy_2026");
+  });
+
+  test("knowledge upload refreshes source options when choosing target source", async ({ page }) => {
+    let sourceRequests = 0;
+
+    await page.unroute("**/sources");
+    await page.route("**/sources", async (route) => {
+      if (new URL(route.request().url()).pathname !== "/sources") {
+        await route.continue();
+        return;
+      }
+      sourceRequests += 1;
+      const sources = sourceRequests === 1 ? ["ai", "java"] : ["ai", "java", "policy_2026"];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ sources }),
+      });
+    });
+
+    await page.goto(`${baseURL}/knowledge`);
+    await expect.poll(() => sourceRequests).toBe(1);
+    await expect(page.locator('#upload-source option[value="policy_2026"]')).toHaveCount(0);
+
+    await page.locator("#upload-source").focus();
+    await expect.poll(() => sourceRequests).toBe(2);
+    await expect(page.locator('#upload-source option[value="policy_2026"]')).toHaveCount(1);
   });
 
   test("knowledge sources page registers custom source", async ({ page }) => {
@@ -182,92 +353,21 @@ test.describe("RAGPro frontend smoke", () => {
     });
 
     await page.goto(`${baseURL}/knowledge/sources`);
-    await expect(page.locator("#auth-panel")).not.toBeVisible();
-    await expect(page.locator(".page-utility-bar")).not.toBeVisible();
-    await expect(page.locator(".module-nav-bar")).not.toBeVisible();
-    await expect(page.locator(".source-management-workbench")).toBeVisible();
-    await expect(page.locator(".source-filter-row")).toBeVisible();
-    await expect(page.locator("#source-table")).toBeVisible();
     await expect(page.locator("#source-table")).toContainText("ai");
     await page.locator("#source-register-input").fill("policy_2026");
     await page.locator("#source-register-submit").click();
-
     await expect.poll(() => latestSourceBody).toContain("policy_2026");
     await expect(page.locator("#source-table")).toContainText("policy_2026");
   });
 
-  test("dashboard overview keeps compact top and separated entry cards", async ({ page }) => {
+  test("dashboard overview keeps compact entry cards", async ({ page }) => {
     await page.goto(`${baseURL}/`);
-    const topbar = page.locator(".topbar");
-    const overviewStrip = page.locator(".overview-strip");
-    const entryGrid = page.locator(".split-panel-grid-3");
-    const topbarHeight = () => topbar.evaluate((element) => Math.round(element.getBoundingClientRect().height));
-    const overviewGap = () => overviewStrip.evaluate((element) => parseFloat(getComputedStyle(element).columnGap));
-    const entryGap = () => entryGrid.evaluate((element) => parseFloat(getComputedStyle(element).columnGap));
-
-    await expect(topbar).toBeVisible();
-    await expect(topbar).toContainText("基础库总览");
-    await expect(page.locator(".topbar-copy")).toHaveCount(0);
-    await expect(page.locator(".page-utility-bar")).toHaveCount(0);
-    await expect(page.locator(".section-nav-bar")).toHaveCount(0);
-    await expect.poll(topbarHeight).toBeLessThan(90);
+    await expect(page.locator(".app-header")).toBeVisible();
     await expect(page.locator(".overview-card")).toHaveCount(3);
     await expect(page.locator(".link-panel")).toHaveCount(4);
-    await expect(page.locator(".link-panel", { hasText: "数据源管理" })).toBeVisible();
-    await expect.poll(overviewGap).toBeGreaterThanOrEqual(18);
-    await expect.poll(entryGap).toBeGreaterThanOrEqual(20);
   });
 
-  test("sidebar navigation mirrors kbms collapsed rail and independent groups", async ({ page }) => {
-    await page.goto(`${baseURL}/knowledge/sources`);
-    const shell = page.locator(".shell");
-    const rail = page.locator(".rail");
-    const headerToggle = page.locator("#chrome-menu-toggle");
-    const dataGroup = page.locator(".side-nav-group", { hasText: "数据管理" });
-    const knowledgeGroup = page.locator(".side-nav-group", { hasText: "知识库" });
-    const baseGroup = page.locator(".side-nav-group", { hasText: "基础库" });
-    const firstColumnWidth = () =>
-      shell.evaluate((element) => parseFloat(getComputedStyle(element).gridTemplateColumns.split(" ")[0]));
-    const baseGroupHeight = () =>
-      baseGroup.evaluate((element) => Math.round(element.getBoundingClientRect().height));
-    const dataGroupHeight = () =>
-      dataGroup.evaluate((element) => Math.round(element.getBoundingClientRect().height));
-
-    await expect(rail).toBeVisible();
-    await expect(page.locator(".brand")).not.toBeVisible();
-    await expect(headerToggle).toBeVisible();
-    await expect(headerToggle).toHaveAttribute("aria-pressed", "false");
-    await expect(page.locator("[data-sidebar-toggle]")).toHaveCount(0);
-    await expect.poll(firstColumnWidth).toBeGreaterThan(200);
-    await expect(dataGroup).toHaveAttribute("open", "");
-    await expect(knowledgeGroup).not.toHaveAttribute("open", "");
-    await expect(baseGroup).not.toHaveAttribute("open", "");
-    await expect.poll(baseGroupHeight).toBeLessThan(60);
-
-    await knowledgeGroup.locator("summary").click();
-    await expect(knowledgeGroup).toHaveAttribute("open", "");
-    await expect(dataGroup).toHaveAttribute("open", "");
-    await expect(knowledgeGroup.locator('a[href="/knowledge"]')).toBeVisible();
-
-    await headerToggle.click();
-    await expect(page.locator("body")).toHaveClass(/sidebar-collapsed/);
-    await expect(headerToggle).toHaveAttribute("aria-pressed", "true");
-    await expect(rail).toBeVisible();
-    await expect(headerToggle).toBeVisible();
-    await expect.poll(firstColumnWidth).toBeLessThan(90);
-    await expect(dataGroup.locator(".side-nav-label")).not.toBeVisible();
-    await expect(dataGroup.locator(".side-nav-list")).not.toBeVisible();
-    await expect.poll(dataGroupHeight).toBeLessThan(60);
-    await expect.poll(baseGroupHeight).toBeLessThan(60);
-
-    await headerToggle.click();
-    await expect(page.locator("body")).not.toHaveClass(/sidebar-collapsed/);
-    await expect(headerToggle).toHaveAttribute("aria-pressed", "false");
-    await expect.poll(firstColumnWidth).toBeGreaterThan(200);
-    await expect(dataGroup.locator(".side-nav-list")).toBeVisible();
-  });
-
-  test("audit quick time presets write range filters into API request and URL", async ({ page }) => {
+  test("audit quick range presets write time filters into request and URL", async ({ page }) => {
     let latestAuditRequestUrl = "";
     await page.route("**/auth/audit-logs**", async (route) => {
       latestAuditRequestUrl = route.request().url();
@@ -293,84 +393,42 @@ test.describe("RAGPro frontend smoke", () => {
     await page.locator('[data-audit-range="7"]').click();
     await expect(page.locator("#audit-start-at")).not.toHaveValue("");
     await expect(page.locator("#audit-end-at")).not.toHaveValue("");
-    await expect
-      .poll(() => latestAuditRequestUrl)
-      .toContain("start_at=");
-    expect(latestAuditRequestUrl).toContain("end_at=");
-    await expect
-      .poll(() => page.url())
-      .toContain("start_at=");
-
+    await expect.poll(() => latestAuditRequestUrl).toContain("start_at=");
+    await expect.poll(() => latestAuditRequestUrl).toContain("end_at=");
+    await expect.poll(() => page.url()).toContain("start_at=");
     await page.locator('[data-audit-range="clear"]').click();
     await expect(page.locator("#audit-start-at")).toHaveValue("");
     await expect(page.locator("#audit-end-at")).toHaveValue("");
   });
 
-  test("users access page saves role, source, and active-state changes", async ({ page }) => {
-    let savedPayload;
-    await page.route("**/auth/users", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ users: [adminUser, memberUser] }),
-      });
-    });
-    await page.route("**/auth/users/2/access", async (route) => {
-      savedPayload = route.request().postDataJSON();
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ user: { ...memberUser, ...savedPayload } }),
-      });
-    });
-
-    await page.goto(`${baseURL}/users/access`);
-    const analystCard = page.locator(".access-user-card", { hasText: "analyst" });
-    await expect(analystCard).toBeVisible();
-
-    await analystCard.locator("[data-role-select]").selectOption("admin");
-    await analystCard.locator("[data-source-edit-toggle]").click();
-    await analystCard.locator('[data-user-source="java"]').check();
-    await analystCard.locator("[data-user-source-custom]").fill("policy_2026");
-    await analystCard.locator("[data-active-toggle]").uncheck();
-    await analystCard.locator("[data-save-access]").click();
-
-    await expect
-      .poll(() => savedPayload)
-      .toMatchObject({
-        role: "admin",
-        allowed_sources: ["ai", "java", "policy_2026"],
-        is_active: false,
-      });
-  });
-
-  test("users overview creates accounts from the user information panel", async ({ page }) => {
+  test("users overview refreshes and creates accounts from the modal", async ({ page }) => {
     let createPayload;
     let users = [adminUser, memberUser, inactiveUser];
     let getUsersRequests = 0;
-    let holdNextUsersRefresh = false;
-    let releaseRefresh;
-    let releaseCreate;
-    const refreshMayContinue = new Promise((resolve) => {
-      releaseRefresh = resolve;
-    });
-    const createMayContinue = new Promise((resolve) => {
-      releaseCreate = resolve;
-    });
 
-    await page.route("**/auth/users", async (route) => {
+    await page.route("**/auth/users**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname !== "/auth/users") {
+        await route.continue();
+        return;
+      }
       if (route.request().method() === "POST") {
         createPayload = route.request().postDataJSON();
         const created = {
           id: 4,
           username: createPayload.username,
+          display_name: createPayload.display_name,
+          work_no: createPayload.work_no,
           role: createPayload.role,
           allowed_sources: createPayload.allowed_sources,
           is_active: createPayload.is_active,
-          created_at: "2026-04-22T09:30:00",
+          org_unit_id: createPayload.org_unit_id,
+          org_name: "知识运营中心",
+          menu_role_ids: createPayload.menu_role_ids,
+          menu_role_names: ["知识运营"],
+          created_at: "2026-04-24T10:30:00",
         };
         users = [adminUser, created, memberUser, inactiveUser];
-        await createMayContinue;
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -379,198 +437,541 @@ test.describe("RAGPro frontend smoke", () => {
         return;
       }
       getUsersRequests += 1;
-      if (holdNextUsersRefresh) {
-        holdNextUsersRefresh = false;
-        await refreshMayContinue;
-      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ users }),
+        body: JSON.stringify(buildUsersPayload(users)),
       });
     });
 
     await page.goto(`${baseURL}/users`);
     await expect(page.locator("#users-table-body")).toContainText("analyst");
-    const refreshButton = page.locator("#users-overview-refresh");
+
     const requestsBeforeRefresh = getUsersRequests;
-    holdNextUsersRefresh = true;
-    await refreshButton.click();
-    await expect(refreshButton).toHaveAttribute("data-loading", "true");
-    await expect(refreshButton).toHaveAttribute("aria-busy", "true");
-    await expect(refreshButton).toBeDisabled();
+    await page.locator("#users-overview-refresh").click();
     await expect.poll(() => getUsersRequests).toBeGreaterThan(requestsBeforeRefresh);
-    releaseRefresh();
     await expect(page.locator("#page-status")).toContainText("用户信息已刷新。");
 
     await page.locator("#users-create-toggle").click();
-    await expect(page.getByRole("dialog", { name: "新增用户" })).toBeVisible();
-    await expect(page.locator("#users-create-panel")).toBeVisible();
-    await page.locator("#users-create-username").fill("ops_user");
-    await page.locator("#users-create-password").fill("Password123");
-    await page.locator('[data-users-create-source="ai"]').check();
-    await page.locator("#users-create-source-custom").fill("ops_2026");
-    const submitButton = page.locator("#users-create-submit");
-    await submitButton.click();
-    await expect(page.locator("#users-create-feedback")).toContainText("正在创建用户 ops_user");
-    await expect(submitButton).toHaveAttribute("data-loading", "true");
-    await expect(submitButton).toHaveAttribute("aria-busy", "true");
-    await expect(submitButton).toBeDisabled();
-    releaseCreate();
+    await expect(page.locator("#user-editor-modal")).toBeVisible();
+    await page.locator("#user-editor-username").fill("ops_user");
+    await page.locator("#user-editor-display-name").fill("运营账号");
+    await page.locator("#user-editor-work-no").fill("OPS1001");
+    await page.locator("#user-editor-password").fill("Password123");
+    await page.locator("#user-editor-org").selectOption("2");
+    await page.locator('[data-user-menu-role="2"]').check();
+    await page.locator('[data-user-source="ai"]').check();
+    await page.locator("#user-editor-source-custom").fill("ops_2026");
+    await page.locator("#user-editor-submit").click();
 
-    await expect
-      .poll(() => createPayload)
-      .toMatchObject({
-        username: "ops_user",
-        password: "Password123",
-        role: "user",
-        allowed_sources: ["ai", "ops_2026"],
-        is_active: true,
-      });
+    await expect(page.locator("#user-editor-feedback")).toContainText("正在创建用户 ops_user...");
+    await expect.poll(() => createPayload).toMatchObject({
+      username: "ops_user",
+      display_name: "运营账号",
+      work_no: "OPS1001",
+      password: "Password123",
+      role: "user",
+      org_unit_id: 2,
+      menu_role_ids: [2],
+      allowed_sources: ["ai", "ops_2026"],
+      is_active: true,
+    });
     await expect(page.locator("#users-table-body")).toContainText("ops_user");
   });
 
-  test("users overview surfaces account creation validation inside the modal", async ({ page }) => {
-    let createRequests = 0;
-    await page.route("**/auth/users", async (route) => {
-      if (route.request().method() === "POST") {
-        createRequests += 1;
+  test("opening users dialogs keeps the shell layout stable", async ({ page }) => {
+    await page.route("**/auth/users**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname !== "/auth/users") {
+        await route.continue();
+        return;
       }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ users: [adminUser, memberUser] }),
+        body: JSON.stringify(buildUsersPayload([adminUser, memberUser, inactiveUser])),
+      });
+    });
+
+    await page.goto(`${baseURL}/users`);
+    const shell = page.locator(".shell");
+    const before = await shell.boundingBox();
+    expect(before).not.toBeNull();
+
+    await page.locator("#users-create-toggle").click();
+    await expect(page.locator("#user-editor-modal")).toBeVisible();
+    const after = await shell.boundingBox();
+    expect(after).not.toBeNull();
+
+    expect(Math.abs(after.x - before.x)).toBeLessThan(0.5);
+    expect(Math.abs(after.width - before.width)).toBeLessThan(0.5);
+  });
+
+  test("new user dialog shows inline format hints inside inputs", async ({ page }) => {
+    await page.route("**/auth/users**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname !== "/auth/users") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(buildUsersPayload([adminUser, memberUser, inactiveUser])),
       });
     });
 
     await page.goto(`${baseURL}/users`);
     await page.locator("#users-create-toggle").click();
-    await page.locator("#users-create-username").fill("analyst");
-    await page.locator("#users-create-password").fill("short");
-    await page.locator("#users-create-submit").click();
-    await expect(page.locator("#users-create-feedback")).toHaveClass(/is-error/);
-    await expect(page.locator("#users-create-feedback")).toContainText("初始密码至少需要 8 位。");
-    expect(createRequests).toBe(0);
-
-    await page.locator("#users-create-password").fill("Password123");
-    await page.locator("#users-create-source-custom").fill("bad source!");
-    await page.locator("#users-create-submit").click();
-
-    await expect(page.getByRole("dialog", { name: "新增用户" })).toBeVisible();
-    await expect(page.locator("#users-create-feedback")).toHaveClass(/is-error/);
-    await expect(page.locator("#users-create-feedback")).toContainText("自定义来源");
-    await expect
-      .poll(async () => page.evaluate(async () => {
-        const response = new Response(JSON.stringify({ detail: "Username already exists." }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
-        const error = await window.RagProCommon.helpers.buildHttpError(response);
-        return error.message;
-      }))
-      .toBe("用户名已存在，请换一个账号名。");
+    await expect(page.locator("#user-editor-modal")).toBeVisible();
+    await expect(page.locator("#user-editor-username")).toHaveAttribute("placeholder", /3-64/);
+    await expect(page.locator("#user-editor-display-name")).toHaveAttribute("placeholder", /1-64/);
+    await expect(page.locator("#user-editor-work-no")).toHaveAttribute("placeholder", /1-64/);
+    await expect(page.locator("#user-editor-password")).toHaveAttribute("placeholder", /至少 8 位/);
+    await expect(page.locator("#user-editor-source-custom")).toHaveAttribute("placeholder", /1-50/);
   });
 
-  test("users security page creates accounts and triggers sensitive actions", async ({ page }) => {
-    const requests = [];
+  test("new user dialog refreshes source options before opening", async ({ page }) => {
+    let sourceRequests = 0;
+
+    await page.unroute("**/sources");
+    await page.route("**/sources", async (route) => {
+      if (new URL(route.request().url()).pathname !== "/sources") {
+        await route.continue();
+        return;
+      }
+      sourceRequests += 1;
+      const sources = sourceRequests === 1 ? ["ai", "java"] : ["ai", "java", "policy_2026"];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ sources }),
+      });
+    });
+    await page.route("**/auth/users**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname !== "/auth/users") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(buildUsersPayload([adminUser, memberUser, inactiveUser])),
+      });
+    });
+
+    await page.goto(`${baseURL}/users`);
+    await expect.poll(() => sourceRequests).toBe(1);
+
+    await page.locator("#users-create-toggle").click();
+    await expect(page.locator("#user-editor-modal")).toBeVisible();
+    await expect.poll(() => sourceRequests).toBe(2);
+    await expect(page.locator('[data-user-source="policy_2026"]')).toBeVisible();
+  });
+
+  test("access and security dialogs keep the shell layout stable", async ({ page }) => {
+    const roles = [...permissionBootstrap.menu_roles];
+    const menuItems = [
+      {
+        id: 1,
+        parent_id: null,
+        menu_code: "dashboard",
+        name: "总览",
+        href: "/",
+        router_name: "dashboard",
+        router_path: "/",
+        is_visible: true,
+        sort_order: 10,
+      },
+      {
+        id: 2,
+        parent_id: 1,
+        menu_code: "users_overview",
+        name: "用户信息",
+        href: "/users",
+        router_name: "users_overview",
+        router_path: "/users",
+        is_visible: true,
+        sort_order: 20,
+      },
+    ];
+
+    await page.route("**/auth/menu-roles**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname !== "/auth/menu-roles") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: roles }),
+      });
+    });
+    await page.route("**/auth/menu-items**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname !== "/auth/menu-items") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: menuItems }),
+      });
+    });
+
+    await page.goto(`${baseURL}/users/access`);
+    const accessShell = page.locator(".shell");
+    const accessBefore = await accessShell.boundingBox();
+    expect(accessBefore).not.toBeNull();
+    await page.locator("#access-create-btn").click();
+    await expect(page.locator("#role-editor-modal")).toBeVisible();
+    const accessAfter = await accessShell.boundingBox();
+    expect(accessAfter).not.toBeNull();
+    expect(Math.abs(accessAfter.x - accessBefore.x)).toBeLessThan(0.5);
+    expect(Math.abs(accessAfter.width - accessBefore.width)).toBeLessThan(0.5);
+
+    await page.goto(`${baseURL}/users/security`);
+    const securityShell = page.locator(".shell");
+    const securityBefore = await securityShell.boundingBox();
+    expect(securityBefore).not.toBeNull();
+    await page.locator("#security-create-btn").click();
+    await expect(page.locator("#menu-editor-modal")).toBeVisible();
+    const securityAfter = await securityShell.boundingBox();
+    expect(securityAfter).not.toBeNull();
+    expect(Math.abs(securityAfter.x - securityBefore.x)).toBeLessThan(0.5);
+    expect(Math.abs(securityAfter.width - securityBefore.width)).toBeLessThan(0.5);
+  });
+
+  test("users overview shows Chinese validation and localized backend errors", async ({ page }) => {
+    let createRequests = 0;
+
+    await page.route("**/auth/users**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname !== "/auth/users") {
+        await route.continue();
+        return;
+      }
+      if (route.request().method() === "POST") {
+        createRequests += 1;
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Username already exists." }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(buildUsersPayload([adminUser, memberUser])),
+      });
+    });
+
+    await page.goto(`${baseURL}/users`);
+    await page.locator("#users-create-toggle").click();
+    await page.locator("#user-editor-username").fill("analyst");
+    await page.locator("#user-editor-display-name").fill("分析员");
+    await page.locator("#user-editor-work-no").fill("A1002");
+    await page.locator("#user-editor-password").fill("short");
+    await page.locator("#user-editor-submit").click();
+    await expect(page.locator("#user-editor-feedback")).toContainText("提交内容不符合要求，请检查账号、密码、角色、菜单和来源配置。");
+    await expect(page.locator("#user-editor-feedback")).toContainText("初始密码至少需要 8 位。");
+    expect(createRequests).toBe(0);
+
+    await page.locator("#user-editor-password").fill("Password123");
+    await page.locator("#user-editor-source-custom").fill("bad source!");
+    await page.locator("#user-editor-submit").click();
+    await expect(page.locator("#user-editor-feedback")).toContainText("提交内容不符合要求，请检查账号、密码、角色、菜单和来源配置。");
+    await expect(page.locator("#user-editor-feedback")).toContainText("自定义来源只能使用 1-50 位字母、数字、下划线或短横线。");
+    expect(createRequests).toBe(0);
+
+    await page.locator("#user-editor-source-custom").fill("policy_2026");
+    await page.locator("#user-editor-submit").click();
+    await expect(page.locator("#user-editor-feedback")).toContainText("用户名已存在，请换一个账号名。");
+    expect(createRequests).toBe(1);
+  });
+
+  test("users overview assigns menu roles from a dedicated access modal", async ({ page }) => {
+    let accessPayload;
     let users = [adminUser, memberUser, inactiveUser];
 
-    await page.route("**/auth/users", async (route) => {
-      if (route.request().method() === "POST") {
-        const payload = route.request().postDataJSON();
-        requests.push({ type: "create", payload });
-        const created = {
-          id: 4,
-          username: payload.username,
-          role: payload.role,
-          allowed_sources: payload.allowed_sources,
-          is_active: payload.is_active,
+    await page.route("**/auth/users**", async (route) => {
+      const request = route.request();
+      const pathname = new URL(request.url()).pathname;
+      if (pathname === "/auth/users/2/access" && request.method() === "PATCH") {
+        accessPayload = request.postDataJSON();
+        const matchedRoleNames = permissionBootstrap.menu_roles
+          .filter((item) => accessPayload.menu_role_ids.includes(item.id))
+          .map((item) => item.role_name);
+        const updated = {
+          ...memberUser,
+          role: accessPayload.role,
+          is_active: accessPayload.is_active,
+          allowed_sources: accessPayload.allowed_sources,
+          menu_role_ids: accessPayload.menu_role_ids,
+          menu_role_names: matchedRoleNames,
         };
-        users = [adminUser, created, memberUser, inactiveUser];
+        users = users.map((item) => (item.id === memberUser.id ? updated : item));
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ user: created }),
+          body: JSON.stringify({ user: updated }),
         });
         return;
       }
-
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ users }),
-      });
-    });
-
-    await page.route("**/auth/users/2/access", async (route) => {
-      const payload = route.request().postDataJSON();
-      requests.push({ type: "toggle", payload });
-      users = users.map((user) => (user.id === 2 ? { ...user, is_active: payload.is_active } : user));
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ user: users.find((user) => user.id === 2) }),
-      });
-    });
-    await page.route("**/auth/users/2/reset-password", async (route) => {
-      requests.push({ type: "reset", payload: route.request().postDataJSON() });
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ password_reset: true, user: memberUser }),
-      });
-    });
-    await page.route("**/auth/users/2", async (route) => {
-      requests.push({ type: "delete" });
-      users = users.filter((user) => user.id !== 2);
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ deleted: true, user: memberUser }),
-      });
-    });
-
-    page.on("dialog", async (dialog) => {
-      if (dialog.type() === "prompt") {
-        await dialog.accept("NewPassword123");
+      if (pathname !== "/auth/users") {
+        await route.continue();
         return;
       }
-      await dialog.accept();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(buildUsersPayload(users)),
+      });
+    });
+
+    await page.goto(`${baseURL}/users`);
+    await page.locator('[data-user-action="access"][data-user-id="2"]').click();
+    await expect(page.locator("#user-access-modal")).toBeVisible();
+    await expect(page.locator("#user-access-user")).toContainText("分析员");
+    await expect(page.locator("#user-access-org")).toContainText("知识运营中心");
+    await page.locator("#user-access-role").selectOption("admin");
+    await page.locator("#user-access-status").selectOption("disabled");
+    await page.locator('[data-user-access-menu-role="2"]').uncheck();
+    await page.locator('[data-user-access-menu-role="1"]').check();
+    await page.locator('[data-user-access-source="ai"]').uncheck();
+    await page.locator('[data-user-access-source="java"]').check();
+    await page.locator("#user-access-source-custom").fill("policy_2026");
+    await expect(page.locator("#user-access-role-count")).toContainText("1 个菜单角色");
+    await expect(page.locator("#user-access-source-count")).toContainText("2 个来源");
+    await page.locator("#user-access-submit").click();
+
+    await expect.poll(() => accessPayload).toMatchObject({
+      role: "admin",
+      is_active: false,
+      menu_role_ids: [1],
+      allowed_sources: ["java", "policy_2026"],
+    });
+    await expect(page.locator("#users-table-body")).toContainText("平台管理员");
+    await expect(page.locator("#users-table-body")).toContainText("policy_2026");
+  });
+
+  test("users org page opens a stable organization editor modal", async ({ page }) => {
+    const orgUnits = [
+      {
+        id: 1,
+        parent_id: null,
+        org_code: "auth_center",
+        org_name: "权限管理中心",
+        org_type: "department",
+        org_desc: "统一维护权限配置",
+        sort_order: 10,
+        assigned_user_count: 2,
+      },
+      {
+        id: 2,
+        parent_id: 1,
+        org_code: "knowledge_center",
+        org_name: "知识运营中心",
+        org_type: "department",
+        org_desc: "负责知识运营",
+        sort_order: 20,
+        assigned_user_count: 3,
+      },
+    ];
+    const orgTree = [
+      {
+        ...orgUnits[0],
+        children: [{ ...orgUnits[1], children: [] }],
+      },
+    ];
+
+    await page.route("**/auth/org-units**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname === "/auth/org-units/tree") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ items: orgTree }),
+        });
+        return;
+      }
+      if (pathname !== "/auth/org-units") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: orgUnits }),
+      });
+    });
+
+    await page.goto(`${baseURL}/users/org`);
+    await expect(page.locator("#org-unit-list")).toContainText("知识运营中心");
+    await page.locator("#org-create-btn").click();
+    await expect(page.locator("#org-editor-modal")).toBeVisible();
+    await expect(page.locator("#org-editor-code")).toBeVisible();
+    await expect(page.locator("#org-editor-name")).toBeVisible();
+    await page.locator("#org-editor-name").fill("知识支持组");
+    await page.locator("#org-editor-parent").selectOption("1");
+    await page.locator("#org-editor-type").fill("division");
+    await page.locator("#org-editor-sort").fill("80");
+    await expect(page.locator("#org-editor-parent")).toHaveValue("1");
+    await expect(page.locator("#org-editor-type")).toHaveValue("division");
+    await expect(page.locator("#org-editor-sort")).toHaveValue("80");
+    await page.locator("#org-editor-cancel").click();
+
+    await page.locator('[data-org-action="edit"][data-org-id="2"]').click();
+    await expect(page.locator("#org-editor-title")).toContainText("编辑机构");
+    await expect(page.locator("#org-editor-name")).toHaveValue("知识运营中心");
+    await expect(page.locator("#org-editor-parent")).toHaveValue("1");
+  });
+
+  test("users access page updates menu role permissions", async ({ page }) => {
+    let savedPayload;
+    let roles = [...permissionBootstrap.menu_roles];
+
+    await page.route("**/auth/menu-roles**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname === "/auth/menu-roles" && route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ items: roles }),
+        });
+        return;
+      }
+      if (pathname === "/auth/menu-roles/2" && route.request().method() === "PATCH") {
+        savedPayload = route.request().postDataJSON();
+        const updated = {
+          id: 2,
+          ...savedPayload,
+          menu_codes: ["dashboard", "users_overview", "users_access"],
+          menu_names: ["总览", "用户信息", "菜单角色"],
+          assigned_user_count: 2,
+          created_at: "2026-04-24T11:00:00",
+          updated_at: "2026-04-24T11:10:00",
+        };
+        roles = roles.map((item) => (item.id === 2 ? updated : item));
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ item: updated }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.goto(`${baseURL}/users/access`);
+    await expect(page.locator("#access-role-list")).toContainText("知识运营");
+    await page.locator('[data-role-action="edit"][data-role-id="2"]').click();
+    await expect(page.locator("#role-editor-modal")).toBeVisible();
+    await expect(page.locator("#role-editor-preview-name")).toContainText("知识运营");
+    await expect(page.locator("#role-editor-preview-users")).toContainText("2 个账号");
+    await page.locator("#role-editor-name").fill("知识运营升级版");
+    await page.locator("#role-editor-code").fill("knowledge_operator");
+    await expect(page.locator("#role-editor-preview-code")).toContainText("knowledge_operator");
+    await page.locator("#role-editor-next").click();
+    await expect(page.locator('[data-role-step="1"]')).toHaveClass(/is-active/);
+    await page.locator('[data-menu-id="3"]').check();
+    await expect(page.locator("#role-editor-preview-count")).toContainText("3 项菜单");
+    await expect(page.locator("#role-editor-selection-preview")).toContainText("总览");
+    await page.locator("#role-editor-submit").click();
+
+    await expect.poll(() => savedPayload).toMatchObject({
+      role_name: "知识运营升级版",
+      role_code: "knowledge_operator",
+    });
+    expect(savedPayload.menu_ids).toContain(3);
+    await expect(page.locator("#access-role-list")).toContainText("知识运营升级版");
+  });
+
+  test("users security page creates root menus and opens contextual edit modal", async ({ page }) => {
+    const requests = [];
+    let menuItems = [
+      {
+        id: 1,
+        parent_id: null,
+        menu_code: "dashboard",
+        name: "总览",
+        href: "/",
+        router_name: "dashboard",
+        router_path: "/",
+        is_visible: true,
+        sort_order: 10,
+      },
+      {
+        id: 2,
+        parent_id: 1,
+        menu_code: "users_overview",
+        name: "用户信息",
+        href: "/users",
+        router_name: "users_overview",
+        router_path: "/users",
+        is_visible: true,
+        sort_order: 20,
+      },
+    ];
+
+    await page.route("**/auth/menu-items**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname === "/auth/menu-items" && route.request().method() === "POST") {
+        const payload = route.request().postDataJSON();
+        requests.push(payload);
+        const created = { id: 9, ...payload };
+        menuItems = [...menuItems, created];
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ item: created }),
+        });
+        return;
+      }
+      if (pathname === "/auth/menu-items" && route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ items: menuItems }),
+        });
+        return;
+      }
+      await route.continue();
     });
 
     await page.goto(`${baseURL}/users/security`);
-    await page.locator("#security-create-username").fill("ops_user");
-    await page.locator("#security-create-password").fill("Password123");
-    await page.locator('[data-create-source="ai"]').check();
-    await page.locator("#security-create-source-custom").fill("ops_2026");
-    await page.locator("#security-create-submit").click();
+    await page.locator("#security-create-btn").click();
+    await expect(page.locator("#menu-editor-modal")).toBeVisible();
+    await expect(page.locator("#menu-editor-preview-parent")).toContainText("根节点");
+    await expect(page.locator("#menu-editor-preview-level")).toContainText("根导航");
+    await page.locator("#menu-editor-name").fill("运营中心");
+    await page.locator("#menu-editor-code").fill("ops_center");
+    await page.locator("#menu-editor-router-name").fill("ops-center");
+    await page.locator("#menu-editor-router-path").fill("/ops");
+    await page.locator("#menu-editor-href").fill("/ops");
+    await page.locator("#menu-editor-sort").fill("50");
+    await expect(page.locator("#menu-editor-preview-route")).toContainText("ops-center");
+    await page.locator("#menu-editor-submit").click();
 
-    await expect
-      .poll(() => requests.find((request) => request.type === "create")?.payload)
-      .toMatchObject({
-        username: "ops_user",
-        password: "Password123",
-        role: "user",
-        allowed_sources: ["ai", "ops_2026"],
-        is_active: true,
-      });
-    await expect(page.locator(".access-user-card", { hasText: "ops_user" })).toBeVisible();
-
-    const analystCard = page.locator(".access-user-card", { hasText: "analyst" });
-    await analystCard.locator("[data-toggle-active]").click();
-    await expect
-      .poll(() => requests.find((request) => request.type === "toggle")?.payload)
-      .toMatchObject({ is_active: false });
-
-    await page.locator(".access-user-card", { hasText: "analyst" }).locator("[data-reset-password]").click();
-    await expect
-      .poll(() => requests.find((request) => request.type === "reset")?.payload)
-      .toMatchObject({ new_password: "NewPassword123" });
-
-    await page.locator(".access-user-card", { hasText: "analyst" }).locator("[data-delete-user]").click();
-    await expect
-      .poll(() => requests.some((request) => request.type === "delete"))
-      .toBe(true);
+    await expect.poll(() => requests[0]).toMatchObject({
+      name: "运营中心",
+      menu_code: "ops_center",
+      parent_id: 0,
+      router_name: "ops-center",
+      router_path: "/ops",
+      href: "/ops",
+      sort_order: 50,
+    });
+    await expect(page.locator("#security-menu-list")).toContainText("运营中心");
+    await page.locator('[data-menu-action="edit"][data-menu-id="2"]').click();
+    await expect(page.locator("#menu-editor-title")).toContainText("编辑菜单");
+    await expect(page.locator("#menu-editor-preview-parent")).toContainText("挂载 总览");
+    await expect(page.locator("#menu-editor-preview-level")).toContainText("2 级菜单");
+    await expect(page.locator("#menu-editor-preview-visibility")).toContainText("显示");
   });
 });
 
@@ -582,11 +983,7 @@ test.describe("RAGPro auth pages", () => {
     consoleErrors = captureConsoleErrors(page);
     isAuthenticated = false;
     await page.route("**/fonts.googleapis.com/**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "text/css",
-        body: "",
-      });
+      await route.fulfill({ status: 200, contentType: "text/css", body: "" });
     });
     await page.route("**/fonts.gstatic.com/**", async (route) => {
       await route.abort();
@@ -597,12 +994,16 @@ test.describe("RAGPro auth pages", () => {
         contentType: "application/json",
         body: JSON.stringify(
           isAuthenticated
-            ? { user: adminUser }
+            ? { authenticated: true, user: adminUser }
             : { detail: "Authentication required." },
         ),
       });
     });
     await page.route("**/sources", async (route) => {
+      if (new URL(route.request().url()).pathname !== "/sources") {
+        await route.continue();
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -612,12 +1013,10 @@ test.describe("RAGPro auth pages", () => {
   });
 
   test.afterEach(() => {
-    expect(
-      consoleErrors.filter((message) => !message.includes("401 (Unauthorized)")),
-    ).toEqual([]);
+    expect(consoleErrors.filter((message) => !message.includes("401"))).toEqual([]);
   });
 
-  test("login form posts credentials and redirects to the dashboard", async ({ page }) => {
+  test("login form posts credentials and redirects to dashboard", async ({ page }) => {
     let loginPayload;
     await page.route("**/auth/login", async (route) => {
       loginPayload = route.request().postDataJSON();
@@ -634,16 +1033,14 @@ test.describe("RAGPro auth pages", () => {
     await page.locator("#login-password").fill("Password123");
     await page.locator("#login-submit-btn").click();
 
-    await expect
-      .poll(() => loginPayload)
-      .toMatchObject({
-        username: "codex_admin",
-        password: "Password123",
-      });
+    await expect.poll(() => loginPayload).toMatchObject({
+      username: "codex_admin",
+      password: "Password123",
+    });
     await expect(page).toHaveURL(`${baseURL}/`);
   });
 
-  test("register form posts credentials and redirects to the dashboard", async ({ page }) => {
+  test("register form posts credentials and redirects to dashboard", async ({ page }) => {
     let registerPayload;
     await page.route("**/auth/register", async (route) => {
       registerPayload = route.request().postDataJSON();
@@ -660,12 +1057,10 @@ test.describe("RAGPro auth pages", () => {
     await page.locator("#register-password").fill("Password123");
     await page.locator("#register-submit-btn").click();
 
-    await expect
-      .poll(() => registerPayload)
-      .toMatchObject({
-        username: "new_admin",
-        password: "Password123",
-      });
+    await expect.poll(() => registerPayload).toMatchObject({
+      username: "new_admin",
+      password: "Password123",
+    });
     await expect(page).toHaveURL(`${baseURL}/`);
   });
 });

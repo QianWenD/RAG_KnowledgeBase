@@ -3,7 +3,7 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 try:
     from fastapi.testclient import TestClient
@@ -153,6 +153,40 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["sources"], ["policy_2026"])
 
+    def test_sources_for_admin_include_known_sources_from_other_users(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        class FakeAuthRepository:
+            def list_users(self):
+                return [
+                    admin,
+                    AuthenticatedUser(
+                        id=6,
+                        username="dengchao1",
+                        role="user",
+                        allowed_sources=("ai", "java", "med"),
+                        is_active=True,
+                    ),
+                ]
+
+            def close(self) -> None:
+                return None
+
+        with (
+            patch("apps.api.main._require_authenticated_user", return_value=admin),
+            patch("apps.api.main._create_auth_repository", return_value=FakeAuthRepository()),
+        ):
+            response = self.client.get("/sources")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["sources"], ["ai", "java", "test", "ops", "bigdata", "med"])
+
     def test_admin_can_register_custom_source(self) -> None:
         repository = FakeAuditRepository()
         admin = AuthenticatedUser(
@@ -202,13 +236,29 @@ class AuthAPITests(unittest.TestCase):
         )
 
         class FakeAuthService:
-            def create_user_by_admin(self, *, username: str, password: str, role: str, allowed_sources, is_active: bool):
+            def create_user_by_admin(
+                self,
+                *,
+                username: str,
+                password: str,
+                role: str,
+                allowed_sources,
+                is_active: bool,
+                display_name=None,
+                work_no=None,
+                org_unit_id=None,
+                menu_role_ids=None,
+            ):
                 return AuthenticatedUser(
                     id=11,
                     username=username,
                     role=role,
                     allowed_sources=tuple(allowed_sources),
                     is_active=is_active,
+                    display_name=display_name or username,
+                    work_no=work_no or username,
+                    org_unit_id=org_unit_id,
+                    menu_role_ids=tuple(menu_role_ids or ()),
                 )
 
         with (
@@ -245,7 +295,19 @@ class AuthAPITests(unittest.TestCase):
         captured: dict[str, object] = {}
 
         class FakeAuthService:
-            def create_user_by_admin(self, *, username: str, password: str, role: str, allowed_sources, is_active: bool):
+            def create_user_by_admin(
+                self,
+                *,
+                username: str,
+                password: str,
+                role: str,
+                allowed_sources,
+                is_active: bool,
+                display_name=None,
+                work_no=None,
+                org_unit_id=None,
+                menu_role_ids=None,
+            ):
                 captured["allowed_sources"] = list(allowed_sources)
                 return AuthenticatedUser(
                     id=12,
@@ -253,6 +315,10 @@ class AuthAPITests(unittest.TestCase):
                     role=role,
                     allowed_sources=tuple(allowed_sources),
                     is_active=is_active,
+                    display_name=display_name or username,
+                    work_no=work_no or username,
+                    org_unit_id=org_unit_id,
+                    menu_role_ids=tuple(menu_role_ids or ()),
                 )
 
         with (
@@ -473,6 +539,149 @@ class AuthAPITests(unittest.TestCase):
             },
         )
 
+    def test_admin_can_get_permission_bootstrap(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        class FakeAuthService:
+            def get_permission_bootstrap(self):
+                return {
+                    "org_units": [{"id": 1, "org_name": "平台总部", "children": []}],
+                    "menu_roles": [{"id": 1, "role_name": "平台管理员"}],
+                    "menu_items": [{"id": 1, "name": "总览", "children": []}],
+                    "system_roles": [{"value": "admin", "label": "管理员"}],
+                    "status_options": [{"value": True, "label": "启用"}],
+                    "valid_sources": ["ai", "java"],
+                }
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch("apps.api.main._create_auth_repository", return_value=FakeAuditRepository()),
+            patch("apps.api.main._auth_service_from_repository", return_value=FakeAuthService()),
+        ):
+            response = self.client.get("/auth/permission-bootstrap")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["menu_roles"][0]["role_name"], "平台管理员")
+        self.assertEqual(payload["valid_sources"], ["ai", "java"])
+
+    def test_admin_can_manage_menu_roles(self) -> None:
+        repository = FakeAuditRepository()
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        class FakeAuthService:
+            def create_menu_role(self, *, role_code: str, role_name: str, role_desc=None, menu_ids=None):
+                return type(
+                    "MenuRole",
+                    (),
+                    {
+                        "id": 21,
+                        "role_code": role_code,
+                        "role_name": role_name,
+                        "role_desc": role_desc,
+                        "menu_ids": tuple(menu_ids or []),
+                        "menu_codes": ("dashboard",),
+                        "menu_names": ("总览",),
+                        "assigned_user_count": 0,
+                        "created_at": "2026-04-24T10:00:00",
+                        "updated_at": "2026-04-24T10:00:00",
+                    },
+                )()
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch("apps.api.main._create_auth_repository", return_value=repository),
+            patch("apps.api.main._auth_service_from_repository", return_value=FakeAuthService()),
+        ):
+            response = self.client.post(
+                "/auth/menu-roles",
+                json={"role_code": "knowledge_editor", "role_name": "知识编辑", "role_desc": "负责知识内容", "menu_ids": [1]},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["item"]["role_code"], "knowledge_editor")
+        self.assertEqual(repository.audit_logs[-1]["action"], "create_menu_role")
+
+    def test_admin_can_manage_menu_items(self) -> None:
+        repository = FakeAuditRepository()
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        class FakeAuthService:
+            def create_menu_item(
+                self,
+                *,
+                menu_code: str,
+                name: str,
+                parent_id=None,
+                router_name=None,
+                router_path=None,
+                icon_url=None,
+                href=None,
+                is_visible=True,
+                remark=None,
+                sort_order=100,
+            ):
+                return type(
+                    "MenuItem",
+                    (),
+                    {
+                        "id": 9,
+                        "parent_id": parent_id,
+                        "menu_code": menu_code,
+                        "name": name,
+                        "router_name": router_name,
+                        "router_path": router_path,
+                        "icon_url": icon_url,
+                        "href": href,
+                        "is_visible": is_visible,
+                        "remark": remark,
+                        "sort_order": sort_order,
+                        "created_at": "2026-04-24T10:00:00",
+                        "updated_at": "2026-04-24T10:00:00",
+                    },
+                )()
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch("apps.api.main._create_auth_repository", return_value=repository),
+            patch("apps.api.main._auth_service_from_repository", return_value=FakeAuthService()),
+        ):
+            response = self.client.post(
+                "/auth/menu-items",
+                json={
+                    "menu_code": "ops_center",
+                    "name": "运营中心",
+                    "parent_id": 1,
+                    "router_name": "ops-center",
+                    "router_path": "/ops",
+                    "href": "/ops",
+                    "is_visible": True,
+                    "sort_order": 50,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["item"]["menu_code"], "ops_center")
+        self.assertEqual(repository.audit_logs[-1]["action"], "create_menu_item")
+
     def test_non_admin_cannot_upload_documents(self) -> None:
         user = AuthenticatedUser(
             id=9,
@@ -544,6 +753,60 @@ class AuthAPITests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "当前账号无权访问数据源“java”。")
+
+    def test_query_without_source_filter_uses_user_scope(self) -> None:
+        user = AuthenticatedUser(
+            id=11,
+            username="user_2",
+            role="user",
+            allowed_sources=("med", "policy"),
+            is_active=True,
+        )
+        faq_repository = FakeAuditRepository()
+        conversation_repository = FakeAuditRepository()
+        conversation_service = type(
+            "ConversationService",
+            (),
+            {
+                "get_or_create_session_id": staticmethod(lambda session_id: session_id or "s-auto"),
+            },
+        )()
+        router = type(
+            "Router",
+            (),
+            {
+                "route": staticmethod(
+                    lambda query, **kwargs: {
+                        "answer": "已按权限范围检索",
+                        "route": "rag",
+                        "citations": [],
+                        "confidence": {"score": 0.7, "label": "medium"},
+                        "debug_info": kwargs,
+                        "retrieval_backend": "milvus",
+                    }
+                )
+            },
+        )()
+
+        with (
+            patch("apps.api.main._require_authenticated_user", return_value=user),
+            patch("apps.api.main._create_faq_components", return_value=(faq_repository, Mock())),
+            patch("apps.api.main._create_conversation_repository", return_value=conversation_repository),
+            patch("apps.api.main._conversation_service_from_repository", return_value=conversation_service),
+            patch("apps.api.main._conversation_get_history", return_value=[]),
+            patch("apps.api.main._conversation_save_turn", return_value=[]),
+            patch("apps.api.main._build_router", return_value=router),
+        ):
+            response = self.client.post(
+                "/query",
+                json={"query": "医保限制用药怎么录入？"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["debug_info"]["allowed_sources"], ["med", "policy"])
+        self.assertIsNone(payload["debug_info"]["source_filter"])
 
 
 if __name__ == "__main__":

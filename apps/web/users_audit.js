@@ -1,16 +1,35 @@
-﻿window.RagProPage = {
+window.RagProPage = {
   async init({ helpers }) {
     const ACTION_LABELS = {
       register: "用户注册",
       login: "用户登录",
-      logout: "用户退出登录",
+      logout: "用户退出",
       change_password: "修改个人密码",
-      admin_create_user: "管理员创建账号",
-      update_user_access: "更新角色与授权",
+      admin_create_user: "管理员创建用户",
+      update_user_profile: "更新用户资料",
+      update_user_access: "更新角色与来源",
       reset_password: "重置密码",
-      delete_user: "删除账号",
+      delete_user: "删除用户",
+      create_org_unit: "新增组织机构",
+      update_org_unit: "更新组织机构",
+      delete_org_unit: "删除组织机构",
+      create_menu_role: "新增菜单角色",
+      update_menu_role: "更新菜单角色",
+      delete_menu_role: "删除菜单角色",
+      create_menu_item: "新增菜单",
+      update_menu_item: "更新菜单",
+      delete_menu_item: "删除菜单",
     };
-    const SENSITIVE_ACTIONS = new Set(["reset_password", "delete_user", "change_password", "update_user_access"]);
+    const SENSITIVE_ACTIONS = new Set([
+      "reset_password",
+      "delete_user",
+      "change_password",
+      "update_user_profile",
+      "update_user_access",
+      "delete_org_unit",
+      "delete_menu_role",
+      "delete_menu_item",
+    ]);
     const pageState = {
       logs: [],
       filters: parseFiltersFromLocation(),
@@ -30,14 +49,9 @@
       auditHighlights: document.getElementById("audit-highlights"),
       auditLogList: document.getElementById("audit-log-list"),
       auditNote: document.getElementById("users-audit-note"),
-      summaryRole: document.getElementById("audit-summary-role"),
-      summaryTotal: document.getElementById("audit-summary-total"),
-      summaryLatest: document.getElementById("audit-summary-latest"),
-      summarySensitive: document.getElementById("audit-summary-sensitive"),
     };
 
     syncFilterControls();
-    renderSummary();
     renderFilterState();
 
     if (!helpers.isAdmin()) {
@@ -47,12 +61,7 @@
         "请使用管理员账号登录后查看权限操作记录。",
         "soft",
       );
-      renderEmptyRow(
-        elements.auditLogList,
-        7,
-        "当前账号没有审计查看权限",
-        "审计日志只对管理员开放。"
-      );
+      renderEmptyRow("当前账号没有审计查看权限", "审计日志只对管理员开放。");
       helpers.setStatus("当前账号没有审计查看权限。", true);
       return;
     }
@@ -61,12 +70,12 @@
     elements.filterForm?.addEventListener("submit", handleFilterSubmit);
     elements.resetBtn?.addEventListener("click", resetFilters);
     elements.auditLogList?.addEventListener("click", handleAuditLogClick);
-    for (const button of elements.presetButtons) {
+    elements.presetButtons.forEach((button) => {
       button.addEventListener("click", () => applyTimePreset(button.dataset.auditRange || ""));
-    }
+    });
 
     await loadAuditLogs({ preserveStatus: false });
-    helpers.setStatus("审计日志页已就绪，可以按动作和账号快速筛选。", false);
+    helpers.setStatus("审计日志页已就绪，可以按动作、账号和时间范围快速筛选。", false);
 
     async function loadAuditLogs({ preserveStatus = true } = {}) {
       try {
@@ -74,7 +83,6 @@
         const payload = await helpers.apiJson(`/auth/audit-logs?${query}`);
         pageState.logs = payload.logs || [];
         syncUrl();
-        renderSummary();
         renderFilterState();
         renderHighlights();
         renderLogList();
@@ -110,7 +118,6 @@
         loadAuditLogs({ preserveStatus: false });
         return;
       }
-
       const now = new Date();
       const start = new Date(now);
       if (range === "today") {
@@ -119,28 +126,10 @@
         const days = Number(range) || 7;
         start.setDate(start.getDate() - days);
       }
-
       pageState.filters.startAt = toDateTimeLocal(start);
       pageState.filters.endAt = toDateTimeLocal(now);
       syncFilterControls();
       loadAuditLogs({ preserveStatus: false });
-    }
-
-    function renderSummary() {
-      const sensitiveCount = pageState.logs.filter((item) => SENSITIVE_ACTIONS.has(item.action)).length;
-      const latest = pageState.logs[0];
-      if (elements.summaryRole) {
-        elements.summaryRole.textContent = helpers.isAdmin() ? "管理员可查看" : "只读说明";
-      }
-      if (elements.summaryTotal) {
-        elements.summaryTotal.textContent = String(pageState.logs.length);
-      }
-      if (elements.summarySensitive) {
-        elements.summarySensitive.textContent = String(sensitiveCount);
-      }
-      if (elements.summaryLatest) {
-        elements.summaryLatest.textContent = latest ? getActionLabel(latest.action) : "暂无";
-      }
     }
 
     function renderFilterState() {
@@ -162,17 +151,13 @@
 
     function renderHighlights() {
       if (!pageState.logs.length) {
-        const emptyDescription = hasActiveFilters()
-          ? "当前筛选条件下没有命中记录，请放宽条件后再试。"
-          : "等你完成注册、授权、重置密码或删除账号等动作后，这里会自动出现最近摘要。";
         elements.auditHighlights.innerHTML = helpers.renderEmptyState(
           "暂无匹配的审计记录",
-          emptyDescription,
+          hasActiveFilters() ? "当前筛选条件下没有命中记录，请放宽条件后再试。" : "完成一次用户、角色或菜单操作后，这里会自动出现最近摘要。",
           "soft",
         );
         return;
       }
-
       const latest = pageState.logs[0];
       const highlights = [
         {
@@ -180,17 +165,14 @@
           body: `${getActionLabel(latest.action)} · ${formatActor(latest.actor_username)}`,
         },
         {
-          title: "影响账号",
-          body: latest.target_username
-            ? `${latest.target_username} · ${latest.target_role || "未知角色"}`
-            : "当前动作未指向具体目标账号",
+          title: "影响目标",
+          body: latest.target_username ? `${latest.target_username} · ${latest.target_role || "未知角色"}` : "当前动作未指向具体账号",
         },
         {
           title: "当前筛选",
           body: elements.filterState.textContent || "当前未筛选",
         },
       ];
-
       elements.auditHighlights.innerHTML = highlights.map((item) => `
         <div class="audit-summary-item">
           <span>${helpers.escapeHtml(item.title)}</span>
@@ -201,28 +183,18 @@
 
     function renderLogList() {
       if (!pageState.logs.length) {
-        const emptyDescription = hasActiveFilters()
-          ? "没有找到符合条件的日志，请尝试切换动作类型或清空关键词。"
-          : "完成一次注册、授权变更或安全操作后，这里会自动出现真实记录。";
         renderEmptyRow(
-          elements.auditLogList,
-          7,
           "还没有审计日志",
-          emptyDescription
+          hasActiveFilters() ? "没有找到符合条件的日志，请尝试切换动作类型或清空关键词。" : "完成一次权限相关操作后，这里会自动出现真实记录。"
         );
         return;
       }
-
       elements.auditLogList.innerHTML = pageState.logs.map((log, index) => `
         <tr class="access-user-card audit-log-card">
           <td class="row-number-col">${index + 1}</td>
-          <td class="date-cell">${helpers.escapeHtml(log.created_at || "未知时间")}</td>
+          <td class="date-cell">${helpers.escapeHtml(helpers.formatDateTime(log.created_at))}</td>
           <td class="strong-cell">${helpers.escapeHtml(getActionLabel(log.action))}</td>
-          <td>
-            <span class="table-status ${SENSITIVE_ACTIONS.has(log.action) ? "is-inactive" : "is-active"}">
-              ${SENSITIVE_ACTIONS.has(log.action) ? "高风险" : "常规"}
-            </span>
-          </td>
+          <td><span class="table-status ${SENSITIVE_ACTIONS.has(log.action) ? "is-inactive" : "is-active"}">${SENSITIVE_ACTIONS.has(log.action) ? "高风险" : "常规"}</span></td>
           <td>
             <div class="table-user-cell">
               <strong>${helpers.escapeHtml(formatActor(log.actor_username))}</strong>
@@ -235,11 +207,20 @@
               <span>${helpers.escapeHtml(log.target_role || "无")}</span>
             </div>
           </td>
-          <td>
-            ${renderMetadataCell(log)}
-          </td>
+          <td>${renderMetadataCell(log)}</td>
         </tr>
       `).join("");
+    }
+
+    function renderEmptyRow(title, body) {
+      elements.auditLogList.innerHTML = `
+        <tr>
+          <td colspan="7" class="users-table-empty">
+            <strong>${helpers.escapeHtml(title)}</strong>
+            <span>${helpers.escapeHtml(body)}</span>
+          </td>
+        </tr>
+      `;
     }
 
     function handleAuditLogClick(event) {
@@ -268,7 +249,7 @@
         <div class="audit-metadata-cell">
           <div class="audit-metadata-summary-row">
             <span class="audit-meta-summary">${entries.length} 项元信息</span>
-            <button class="table-icon-btn" type="button" data-audit-meta-toggle aria-expanded="false" aria-controls="${helpers.escapeHtml(detailId)}" title="展开元信息" aria-label="展开审计元信息">${renderIcon("details")}</button>
+            <button class="table-icon-btn" type="button" data-audit-meta-toggle aria-expanded="false" aria-controls="${helpers.escapeHtml(detailId)}" title="展开元信息" aria-label="展开审计元信息">${renderIcon()}</button>
           </div>
           <div id="${helpers.escapeHtml(detailId)}" class="audit-metadata-detail" data-audit-meta-detail hidden>
             <div class="audit-metadata-inline">${renderMetadata(log.metadata)}</div>
@@ -289,27 +270,6 @@
 
     function getMetadataEntries(metadata) {
       return Object.entries(metadata || {}).filter(([, value]) => value !== null && value !== undefined && value !== "");
-    }
-
-    function renderIcon(type) {
-      const icons = {
-        details: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01"></path><path d="M12 12h.01"></path><path d="M19 12h.01"></path></svg>',
-      };
-      return icons[type] || icons.details;
-    }
-
-    function renderEmptyRow(container, colSpan, title, body) {
-      if (!container) {
-        return;
-      }
-      container.innerHTML = `
-        <tr>
-          <td colspan="${colSpan}" class="users-table-empty">
-            <strong>${helpers.escapeHtml(title)}</strong>
-            <span>${helpers.escapeHtml(body)}</span>
-          </td>
-        </tr>
-      `;
     }
 
     function buildAuditQuery() {
@@ -387,11 +347,11 @@
 
     function hasActiveFilters() {
       return Boolean(
-        pageState.filters.action
-        || pageState.filters.search
-        || pageState.filters.startAt
-        || pageState.filters.endAt
-        || pageState.filters.sensitiveOnly
+        pageState.filters.action ||
+        pageState.filters.search ||
+        pageState.filters.startAt ||
+        pageState.filters.endAt ||
+        pageState.filters.sensitiveOnly
       );
     }
 
@@ -406,8 +366,22 @@
     function formatMetaKey(key) {
       const mapping = {
         allowed_sources: "来源范围",
-        is_active: "账号启用",
-        role: "角色变更",
+        is_active: "账号状态",
+        role: "系统角色",
+        display_name: "用户名",
+        work_no: "工号",
+        org_unit_id: "组织机构",
+        org_code: "组织编码",
+        org_name: "组织名称",
+        org_type: "组织类型",
+        parent_id: "上级节点",
+        menu_role_ids: "菜单角色",
+        role_code: "角色编码",
+        role_name: "角色名称",
+        menu_item_id: "菜单编号",
+        menu_code: "菜单编码",
+        name: "名称",
+        href: "链接地址",
       };
       return mapping[key] || key;
     }
@@ -454,6 +428,10 @@
         ":",
         pad(date.getMinutes()),
       ].join("");
+    }
+
+    function renderIcon() {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01"></path><path d="M12 12h.01"></path><path d="M19 12h.01"></path></svg>';
     }
   },
 };

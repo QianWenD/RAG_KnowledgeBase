@@ -5,6 +5,7 @@ param(
     [switch]$InstallRag,
     [switch]$StartMilvus,
     [switch]$UseMilvus,
+    [switch]$SkipMilvus,
     [switch]$RefreshMilvusCompose,
     [string]$Distro = "Ubuntu",
     [int]$HealthTimeoutSeconds = 60,
@@ -63,6 +64,27 @@ function Wait-HttpEndpoint {
     return Test-HttpEndpoint -Url $Url
 }
 
+function Test-TcpPort {
+    param(
+        [string]$HostName,
+        [int]$Port
+    )
+
+    $client = New-Object System.Net.Sockets.TcpClient
+    try {
+        $async = $client.BeginConnect($HostName, $Port, $null, $null)
+        if (-not $async.AsyncWaitHandle.WaitOne(1000, $false)) {
+            return $false
+        }
+        $client.EndConnect($async)
+        return $true
+    } catch {
+        return $false
+    } finally {
+        $client.Dispose()
+    }
+}
+
 $localHost = Get-LocalHostForUrl -HostName $BindHost
 $baseUrl = "http://${localHost}:${Port}"
 $healthUrl = "$baseUrl/health"
@@ -73,18 +95,32 @@ Write-Host "Frontend:  $baseUrl/"
 Write-Host "Health:    $healthUrl"
 Write-Host ""
 
-if ($StartMilvus) {
-    Write-Host "Checking Milvus prerequisites..."
-    & (Join-Path $PSScriptRoot "check-milvus-prereqs.ps1")
+$milvusPortOpen = Test-TcpPort -HostName "127.0.0.1" -Port 19530
+if (-not $SkipMilvus) {
+    if ($StartMilvus -or -not $milvusPortOpen) {
+        Write-Host "Checking Milvus prerequisites..."
+        & (Join-Path $PSScriptRoot "check-milvus-prereqs.ps1")
 
-    Write-Host ""
-    Write-Host "Starting Milvus in WSL distro '$Distro'..."
-    $milvusArgs = @("-Distro", $Distro)
-    if ($RefreshMilvusCompose) {
-        $milvusArgs += "-RefreshCompose"
+        Write-Host ""
+        Write-Host "Starting Milvus in WSL distro '$Distro'..."
+        $milvusArgs = @{
+            Distro = $Distro
+        }
+        if ($RefreshMilvusCompose) {
+            $milvusArgs.RefreshCompose = $true
+        }
+        & (Join-Path $PSScriptRoot "start-milvus-wsl.ps1") @milvusArgs
+        $milvusPortOpen = Test-TcpPort -HostName "127.0.0.1" -Port 19530
+    } else {
+        Write-Host "Milvus already responds on 127.0.0.1:19530."
     }
-    & (Join-Path $PSScriptRoot "start-milvus-wsl.ps1") @milvusArgs
-    $UseMilvus = $true
+
+    if ($milvusPortOpen) {
+        $UseMilvus = $true
+    }
+} elseif ($UseMilvus) {
+    Write-Warning "UseMilvus was requested together with SkipMilvus; startup will continue without forcing Milvus."
+    $UseMilvus = $false
 }
 
 if (-not $SkipApi) {

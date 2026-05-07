@@ -11,7 +11,12 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from ragpro.auth.models import AuthenticatedUser, UserRecord
-from ragpro.auth.permissions import QueryAccessError, filter_sources_for_user, resolve_effective_source_filter
+from ragpro.auth.permissions import (
+    QueryAccessError,
+    filter_sources_for_user,
+    resolve_effective_source_filter,
+    resolve_query_source_scope,
+)
 from ragpro.auth.service import AuthService
 
 
@@ -70,15 +75,25 @@ class QueryPermissionTests(unittest.TestCase):
         )
         self.assertEqual(resolved, "ai")
 
-    def test_multi_source_user_must_choose_source_filter(self) -> None:
-        with self.assertRaises(QueryAccessError) as context:
-            resolve_effective_source_filter(
-                query="什么是大语言模型",
-                requested_source_filter=None,
-                user=self.user_multi,
-            )
+    def test_multi_source_user_defaults_to_allowed_scope_when_source_filter_missing(self) -> None:
+        scope = resolve_query_source_scope(
+            query="什么是大语言模型",
+            requested_source_filter=None,
+            user=self.user_multi,
+        )
 
-        self.assertEqual(context.exception.code, "source_filter_required")
+        self.assertIsNone(scope.source_filter)
+        self.assertEqual(scope.allowed_sources, ("ai", "java"))
+        self.assertTrue(scope.auto_scoped)
+
+    def test_effective_source_filter_returns_none_for_multi_source_auto_scope(self) -> None:
+        resolved = resolve_effective_source_filter(
+            query="什么是大语言模型",
+            requested_source_filter=None,
+            user=self.user_multi,
+        )
+
+        self.assertIsNone(resolved)
 
     def test_forbidden_source_filter_is_rejected(self) -> None:
         with self.assertRaises(QueryAccessError) as context:
@@ -125,6 +140,7 @@ class QueryPermissionTests(unittest.TestCase):
 class FakeAuthRepository:
     def __init__(self) -> None:
         self.users_by_name: dict[str, UserRecord] = {}
+        self.users_by_work_no: dict[str, UserRecord] = {}
         self.users_by_id: dict[int, UserRecord] = {}
         self.next_id = 1
         self.deleted_session_users: list[int] = []
@@ -136,6 +152,9 @@ class FakeAuthRepository:
     def count_users(self) -> int:
         return len(self.users_by_id)
 
+    def get_user_record_by_work_no(self, work_no: str) -> UserRecord | None:
+        return self.users_by_work_no.get(work_no)
+
     def create_user(
         self,
         *,
@@ -144,6 +163,10 @@ class FakeAuthRepository:
         role: str,
         allowed_sources,
         is_active: bool = True,
+        display_name: str | None = None,
+        work_no: str | None = None,
+        org_unit_id: int | None = None,
+        menu_role_ids=None,
     ) -> AuthenticatedUser:
         user = UserRecord(
             id=self.next_id,
@@ -152,9 +175,14 @@ class FakeAuthRepository:
             allowed_sources=tuple(allowed_sources),
             is_active=is_active,
             created_at="2026-04-09 18:00:00",
+            display_name=display_name or username,
+            work_no=work_no or username,
+            org_unit_id=org_unit_id,
+            menu_role_ids=tuple(menu_role_ids or ()),
             password_hash=password_hash,
         )
         self.users_by_name[username] = user
+        self.users_by_work_no[user.work_no or username] = user
         self.users_by_id[self.next_id] = user
         self.next_id += 1
         return AuthenticatedUser(
@@ -164,6 +192,10 @@ class FakeAuthRepository:
             allowed_sources=user.allowed_sources,
             is_active=user.is_active,
             created_at=user.created_at,
+            display_name=user.display_name,
+            work_no=user.work_no,
+            org_unit_id=user.org_unit_id,
+            menu_role_ids=user.menu_role_ids,
         )
 
     def get_user_by_id(self, user_id: int) -> AuthenticatedUser | None:
@@ -177,12 +209,16 @@ class FakeAuthRepository:
             allowed_sources=user.allowed_sources,
             is_active=user.is_active,
             created_at=user.created_at,
+            display_name=user.display_name,
+            work_no=user.work_no,
+            org_unit_id=user.org_unit_id,
+            menu_role_ids=user.menu_role_ids,
         )
 
     def get_user_record_by_id(self, user_id: int) -> UserRecord | None:
         return self.users_by_id.get(user_id)
 
-    def update_user_access(self, user_id: int, *, role=None, allowed_sources=None, is_active=None):
+    def update_user_access(self, user_id: int, *, role=None, allowed_sources=None, is_active=None, menu_role_ids=None):
         user = self.users_by_id.get(user_id)
         if user is None:
             return None
@@ -193,9 +229,14 @@ class FakeAuthRepository:
             allowed_sources=tuple(allowed_sources) if allowed_sources is not None else user.allowed_sources,
             is_active=is_active if is_active is not None else user.is_active,
             created_at=user.created_at,
+            display_name=user.display_name,
+            work_no=user.work_no,
+            org_unit_id=user.org_unit_id,
+            menu_role_ids=tuple(menu_role_ids) if menu_role_ids is not None else user.menu_role_ids,
             password_hash=user.password_hash,
         )
         self.users_by_name[user.username] = updated
+        self.users_by_work_no[updated.work_no or updated.username] = updated
         self.users_by_id[user.id] = updated
         return self.get_user_by_id(user_id)
 
@@ -210,9 +251,14 @@ class FakeAuthRepository:
             allowed_sources=user.allowed_sources,
             is_active=user.is_active,
             created_at=user.created_at,
+            display_name=user.display_name,
+            work_no=user.work_no,
+            org_unit_id=user.org_unit_id,
+            menu_role_ids=user.menu_role_ids,
             password_hash=password_hash,
         )
         self.users_by_name[user.username] = updated
+        self.users_by_work_no[updated.work_no or updated.username] = updated
         self.users_by_id[user.id] = updated
         return self.get_user_by_id(user_id)
 
@@ -231,6 +277,7 @@ class FakeAuthRepository:
         if user is None:
             return None
         self.users_by_name.pop(user.username, None)
+        self.users_by_work_no.pop(user.work_no or user.username, None)
         self.deleted_users.append(user_id)
         return AuthenticatedUser(
             id=user.id,
@@ -239,6 +286,10 @@ class FakeAuthRepository:
             allowed_sources=user.allowed_sources,
             is_active=user.is_active,
             created_at=user.created_at,
+            display_name=user.display_name,
+            work_no=user.work_no,
+            org_unit_id=user.org_unit_id,
+            menu_role_ids=user.menu_role_ids,
         )
 
 

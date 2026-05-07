@@ -19,10 +19,12 @@ class RetrievalService:
         self,
         query: str,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         k: int | None = None,
     ) -> list[Document]:
         return self.vector_store.hybrid_search_with_rerank(
             query=query,
             source_filter=source_filter,
+            allowed_sources=allowed_sources,
             k=k,
         )

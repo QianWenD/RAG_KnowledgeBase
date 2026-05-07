@@ -48,10 +48,23 @@ class UnifiedQueryRouter:
             return iter(())
         return iter([text])
 
-    def _finalize_result(self, result: dict, *, source_filter: str | None) -> dict:
+    def _finalize_result(
+        self,
+        result: dict,
+        *,
+        source_filter: str | None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
+    ) -> dict:
         payload = dict(result)
         payload.setdefault("confidence", self._build_confidence(payload))
-        payload.setdefault("debug_info", self._build_debug_info(payload, source_filter=source_filter))
+        payload.setdefault(
+            "debug_info",
+            self._build_debug_info(
+                payload,
+                source_filter=source_filter,
+                allowed_sources=allowed_sources,
+            ),
+        )
         return payload
 
     def _build_confidence(self, result: dict) -> dict:
@@ -92,10 +105,17 @@ class UnifiedQueryRouter:
 
         return {"score": score, "label": label}
 
-    def _build_debug_info(self, result: dict, *, source_filter: str | None) -> dict:
+    def _build_debug_info(
+        self,
+        result: dict,
+        *,
+        source_filter: str | None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
+    ) -> dict:
         citations = result.get("citations") or []
         return {
             "source_filter": source_filter,
+            "allowed_sources": list(allowed_sources or ()),
             "fallback_used": self._is_fallback_result(result),
             "faq": {
                 "score": result.get("score"),
@@ -132,6 +152,7 @@ class UnifiedQueryRouter:
         *,
         threshold: float = 0.85,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         history: list[dict] | None = None,
     ) -> dict:
         faq_result = self.faq_service.search(query, threshold=threshold)
@@ -149,7 +170,7 @@ class UnifiedQueryRouter:
                 "citations": [],
                 "context_count": 0,
                 "retrieval_backend": None,
-            }, source_filter=source_filter)
+            }, source_filter=source_filter, allowed_sources=allowed_sources)
 
         route_decision = self.intent_classifier.classify(query, source_filter=source_filter)
         if route_decision.route.value == "general_llm":
@@ -169,13 +190,14 @@ class UnifiedQueryRouter:
                 "citations": [],
                 "context_count": 0,
                 "retrieval_backend": None,
-            }, source_filter=source_filter)
+            }, source_filter=source_filter, allowed_sources=allowed_sources)
 
         strategy_decision = self.strategy_selector.select(route_decision.normalized_query)
         try:
             rag_result = self._get_rag_service().answer(
                 route_decision.normalized_query,
                 source_filter=source_filter,
+                allowed_sources=allowed_sources,
                 history=history,
                 retrieval_query=strategy_decision.retrieval_query,
             )
@@ -187,7 +209,7 @@ class UnifiedQueryRouter:
                 "route_reason": route_decision.reason,
                 "strategy_reason": strategy_decision.reason,
                 **rag_result,
-            }, source_filter=source_filter)
+            }, source_filter=source_filter, allowed_sources=allowed_sources)
         except Exception as exc:
             logger.exception("RAG branch failed after FAQ miss.")
             return self._finalize_result({
@@ -204,7 +226,7 @@ class UnifiedQueryRouter:
                 "context_count": 0,
                 "retrieval_query": strategy_decision.retrieval_query,
                 "retrieval_backend": None,
-            }, source_filter=source_filter)
+            }, source_filter=source_filter, allowed_sources=allowed_sources)
 
     def stream_route(
         self,
@@ -212,6 +234,7 @@ class UnifiedQueryRouter:
         *,
         threshold: float = 0.85,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         history: list[dict] | None = None,
     ) -> tuple[dict, Iterable[str]]:
         faq_result = self.faq_service.search(query, threshold=threshold)
@@ -228,7 +251,7 @@ class UnifiedQueryRouter:
                 "citations": [],
                 "context_count": 0,
                 "retrieval_backend": None,
-            }, source_filter=source_filter)
+            }, source_filter=source_filter, allowed_sources=allowed_sources)
             return metadata, self._stream_text(faq_result.answer or "")
 
         route_decision = self.intent_classifier.classify(query, source_filter=source_filter)
@@ -252,7 +275,7 @@ class UnifiedQueryRouter:
                 "citations": [],
                 "context_count": 0,
                 "retrieval_backend": None,
-            }, source_filter=source_filter)
+            }, source_filter=source_filter, allowed_sources=allowed_sources)
             return metadata, stream
 
         strategy_decision = self.strategy_selector.select(route_decision.normalized_query)
@@ -260,6 +283,7 @@ class UnifiedQueryRouter:
             rag_metadata, stream = self._get_rag_service().stream_answer(
                 route_decision.normalized_query,
                 source_filter=source_filter,
+                allowed_sources=allowed_sources,
                 history=history,
                 retrieval_query=strategy_decision.retrieval_query,
             )
@@ -271,7 +295,7 @@ class UnifiedQueryRouter:
                 "route_reason": route_decision.reason,
                 "strategy_reason": strategy_decision.reason,
                 **rag_metadata,
-            }, source_filter=source_filter)
+            }, source_filter=source_filter, allowed_sources=allowed_sources)
             return metadata, stream
         except Exception as exc:
             logger.exception("RAG branch failed after FAQ miss.")
@@ -288,5 +312,5 @@ class UnifiedQueryRouter:
                 "context_count": 0,
                 "retrieval_query": strategy_decision.retrieval_query,
                 "retrieval_backend": None,
-            }, source_filter=source_filter)
+            }, source_filter=source_filter, allowed_sources=allowed_sources)
             return metadata, iter(())

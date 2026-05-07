@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -11,6 +11,12 @@ class AuthenticatedUser:
     allowed_sources: tuple[str, ...]
     is_active: bool
     created_at: str | None = None
+    display_name: str | None = None
+    work_no: str | None = None
+    org_unit_id: int | None = None
+    org_name: str | None = None
+    menu_role_ids: tuple[int, ...] = field(default_factory=tuple)
+    menu_role_names: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def is_admin(self) -> bool:
@@ -47,3 +53,48 @@ class AuditLogRecord:
     target_role: str | None
     metadata: dict
     created_at: str | None = None
+
+
+@dataclass(frozen=True)
+class OrgUnitRecord:
+    id: int
+    parent_id: int | None
+    org_code: str
+    org_name: str
+    org_type: str
+    org_desc: str | None = None
+    sort_order: int = 100
+    assigned_user_count: int = 0
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+@dataclass(frozen=True)
+class MenuRoleRecord:
+    id: int
+    role_code: str
+    role_name: str
+    role_desc: str | None = None
+    menu_ids: tuple[int, ...] = field(default_factory=tuple)
+    menu_codes: tuple[str, ...] = field(default_factory=tuple)
+    menu_names: tuple[str, ...] = field(default_factory=tuple)
+    assigned_user_count: int = 0
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+@dataclass(frozen=True)
+class MenuItemRecord:
+    id: int
+    parent_id: int | None
+    menu_code: str
+    name: str
+    router_name: str | None = None
+    router_path: str | None = None
+    icon_url: str | None = None
+    href: str | None = None
+    is_visible: bool = True
+    remark: str | None = None
+    sort_order: int = 100
+    created_at: str | None = None
+    updated_at: str | None = None

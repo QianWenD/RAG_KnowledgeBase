@@ -17,6 +17,13 @@ class QueryAccessError(Exception):
         return self.message
 
 
+@dataclass(frozen=True)
+class QuerySourceScope:
+    source_filter: str | None
+    allowed_sources: tuple[str, ...] | None
+    auto_scoped: bool = False
+
+
 def filter_sources_for_user(
     valid_sources: tuple[str, ...] | list[str],
     user: AuthenticatedUser,
@@ -28,6 +35,58 @@ def filter_sources_for_user(
     return [source for source in available if source in allowed]
 
 
+def resolve_query_source_scope(
+    *,
+    query: str,
+    requested_source_filter: str | None,
+    user: AuthenticatedUser,
+    classifier: LightweightIntentClassifier | None = None,
+) -> QuerySourceScope:
+    if user.is_admin:
+        return QuerySourceScope(
+            source_filter=requested_source_filter,
+            allowed_sources=None,
+            auto_scoped=False,
+        )
+
+    if requested_source_filter:
+        if requested_source_filter not in user.allowed_sources:
+            raise QueryAccessError(
+                code="source_forbidden",
+                message=f"当前账号无权访问数据源“{requested_source_filter}”。",
+                status_code=403,
+            )
+        return QuerySourceScope(
+            source_filter=requested_source_filter,
+            allowed_sources=(requested_source_filter,),
+            auto_scoped=False,
+        )
+
+    decision = (classifier or LightweightIntentClassifier()).classify(query, source_filter=None)
+    if decision.route.value == "general_llm":
+        return QuerySourceScope(source_filter=None, allowed_sources=None, auto_scoped=False)
+
+    if not user.allowed_sources:
+        raise QueryAccessError(
+            code="no_sources_assigned",
+            message="当前账号尚未分配可用数据源，请联系管理员配置后再试。",
+            status_code=403,
+        )
+
+    if len(user.allowed_sources) == 1:
+        return QuerySourceScope(
+            source_filter=user.allowed_sources[0],
+            allowed_sources=user.allowed_sources,
+            auto_scoped=True,
+        )
+
+    return QuerySourceScope(
+        source_filter=None,
+        allowed_sources=user.allowed_sources,
+        auto_scoped=True,
+    )
+
+
 def resolve_effective_source_filter(
     *,
     query: str,
@@ -35,34 +94,9 @@ def resolve_effective_source_filter(
     user: AuthenticatedUser,
     classifier: LightweightIntentClassifier | None = None,
 ) -> str | None:
-    if user.is_admin:
-        return requested_source_filter
-
-    if requested_source_filter:
-        if requested_source_filter not in user.allowed_sources:
-            raise QueryAccessError(
-                code="source_forbidden",
-                message=f"You do not have access to source '{requested_source_filter}'.",
-                status_code=403,
-            )
-        return requested_source_filter
-
-    decision = (classifier or LightweightIntentClassifier()).classify(query, source_filter=None)
-    if decision.route.value == "general_llm":
-        return None
-
-    if not user.allowed_sources:
-        raise QueryAccessError(
-            code="no_sources_assigned",
-            message="No knowledge sources have been assigned to this account yet.",
-            status_code=403,
-        )
-
-    if len(user.allowed_sources) == 1:
-        return user.allowed_sources[0]
-
-    raise QueryAccessError(
-        code="source_filter_required",
-        message="Please choose a source_filter from the sources assigned to your account.",
-        status_code=400,
-    )
+    return resolve_query_source_scope(
+        query=query,
+        requested_source_filter=requested_source_filter,
+        user=user,
+        classifier=classifier,
+    ).source_filter

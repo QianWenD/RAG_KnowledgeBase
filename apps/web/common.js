@@ -3,7 +3,7 @@
     dashboard: { label: "总览" },
     qa: { label: "问答工作台" },
     knowledge: { label: "知识运营" },
-    users: { label: "权限管理" },
+    users: { label: "权限系统" },
   };
   const CUSTOM_SOURCE_OPTION = "__custom_source__";
   const SOURCE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$/;
@@ -12,7 +12,7 @@
       id: "base",
       label: "基础库",
       icon: "基",
-      links: [{ label: "总览", icon: "总", href: "/", nav: "dashboard" }],
+      links: [{ label: "总览", icon: "览", href: "/", nav: "dashboard" }],
     },
     {
       id: "knowledge",
@@ -30,9 +30,10 @@
       icon: "权",
       adminOnly: true,
       links: [
-        { label: "用户管理", icon: "用", href: "/users", module: "users-overview", adminOnly: true },
-        { label: "角色与授权", icon: "授", href: "/users/access", module: "users-access", adminOnly: true },
-        { label: "安全操作", icon: "安", href: "/users/security", module: "users-security", adminOnly: true },
+        { label: "用户信息", icon: "人", href: "/users", module: "users-overview", adminOnly: true },
+        { label: "组织机构", icon: "构", href: "/users/org", module: "users-org", adminOnly: true },
+        { label: "菜单角色", icon: "角", href: "/users/access", module: "users-access", adminOnly: true },
+        { label: "菜单管理", icon: "单", href: "/users/security", module: "users-security", adminOnly: true },
         { label: "审计日志", icon: "审", href: "/users/audit", module: "users-audit", adminOnly: true },
       ],
     },
@@ -51,6 +52,8 @@
     currentPageLabel: document.body.dataset.pageLabel || "",
     currentPageView: document.body.dataset.pageView || "",
   };
+  let bodyScrollLockDepth = 0;
+  let bodyScrollInlinePaddingRight = "";
 
   ensureAppChrome();
   ensureSidebarNavigation();
@@ -84,6 +87,7 @@
     runUiAction,
     escapeHtml,
     formatBytes,
+    formatDateTime,
     populateSourceSelect,
     getSourceSelectValue,
     setSourceSelectValue,
@@ -92,9 +96,23 @@
     renderAdminCreateSourceSelector,
     collectAdminCreateUserPayload,
     createAdminUser,
+    updateAdminUserProfile,
     deleteAdminUser,
     resetAdminUserPassword,
     updateAdminUserAccess,
+    getPermissionBootstrap,
+    createOrgUnit,
+    updateOrgUnit,
+    deleteOrgUnit,
+    createMenuRole,
+    updateMenuRole,
+    deleteMenuRole,
+    createMenuItem,
+    updateMenuItem,
+    deleteMenuItem,
+    loadSources,
+    lockBodyScroll,
+    unlockBodyScroll,
     getUserAdminActionHref,
     renderEmptyState,
     getState: () => state,
@@ -235,14 +253,13 @@
     if (!user) {
       return;
     }
-
     const isAdmin = user.role === "admin";
     if (elements.authBadge) {
       elements.authBadge.textContent = isAdmin ? "管理员" : "已登录";
       elements.authBadge.classList.add("is-ok");
     }
     if (elements.appUserName) {
-      elements.appUserName.textContent = user.username;
+      elements.appUserName.textContent = user.display_name || user.username;
     }
     if (elements.appRoleChip) {
       elements.appRoleChip.textContent = isAdmin ? "管理员" : "普通用户";
@@ -250,15 +267,16 @@
     }
     if (elements.authSummary) {
       elements.authSummary.innerHTML = isAdmin
-        ? '<p class="note">当前账号具备知识运营与权限治理能力，可以上传文档、重建索引并维护用户访问范围。</p>'
-        : '<p class="note">当前账号已登录。系统会按你的来源授权范围过滤知识内容，未授权来源不会出现在业务操作里。</p>';
+        ? '<p class="note">当前账号具备后台治理权限，可继续维护知识、权限和审计配置。</p>'
+        : '<p class="note">当前账号已登录，系统会按来源授权范围过滤可访问内容。</p>';
     }
     elements.authUserCard?.classList.remove("hidden");
     if (elements.authUsername) {
-      elements.authUsername.textContent = user.username;
+      elements.authUsername.textContent = user.display_name || user.username;
     }
     if (elements.authRole) {
-      elements.authRole.textContent = `角色：${user.role}`;
+      const orgText = user.org_name ? ` · ${user.org_name}` : "";
+      elements.authRole.textContent = `角色：${user.role}${orgText}`;
     }
     renderSourceTags(user.allowed_sources || []);
     for (const item of elements.adminNavItems) {
@@ -316,7 +334,6 @@
     if (!document.body.classList.contains("console-page") || document.querySelector(".app-header")) {
       return;
     }
-
     const meta = PAGE_META[state.currentPage] || PAGE_META.dashboard;
     const currentLabel = state.currentPageLabel || meta.label;
     const header = document.createElement("header");
@@ -340,7 +357,6 @@
         <button id="chrome-logout-btn" class="app-exit-button" type="button">退出</button>
       </div>
     `;
-
     const shell = document.querySelector(".shell");
     document.body.insertBefore(header, shell || document.body.firstChild);
   }
@@ -350,7 +366,6 @@
     if (!document.body.classList.contains("console-page") || !navPanel || navPanel.dataset.sidebarNav === "kbms") {
       return;
     }
-
     const activeSection = getActiveSidebarSection();
     navPanel.dataset.sidebarNav = "kbms";
     navPanel.innerHTML = `
@@ -411,17 +426,14 @@
     if (!state.user) {
       return;
     }
-
     const currentPassword = window.prompt("请输入当前密码");
     if (!currentPassword) {
       return;
     }
-
     const newPassword = window.prompt("请输入新密码", "NewPassword123");
     if (!newPassword) {
       return;
     }
-
     try {
       await apiJson("/auth/change-password", {
         method: "POST",
@@ -431,7 +443,7 @@
           new_password: newPassword,
         }),
       });
-      setStatus("密码已修改，请重新登录");
+      setStatus("密码已修改，请重新登录。");
       window.setTimeout(() => {
         window.location.replace("/login");
       }, 360);
@@ -448,9 +460,7 @@
       elements.authSourceTags.innerHTML = '<span class="tag muted">暂无来源</span>';
       return;
     }
-    elements.authSourceTags.innerHTML = sources
-      .map((source) => `<span class="tag">${escapeHtml(source)}</span>`)
-      .join("");
+    elements.authSourceTags.innerHTML = sources.map((source) => `<span class="tag">${escapeHtml(source)}</span>`).join("");
   }
 
   function setStatus(message, isError = false) {
@@ -485,14 +495,7 @@
     delete control.dataset.wasDisabled;
   }
 
-  async function runUiAction({
-    control,
-    pendingMessage,
-    successMessage,
-    errorPrefix = "操作失败",
-    action,
-    onSuccess,
-  }) {
+  async function runUiAction({ control, pendingMessage, successMessage, errorPrefix = "操作失败", action, onSuccess }) {
     setActionBusy(control, true);
     if (pendingMessage) {
       setStatus(pendingMessage, false);
@@ -618,7 +621,7 @@
     const seen = new Set();
     for (const group of groups) {
       for (const value of group || []) {
-        const source = (value || "").trim();
+        const source = String(value || "").trim();
         if (source && !seen.has(source)) {
           merged.push(source);
           seen.add(source);
@@ -634,7 +637,7 @@
     checkboxAttribute,
     customInputId,
     customLabel = "自定义来源",
-    emptyMessage = "当前还没有可授权来源，可以先填写自定义来源。",
+    emptyMessage = "当前还没有可授权来源，你可以先填写自定义来源。",
   }) {
     if (!container) {
       return;
@@ -642,15 +645,12 @@
     const customField = `
       <label class="source-custom-field">
         <span>${escapeHtml(customLabel)}</span>
-        <input id="${escapeHtml(customInputId)}" type="text" maxlength="50" placeholder="例如 ops_2026">
+        <input id="${escapeHtml(customInputId)}" type="text" maxlength="50" placeholder="1-50 位，例如 policy_2026">
       </label>
     `;
     const sourceList = mergeSourceValues(sources);
     if (!sourceList.length) {
-      container.innerHTML = `
-        <div class="note">${escapeHtml(emptyMessage)}</div>
-        ${customField}
-      `;
+      container.innerHTML = `<div class="note">${escapeHtml(emptyMessage)}</div>${customField}`;
       return;
     }
     container.innerHTML = sourceList.map((source) => `
@@ -707,6 +707,14 @@
     });
   }
 
+  async function updateAdminUserProfile(userId, payload) {
+    return apiJson(`/auth/users/${encodeURIComponent(String(userId))}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
   async function deleteAdminUser(userId) {
     return apiJson(`/auth/users/${encodeURIComponent(String(userId))}`, { method: "DELETE" });
   }
@@ -727,15 +735,104 @@
     });
   }
 
+  async function getPermissionBootstrap() {
+    return apiJson("/auth/permission-bootstrap");
+  }
+
+  async function createOrgUnit(payload) {
+    return apiJson("/auth/org-units", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async function updateOrgUnit(orgUnitId, payload) {
+    return apiJson(`/auth/org-units/${encodeURIComponent(String(orgUnitId))}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async function deleteOrgUnit(orgUnitId) {
+    return apiJson(`/auth/org-units/${encodeURIComponent(String(orgUnitId))}`, { method: "DELETE" });
+  }
+
+  async function createMenuRole(payload) {
+    return apiJson("/auth/menu-roles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async function updateMenuRole(roleId, payload) {
+    return apiJson(`/auth/menu-roles/${encodeURIComponent(String(roleId))}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async function deleteMenuRole(roleId) {
+    return apiJson(`/auth/menu-roles/${encodeURIComponent(String(roleId))}`, { method: "DELETE" });
+  }
+
+  async function createMenuItem(payload) {
+    return apiJson("/auth/menu-items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async function updateMenuItem(menuItemId, payload) {
+    return apiJson(`/auth/menu-items/${encodeURIComponent(String(menuItemId))}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async function deleteMenuItem(menuItemId) {
+    return apiJson(`/auth/menu-items/${encodeURIComponent(String(menuItemId))}`, { method: "DELETE" });
+  }
+
+  function lockBodyScroll() {
+    bodyScrollLockDepth += 1;
+    if (bodyScrollLockDepth > 1) {
+      return;
+    }
+    const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+    bodyScrollInlinePaddingRight = document.body.style.paddingRight;
+    document.body.classList.add("users-create-dialog-open");
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+  }
+
+  function unlockBodyScroll() {
+    if (bodyScrollLockDepth === 0) {
+      return;
+    }
+    bodyScrollLockDepth -= 1;
+    if (bodyScrollLockDepth > 0) {
+      return;
+    }
+    document.body.classList.remove("users-create-dialog-open");
+    document.body.style.paddingRight = bodyScrollInlinePaddingRight;
+  }
+
   function getUserAdminActionHref(action, user = {}) {
     if (action === "audit") {
       return `/users/audit?search=${encodeURIComponent(user.username || "")}`;
     }
     if (action === "security") {
-      return "/users/security";
+      return "/users";
     }
     if (action === "edit" || action === "access") {
-      return "/users/access";
+      return "/users";
     }
     return "";
   }
@@ -743,7 +840,7 @@
   function renderEmptyState(title, body, tone = "neutral") {
     return `
       <div class="empty-state ${tone === "soft" ? "is-soft" : ""}">
-        <span class="empty-state-icon" aria-hidden="true">${tone === "soft" ? "···" : "—"}</span>
+        <span class="empty-state-icon" aria-hidden="true">${tone === "soft" ? "···" : "◦"}</span>
         <strong class="empty-state-title">${escapeHtml(title)}</strong>
         <p class="empty-state-copy">${escapeHtml(body)}</p>
       </div>
@@ -771,6 +868,10 @@
       const payload = await response.json();
       if (payload?.detail) {
         message = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail);
+      } else if (payload?.message) {
+        message = String(payload.message);
+      } else if (payload?.error) {
+        message = String(payload.error);
       }
     } catch (error) {
       const text = await response.text();
@@ -778,14 +879,15 @@
         message = text;
       }
     }
-    const wrapped = new Error(localizeHttpErrorMessage(message));
+    const wrapped = new Error(localizeHttpErrorMessage(message, response.status));
     wrapped.status = response.status;
+    wrapped.rawMessage = message;
     return wrapped;
   }
 
-  function localizeHttpErrorMessage(message) {
+  function localizeHttpErrorMessage(message, status = 0) {
     const raw = String(message || "").trim();
-    const normalized = raw.replace(/[.。]\s*$/, "").toLowerCase();
+    const normalized = raw.replace(/[.\u3002]\s*$/, "").toLowerCase();
     const exactMessages = {
       "username already exists": "用户名已存在，请换一个账号名。",
       "invalid username or password": "用户名或密码不正确。",
@@ -798,6 +900,44 @@
       "username is too long": "用户名过长，最多 64 位。",
       "username can only contain letters, numbers, underscore, dash, and dot": "用户名只能包含字母、数字、下划线、短横线和点。",
       "invalid sources: use 1-50 letters, numbers, underscores, or hyphens": "来源格式不正确，只能使用 1-50 位字母、数字、下划线或短横线。",
+      "work number already exists": "工号已存在，请更换一个工号。",
+      "organization unit not found": "组织机构不存在，请重新选择。",
+      "organization parent not found": "上级组织机构不存在，请重新选择。",
+      "organization code already exists": "组织编码已存在，请更换后重试。",
+      "organization code must start with a letter and use lowercase letters, numbers, or underscores": "组织编码需以字母开头，只能使用小写字母、数字或下划线。",
+      "organization name is required": "组织名称不能为空。",
+      "organization name is too long": "组织名称过长，请控制在 128 位以内。",
+      "organization type must start with a letter and use lowercase letters, numbers, underscores, or hyphens": "组织类型需以字母开头，只能使用小写字母、数字、下划线或短横线。",
+      "organization description is too long": "组织说明过长，请控制在 255 位以内。",
+      "an organization unit cannot be its own parent": "组织机构不能把自己设为上级节点。",
+      "default organization root cannot be deleted": "默认组织根节点不能删除。",
+      "please remove child organization units before deleting this node": "请先删除下级组织节点，再执行删除。",
+      "please move users out of this organization unit before deleting it": "请先把该组织下的账号迁出，再执行删除。",
+      "menu role not found": "菜单角色不存在，请刷新后重试。",
+      "menu item not found": "菜单项不存在，请刷新后重试。",
+      "menu parent not found": "上级菜单不存在，请重新选择。",
+      "role code already exists": "角色编码已存在，请更换后重试。",
+      "role name already exists": "角色名称已存在，请更换后重试。",
+      "menu code already exists": "菜单编码已存在，请更换后重试。",
+      "default menu roles cannot be deleted": "默认菜单角色不能删除。",
+      "please remove users from this menu role before deleting it": "请先移除该角色下的账号，再执行删除。",
+      "menu name is required": "菜单名称不能为空。",
+      "menu code must start with a letter and use lowercase letters, numbers, or underscores": "菜单编码需以字母开头，只能使用小写字母、数字或下划线。",
+      "role code must start with a letter and use lowercase letters, numbers, or underscores": "角色编码需以字母开头，只能使用小写字母、数字或下划线。",
+      "display name is too long": "用户名称过长，最多 64 位。",
+      "work number can only contain letters, numbers, underscore, dash, and dot": "工号只能包含字母、数字、下划线、短横线和点。",
+      "role name is required": "角色名称不能为空。",
+      "role name is too long": "角色名称过长，请控制在 64 位以内。",
+      "menu item cannot be its own parent": "菜单不能把自己设为上级菜单。",
+      "administrator permission required": "当前账号没有管理员权限。",
+      "http 400": "请求参数不正确，请检查后重试。",
+      "http 401": "登录状态已失效，请重新登录。",
+      "http 403": "当前账号没有权限执行此操作。",
+      "http 404": "请求的资源不存在或已被移除。",
+      "http 409": "数据已存在或状态冲突，请刷新后重试。",
+      "http 422": "提交内容不符合要求，请检查后重试。",
+      "http 500": "服务处理失败，请稍后重试。",
+      "http 503": "服务暂时不可用，请稍后重试。",
     };
     if (exactMessages[normalized]) {
       return exactMessages[normalized];
@@ -811,7 +951,16 @@
       return `密码至少需要 ${passwordMinMatch[1]} 位。`;
     }
     if (raw.startsWith("[") || raw.startsWith("{")) {
-      return "提交内容不符合要求，请检查用户名、密码、角色和来源格式。";
+      return "提交内容不符合要求，请检查账号、密码、角色、菜单和来源配置。";
+    }
+    if (/[\u4e00-\u9fff]/.test(raw)) {
+      return raw;
+    }
+    if (/^[A-Za-z0-9 _:'"()/-]+$/.test(raw) && status >= 500) {
+      return "服务暂时不可用，请稍后重试。";
+    }
+    if (/^[A-Za-z0-9 _:'"()/-]+$/.test(raw) && status >= 400) {
+      return "请求未能完成，请检查输入或稍后重试。";
     }
     return raw;
   }
@@ -828,6 +977,18 @@
       index += 1;
     }
     return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+  }
+
+  function formatDateTime(value) {
+    if (!value) {
+      return "-";
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return String(value).replace("T", " ");
+    }
+    const pad = (number) => String(number).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 
   function escapeHtml(value) {

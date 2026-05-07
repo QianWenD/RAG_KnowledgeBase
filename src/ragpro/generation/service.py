@@ -38,6 +38,7 @@ class RAGGenerationService:
         query: str,
         *,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         history: list[dict] | None = None,
         retrieval_query: str | None = None,
     ) -> GenerationPlan:
@@ -46,7 +47,11 @@ class RAGGenerationService:
             history=history,
             retrieval_query=retrieval_query,
         )
-        docs = self.retrieval_service.retrieve(query=retrieval_input, source_filter=source_filter)
+        docs = self.retrieval_service.retrieve(
+            query=retrieval_input,
+            source_filter=source_filter,
+            allowed_sources=allowed_sources,
+        )
         context = self._format_context(docs)
         history_text = ConversationService.compress_history(history)
         retrieval_backend = getattr(self.retrieval_service.vector_store, "backend", "unknown")
@@ -70,12 +75,14 @@ class RAGGenerationService:
         query: str,
         *,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         history: list[dict] | None = None,
         retrieval_query: str | None = None,
     ) -> dict:
         plan = self.build_plan(
             query,
             source_filter=source_filter,
+            allowed_sources=allowed_sources,
             history=history,
             retrieval_query=retrieval_query,
         )
@@ -93,12 +100,14 @@ class RAGGenerationService:
         query: str,
         *,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         history: list[dict] | None = None,
         retrieval_query: str | None = None,
     ) -> tuple[dict, Iterable[str]]:
         plan = self.build_plan(
             query,
             source_filter=source_filter,
+            allowed_sources=allowed_sources,
             history=history,
             retrieval_query=retrieval_query,
         )

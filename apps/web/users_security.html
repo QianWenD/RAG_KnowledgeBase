@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RAGPro 权限管理 · 安全操作</title>
+  <title>RAGPro 权限系统 - 菜单管理</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260422-user-cn-password">
+  <link rel="stylesheet" href="/static/styles.css?v=20260427-permission-org">
 </head>
-<body class="console-page" data-page="users" data-page-view="users-security" data-page-label="安全操作">
+<body class="console-page" data-page="users" data-page-view="users-security" data-page-label="菜单管理">
   <div class="scene-grid" aria-hidden="true"></div>
   <div class="scene-glow" aria-hidden="true"></div>
 
@@ -18,15 +18,15 @@
       <section class="brand dossier">
         <div class="brand-topline">
           <p class="brand-kicker">RAGPro 后台</p>
-          <span class="brand-stamp">权限管理</span>
+          <span class="brand-stamp">权限系统</span>
         </div>
-        <h1>安全操作</h1>
-        <p class="brand-copy">这一页只承载高敏感动作，例如创建账号、重置密码、停用账号和删除账号。把这些操作单独隔离出来，能让后台使用更接近正式系统。</p>
+        <h1>菜单管理</h1>
+        <p class="brand-copy">这里对齐参考系统的菜单维护方式，统一管理菜单编码、路由名称、页面路径、显示状态和层级结构。</p>
         <div class="brand-strip">
-          <span>创建</span>
-          <span>重置</span>
-          <span>停用</span>
-          <span>删除</span>
+          <span>目录树</span>
+          <span>路由</span>
+          <span>显示状态</span>
+          <span>排序</span>
         </div>
       </section>
 
@@ -41,7 +41,7 @@
           <a class="nav-link" data-nav="dashboard" href="/">总览</a>
           <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
           <a class="nav-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限管理</a>
+          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限系统</a>
         </div>
       </section>
 
@@ -80,79 +80,95 @@
           <div class="breadcrumb-row" aria-label="面包屑">
             <a class="breadcrumb-link" href="/">后台</a>
             <span class="breadcrumb-sep">/</span>
-            <a class="breadcrumb-link" href="/users">权限管理</a>
+            <a class="breadcrumb-link" href="/users">权限系统</a>
             <span class="breadcrumb-sep">/</span>
-            <span id="page-breadcrumb-current">安全操作</span>
+            <span id="page-breadcrumb-current">菜单管理</span>
           </div>
-          <h2>安全操作</h2>
+          <h2>菜单管理</h2>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
 
-      <nav class="module-nav-bar" aria-label="权限管理子导航">
-        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户管理</a>
-        <a class="module-nav-link" data-module-nav="users-access" href="/users/access">角色与授权</a>
-        <a class="module-nav-link" data-module-nav="users-security" href="/users/security">安全操作</a>
+      <nav class="module-nav-bar" aria-label="权限系统子导航">
+        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户信息</a>
+        <a class="module-nav-link" data-module-nav="users-org" href="/users/org">组织机构</a>
+        <a class="module-nav-link" data-module-nav="users-access" href="/users/access">菜单角色</a>
+        <a class="module-nav-link" data-module-nav="users-security" href="/users/security">菜单管理</a>
         <a class="module-nav-link" data-module-nav="users-audit" href="/users/audit">审计日志</a>
       </nav>
 
       <section id="users-security-note" class="section-banner hidden">
-        <strong>当前无权限执行安全操作</strong>
-        <p>只有管理员可以创建账号、重置密码或删除账号。普通用户访问这一页时，只会看到说明，不会看到真实操作入口。</p>
+        <strong>当前账号没有菜单管理权限</strong>
+        <p>只有管理员可以新增、编辑或删除菜单节点。</p>
       </section>
 
-      <section id="users-security-admin-wrap" class="user-management-console permission-table-console">
-        <section class="panel legacy-filter-panel" id="security-create-panel">
-          <div class="legacy-section-title">新增用户</div>
-          <form id="security-create-form" class="security-create-form-table">
-            <label class="legacy-filter-field" for="security-create-username">
-              <span>用户名</span>
-              <input id="security-create-username" type="text" placeholder="例如 ai_ops_user">
+      <section id="users-security-admin-wrap" class="user-management-console permission-workspace">
+        <section class="panel legacy-filter-panel">
+          <div class="legacy-section-title">条件筛选</div>
+          <form id="security-filter-form" class="permission-toolbar-grid">
+            <label class="legacy-filter-field" for="security-filter-name">
+              <span>菜单名称</span>
+              <input id="security-filter-name" type="search" autocomplete="off">
             </label>
-            <label class="legacy-filter-field" for="security-create-password">
-              <span>初始密码</span>
-              <input id="security-create-password" type="password" placeholder="建议至少 8 位">
+            <label class="legacy-filter-field" for="security-filter-route">
+              <span>路由关键字</span>
+              <input id="security-filter-route" type="search" autocomplete="off">
             </label>
-            <label class="legacy-filter-field" for="security-create-role">
-              <span>角色</span>
-              <select id="security-create-role">
-                <option value="user">user</option>
-                <option value="admin">admin</option>
-              </select>
-            </label>
-            <div id="security-create-sources" class="source-checkbox-grid security-create-sources">
-              <div class="note">来源列表会在系统加载后显示。</div>
-            </div>
-            <div class="form-inline-actions">
-              <button id="security-create-submit" class="legacy-primary-btn" type="submit">创建账号</button>
+            <div class="legacy-filter-actions">
+              <button id="security-filter-submit" class="legacy-primary-btn" type="submit">查询</button>
+              <button id="security-filter-reset" class="legacy-plain-btn" type="button">重置</button>
             </div>
           </form>
         </section>
 
-        <section class="panel user-table-panel" id="security-list-panel">
+        <section class="panel permission-summary-panel">
+          <div class="permission-summary-grid">
+            <article class="permission-summary-card">
+              <span>菜单总数</span>
+              <strong id="security-summary-total">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>可见菜单</span>
+              <strong id="security-summary-visible">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>根节点</span>
+              <strong id="security-summary-root">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>当前状态</span>
+              <strong id="security-summary-role">加载中</strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel user-table-panel">
           <div class="user-table-toolbar">
-            <h2>敏感操作</h2>
+            <h2>菜单目录</h2>
             <div class="user-table-actions">
+              <button id="security-create-btn" class="legacy-text-action" type="button">+ 新增根菜单</button>
               <button id="security-refresh-btn" class="legacy-text-action" type="button">刷新</button>
-              <a class="legacy-text-action" href="/users/audit">查看审计</a>
             </div>
           </div>
           <div class="users-table-wrap">
-            <table class="admin-data-table permission-data-table security-data-table">
+            <table class="admin-data-table permission-data-table">
               <thead>
                 <tr>
-                  <th class="row-number-col" scope="col">序号</th>
-                  <th scope="col">登录账号</th>
-                  <th scope="col">角色 / 状态</th>
-                  <th scope="col">来源范围</th>
-                  <th class="operation-col wide" scope="col">操作</th>
+                  <th scope="col">菜单名称</th>
+                  <th scope="col">菜单编码</th>
+                  <th scope="col">上级菜单</th>
+                  <th scope="col">路由名称</th>
+                  <th scope="col">页面路径</th>
+                  <th scope="col">显示</th>
+                  <th scope="col">排序</th>
+                  <th class="operation-col" scope="col">操作</th>
                 </tr>
               </thead>
-              <tbody id="security-user-list" class="access-user-list">
+              <tbody id="security-menu-list">
                 <tr>
-                  <td colspan="5" class="users-table-empty">管理员校验完成后，这里会显示可执行敏感操作的账号列表。</td>
+                  <td colspan="8" class="users-table-empty">管理员校验完成后，这里会显示菜单目录。</td>
                 </tr>
               </tbody>
             </table>
@@ -162,7 +178,103 @@
     </main>
   </div>
 
-  <script src="/static/common.js?v=20260422-user-cn-password"></script>
-  <script src="/static/users_security.js?v=20260422-user-cn-password"></script>
+  <div id="menu-editor-modal" class="users-create-panel hidden" role="dialog" aria-modal="true" aria-labelledby="menu-editor-title">
+    <div class="users-create-card permission-modal-card permission-editor-card permission-editor-card-menu" role="document">
+      <div class="users-create-header">
+        <div>
+          <p class="users-create-kicker">菜单目录</p>
+          <h3 id="menu-editor-title">新增菜单</h3>
+        </div>
+        <button id="menu-editor-close" class="users-create-close" type="button" aria-label="关闭菜单编辑弹框">×</button>
+      </div>
+      <p id="menu-editor-copy" class="users-create-copy">保存后会立刻同步到菜单角色页和侧边导航。</p>
+      <div class="permission-editor-shell">
+        <section class="permission-editor-spotlight">
+          <div class="permission-editor-heading">
+            <span class="permission-editor-eyebrow">菜单预览</span>
+            <strong id="menu-editor-preview-name">待命名菜单</strong>
+            <p id="menu-editor-preview-route">未配置路由名称和页面路径</p>
+          </div>
+          <div class="permission-editor-meta">
+            <span id="menu-editor-preview-parent" class="permission-editor-pill">根节点</span>
+            <span id="menu-editor-preview-level" class="permission-editor-pill">根导航</span>
+            <span id="menu-editor-preview-visibility" class="permission-editor-pill">显示</span>
+          </div>
+        </section>
+
+        <form id="menu-editor-form" class="users-create-form permission-form-grid permission-editor-form" novalidate>
+          <input id="menu-editor-id" type="hidden">
+
+          <section class="permission-editor-section permission-form-span">
+            <div class="permission-editor-section-head">
+              <strong>目录标识</strong>
+              <span>先定义菜单名称、编码、层级和排序，建立稳定的后台目录结构。</span>
+            </div>
+            <div class="permission-step-panel-grid">
+              <label class="legacy-filter-field" for="menu-editor-name">
+                <span>菜单名称</span>
+                <input id="menu-editor-name" type="text" maxlength="128">
+              </label>
+              <label class="legacy-filter-field" for="menu-editor-code">
+                <span>菜单编码</span>
+                <input id="menu-editor-code" type="text" maxlength="64" placeholder="例如 knowledge_upload">
+              </label>
+              <label class="legacy-filter-field" for="menu-editor-parent">
+                <span>上级菜单</span>
+                <select id="menu-editor-parent">
+                  <option value="0">作为根节点</option>
+                </select>
+              </label>
+              <label class="legacy-filter-field" for="menu-editor-sort">
+                <span>排序值</span>
+                <input id="menu-editor-sort" type="number" min="0" max="9999" step="1" value="100">
+              </label>
+            </div>
+          </section>
+
+          <section class="permission-editor-section permission-form-span">
+            <div class="permission-editor-section-head">
+              <strong>路由与展示</strong>
+              <span>这里控制页面路径、外链地址和显示状态，菜单角色页会直接消费这组配置。</span>
+            </div>
+            <div class="permission-step-panel-grid">
+              <label class="legacy-filter-field" for="menu-editor-router-name">
+                <span>路由名称</span>
+                <input id="menu-editor-router-name" type="text" maxlength="64">
+              </label>
+              <label class="legacy-filter-field" for="menu-editor-router-path">
+                <span>页面路径</span>
+                <input id="menu-editor-router-path" type="text" maxlength="255" placeholder="例如 /users/access">
+              </label>
+              <label class="legacy-filter-field" for="menu-editor-href">
+                <span>链接地址</span>
+                <input id="menu-editor-href" type="text" maxlength="255" placeholder="例如 /users/access">
+              </label>
+              <label class="legacy-filter-field" for="menu-editor-visible">
+                <span>显示状态</span>
+                <select id="menu-editor-visible">
+                  <option value="true">显示</option>
+                  <option value="false">隐藏</option>
+                </select>
+              </label>
+              <label class="legacy-filter-field permission-form-span" for="menu-editor-remark">
+                <span>备注说明</span>
+                <textarea id="menu-editor-remark" rows="3" maxlength="255"></textarea>
+              </label>
+            </div>
+          </section>
+
+          <p id="menu-editor-feedback" class="users-create-feedback" role="status" aria-live="polite">请填写菜单信息后保存。</p>
+          <div class="form-inline-actions users-create-footer">
+            <button id="menu-editor-cancel" class="legacy-plain-btn" type="button">取消</button>
+            <button id="menu-editor-submit" class="legacy-primary-btn" type="submit">保存菜单</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/common.js?v=20260427-permission-org"></script>
+  <script src="/static/users_security.js?v=20260427-permission-org"></script>
 </body>
 </html>

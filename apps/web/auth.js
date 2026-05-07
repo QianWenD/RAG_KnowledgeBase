@@ -115,19 +115,49 @@ async function apiJson(url, options = {}) {
 async function buildHttpError(response) {
   let message = `HTTP ${response.status}`;
   try {
-    const payload = await response.json();
+    const payload = await response.clone().json();
     if (payload?.detail) {
       message = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail);
     }
   } catch (error) {
-    const text = await response.text();
-    if (text) {
-      message = text;
+    try {
+      const text = await response.text();
+      if (text) {
+        message = text;
+      }
+    } catch (readError) {
+      message = "服务暂时不可用，请稍后重试。";
     }
   }
-  const wrapped = new Error(message);
+  const wrapped = new Error(localizeHttpErrorMessage(message));
   wrapped.status = response.status;
   return wrapped;
+}
+
+function localizeHttpErrorMessage(message) {
+  const raw = String(message || "").trim();
+  const normalized = raw.replace(/[.\u3002]\s*$/, "").toLowerCase();
+  const exactMessages = {
+    "invalid username or password": "用户名或密码不正确。",
+    "account is disabled": "账号已停用，请联系管理员。",
+    "authentication required": "登录状态已失效，请重新登录。",
+    "username already exists": "用户名已存在，请换一个账号名。",
+  };
+  if (exactMessages[normalized]) {
+    return exactMessages[normalized];
+  }
+  const usernameMinMatch = raw.match(/Username must be at least (\d+) characters long/i);
+  if (usernameMinMatch) {
+    return `用户名至少需要 ${usernameMinMatch[1]} 位。`;
+  }
+  const passwordMinMatch = raw.match(/Password must be at least (\d+) characters long/i);
+  if (passwordMinMatch) {
+    return `密码至少需要 ${passwordMinMatch[1]} 位。`;
+  }
+  if (raw.startsWith("<!DOCTYPE") || raw.startsWith("<html")) {
+    return "服务暂时不可用，请稍后重试。";
+  }
+  return raw || "服务暂时不可用，请稍后重试。";
 }
 
 init();

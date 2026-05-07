@@ -241,17 +241,29 @@ class VectorStore:
         query: str,
         k: int | None = None,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
     ) -> list[Document]:
         k = k or self.settings.retrieval_k
         if self.backend == "local":
-            return self._local_search(query=query, source_filter=source_filter, k=k)
-        return self._milvus_search(query=query, source_filter=source_filter, k=k)
+            return self._local_search(
+                query=query,
+                source_filter=source_filter,
+                allowed_sources=allowed_sources,
+                k=k,
+            )
+        return self._milvus_search(
+            query=query,
+            source_filter=source_filter,
+            allowed_sources=allowed_sources,
+            k=k,
+        )
 
     def _local_search(
         self,
         *,
         query: str,
         source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
         k: int,
     ) -> list[Document]:
         if self.local_bm25 is None or not self.local_records:
@@ -262,6 +274,12 @@ class VectorStore:
         if source_filter:
             filtered_records = [
                 record for record in self.local_records if record.get("source") == source_filter
+            ]
+            filtered_tokens = [preprocess_text(record["text"]) for record in filtered_records]
+        elif allowed_sources is not None:
+            allowed = set(allowed_sources)
+            filtered_records = [
+                record for record in self.local_records if record.get("source") in allowed
             ]
             filtered_tokens = [preprocess_text(record["text"]) for record in filtered_records]
 
@@ -294,6 +312,7 @@ class VectorStore:
         *,
         query: str,
         source_filter: str | None,
+        allowed_sources: tuple[str, ...] | list[str] | None,
         k: int,
     ) -> list[Document]:
         from pymilvus import AnnSearchRequest, WeightedRanker
@@ -305,7 +324,10 @@ class VectorStore:
         dense_query_vector = query_embeddings["dense"][0]
         sparse_query_vector = self._sparse_row_to_dict(query_embeddings["sparse"], 0)
 
-        filter_expr = f"source == '{source_filter}'" if source_filter else ""
+        filter_expr = self._build_source_filter_expr(
+            source_filter=source_filter,
+            allowed_sources=allowed_sources,
+        )
         dense_request = AnnSearchRequest(
             data=[dense_query_vector],
             anns_field="dense_vector",
@@ -344,6 +366,19 @@ class VectorStore:
             self._decorate_parent_doc(doc, retrieval_score=float(score), matched_chunks=1)
             for score, doc in ranked_pairs[: self.settings.candidate_m]
         ]
+
+    @staticmethod
+    def _build_source_filter_expr(
+        *,
+        source_filter: str | None,
+        allowed_sources: tuple[str, ...] | list[str] | None,
+    ) -> str:
+        if source_filter:
+            return f"source == '{source_filter}'"
+        if not allowed_sources:
+            return ""
+        sources = ", ".join(f"'{source}'" for source in dict.fromkeys(allowed_sources))
+        return f"source in [{sources}]"
 
     def _rebuild_local_index(self) -> None:
         for record in self.local_records:

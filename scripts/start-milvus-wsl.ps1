@@ -15,6 +15,10 @@ $stderrLog = Join-Path $runtimeDir "milvus-wsl.stderr.log"
 
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
 
+if (-not $MilvusVersion.StartsWith("v")) {
+    throw "MilvusVersion must look like 'v2.6.11'. Received: $MilvusVersion"
+}
+
 function Get-KeepaliveProcess {
     if (-not (Test-Path $pidFile)) {
         return $null
@@ -49,6 +53,16 @@ function Test-TcpPort {
     } finally {
         $client.Dispose()
     }
+}
+
+function Get-MilvusContainerHealth {
+    param([string]$DistroName)
+
+    $status = & wsl -d $DistroName -- bash -lc "docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' milvus-standalone 2>/dev/null"
+    if ($LASTEXITCODE -ne 0) {
+        return ""
+    }
+    return ($status | Select-Object -First 1).Trim()
 }
 
 $keepalive = Get-KeepaliveProcess
@@ -100,7 +114,7 @@ ensure_image "minio/minio:RELEASE.2024-12-18T13-15-44Z" "docker.m.daocloud.io/mi
 ensure_image "milvusdb/milvus:__MILVUS_VERSION__" "docker.m.daocloud.io/milvusdb/milvus:__MILVUS_VERSION__"
 docker compose up -d
 '@
-$prepareCompose = $prepareCompose.Replace("__REFRESH_FLAG__", $refreshFlag).Replace("__MILVUS_VERSION__", $MilvusVersion)
+$prepareCompose = $prepareCompose.Replace("__MILVUS_VERSION__", $MilvusVersion).Replace("__REFRESH_FLAG__", $refreshFlag)
 $prepareCompose = $prepareCompose -replace "`r`n", "`n"
 
 $tempScript = Join-Path $runtimeDir "start-milvus-wsl.sh"
@@ -122,8 +136,14 @@ if ($LASTEXITCODE -ne 0) {
 
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $ready = $false
+$grpcReady = $false
+$metricsReady = $false
+$containerHealth = ""
 while ((Get-Date) -lt $deadline) {
-    if ((Test-TcpPort -HostName "127.0.0.1" -Port 19530) -and (Test-TcpPort -HostName "127.0.0.1" -Port 9091)) {
+    $grpcReady = Test-TcpPort -HostName "127.0.0.1" -Port 19530
+    $metricsReady = Test-TcpPort -HostName "127.0.0.1" -Port 9091
+    $containerHealth = Get-MilvusContainerHealth -DistroName $Distro
+    if ($grpcReady -and ($metricsReady -or $containerHealth -eq "running|healthy")) {
         $ready = $true
         break
     }
@@ -134,10 +154,13 @@ $status = wsl -d $Distro -- bash -lc "docker ps --format 'table {{.Names}}\t{{.S
 $status | Write-Host
 
 if (-not $ready) {
-    throw "Milvus ports 19530/9091 did not become ready within ${TimeoutSeconds}s."
+    throw "Milvus did not become ready within ${TimeoutSeconds}s. gRPC=$grpcReady metrics=$metricsReady container='$containerHealth'"
 }
 
 Write-Host ""
 Write-Host "Milvus Standalone is running in WSL."
 Write-Host "Keepalive PID: $($keepalive.Id)"
 Write-Host "Ports: 127.0.0.1:19530 (gRPC), 127.0.0.1:9091 (health)"
+if (-not $metricsReady) {
+    Write-Host "Note: 9091 is not reachable from Windows yet, but the container reports healthy."
+}

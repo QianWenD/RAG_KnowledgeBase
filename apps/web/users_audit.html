@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RAGPro 权限管理 · 审计日志</title>
+  <title>RAGPro 权限系统 - 审计日志</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260422-user-cn-password">
+  <link rel="stylesheet" href="/static/styles.css?v=20260427-permission-org">
 </head>
 <body class="console-page" data-page="users" data-page-view="users-audit" data-page-label="审计日志">
   <div class="scene-grid" aria-hidden="true"></div>
@@ -18,15 +18,15 @@
       <section class="brand dossier">
         <div class="brand-topline">
           <p class="brand-kicker">RAGPro 后台</p>
-          <span class="brand-stamp">权限管理</span>
+          <span class="brand-stamp">权限系统</span>
         </div>
         <h1>审计日志</h1>
-        <p class="brand-copy">这一页用于回看权限域里的关键动作。管理员现在可以直接看到谁创建了账号、谁改了来源授权、谁重置了密码，以及这些动作发生在什么时候。</p>
+        <p class="brand-copy">这里持续记录用户、角色、菜单和来源权限的关键动作，方便回看是谁在什么时间做了什么变更。</p>
         <div class="brand-strip">
-          <span>追踪</span>
-          <span>回溯</span>
-          <span>敏感动作</span>
-          <span>治理闭环</span>
+          <span>动作筛选</span>
+          <span>时间范围</span>
+          <span>高风险动作</span>
+          <span>元信息</span>
         </div>
       </section>
 
@@ -41,7 +41,7 @@
           <a class="nav-link" data-nav="dashboard" href="/">总览</a>
           <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
           <a class="nav-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限管理</a>
+          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限系统</a>
         </div>
       </section>
 
@@ -80,7 +80,7 @@
           <div class="breadcrumb-row" aria-label="面包屑">
             <a class="breadcrumb-link" href="/">后台</a>
             <span class="breadcrumb-sep">/</span>
-            <a class="breadcrumb-link" href="/users">权限管理</a>
+            <a class="breadcrumb-link" href="/users">权限系统</a>
             <span class="breadcrumb-sep">/</span>
             <span id="page-breadcrumb-current">审计日志</span>
           </div>
@@ -91,19 +91,20 @@
         </div>
       </header>
 
-      <nav class="module-nav-bar" aria-label="权限管理子导航">
-        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户管理</a>
-        <a class="module-nav-link" data-module-nav="users-access" href="/users/access">角色与授权</a>
-        <a class="module-nav-link" data-module-nav="users-security" href="/users/security">安全操作</a>
+      <nav class="module-nav-bar" aria-label="权限系统子导航">
+        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户信息</a>
+        <a class="module-nav-link" data-module-nav="users-org" href="/users/org">组织机构</a>
+        <a class="module-nav-link" data-module-nav="users-access" href="/users/access">菜单角色</a>
+        <a class="module-nav-link" data-module-nav="users-security" href="/users/security">菜单管理</a>
         <a class="module-nav-link" data-module-nav="users-audit" href="/users/audit">审计日志</a>
       </nav>
 
       <section id="users-audit-note" class="section-banner hidden">
-        <strong>当前无权限查看审计日志</strong>
-        <p>只有管理员可以查看权限域的审计记录。普通用户访问时只会看到说明，不会看到具体操作历史。</p>
+        <strong>当前账号没有审计查看权限</strong>
+        <p>只有管理员可以查看权限系统的操作记录。</p>
       </section>
 
-      <section class="user-management-console permission-table-console">
+      <section class="user-management-console permission-workspace">
         <section class="panel legacy-filter-panel" id="audit-filter-panel">
           <div class="legacy-section-title">条件筛选</div>
           <form id="audit-filter-form" class="audit-table-filter">
@@ -113,17 +114,27 @@
                 <option value="">全部动作</option>
                 <option value="register">用户注册</option>
                 <option value="login">用户登录</option>
-                <option value="logout">用户退出登录</option>
+                <option value="logout">用户退出</option>
                 <option value="change_password">修改个人密码</option>
-                <option value="admin_create_user">管理员创建账号</option>
-                <option value="update_user_access">更新角色与授权</option>
+                <option value="admin_create_user">管理员创建用户</option>
+                <option value="update_user_profile">更新用户资料</option>
+                <option value="update_user_access">更新角色与来源</option>
                 <option value="reset_password">重置密码</option>
-                <option value="delete_user">删除账号</option>
+                <option value="delete_user">删除用户</option>
+                <option value="create_org_unit">新增组织机构</option>
+                <option value="update_org_unit">更新组织机构</option>
+                <option value="delete_org_unit">删除组织机构</option>
+                <option value="create_menu_role">新增菜单角色</option>
+                <option value="update_menu_role">更新菜单角色</option>
+                <option value="delete_menu_role">删除菜单角色</option>
+                <option value="create_menu_item">新增菜单</option>
+                <option value="update_menu_item">更新菜单</option>
+                <option value="delete_menu_item">删除菜单</option>
               </select>
             </label>
             <label class="legacy-filter-field" for="audit-search-input">
-              <span>账号关键词</span>
-              <input id="audit-search-input" name="search" type="text" maxlength="64" placeholder="例如 admin / member">
+              <span>账号关键字</span>
+              <input id="audit-search-input" name="search" type="text" maxlength="64" placeholder="例如 admin / analyst">
             </label>
             <label class="legacy-filter-field" for="audit-start-at">
               <span>开始时间</span>
@@ -175,7 +186,7 @@
                   <th scope="col">元信息</th>
                 </tr>
               </thead>
-              <tbody id="audit-log-list" class="access-user-list">
+              <tbody id="audit-log-list">
                 <tr>
                   <td colspan="7" class="users-table-empty">日志列表会显示在这里。</td>
                 </tr>
@@ -187,7 +198,7 @@
     </main>
   </div>
 
-  <script src="/static/common.js?v=20260422-user-cn-password"></script>
-  <script src="/static/users_audit.js?v=20260422-user-cn-password"></script>
+  <script src="/static/common.js?v=20260427-permission-org"></script>
+  <script src="/static/users_audit.js?v=20260427-permission-org"></script>
 </body>
 </html>

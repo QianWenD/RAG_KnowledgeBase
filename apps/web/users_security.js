@@ -1,228 +1,213 @@
-﻿window.RagProPage = {
-  async init({ state, helpers }) {
+window.RagProPage = {
+  async init({ helpers }) {
     const pageState = {
-      users: [],
+      menus: [],
+      filteredMenus: [],
+      filterName: "",
+      filterRoute: "",
+      editorMode: "create",
+      editingMenu: null,
+      createParent: null,
     };
 
     const elements = {
-      createForm: document.getElementById("security-create-form"),
-      createUsername: document.getElementById("security-create-username"),
-      createPassword: document.getElementById("security-create-password"),
-      createRole: document.getElementById("security-create-role"),
-      createSources: document.getElementById("security-create-sources"),
-      createSubmit: document.getElementById("security-create-submit"),
-      securityUserList: document.getElementById("security-user-list"),
+      filterForm: document.getElementById("security-filter-form"),
+      filterName: document.getElementById("security-filter-name"),
+      filterRoute: document.getElementById("security-filter-route"),
+      filterReset: document.getElementById("security-filter-reset"),
+      securityMenuList: document.getElementById("security-menu-list"),
       refreshBtn: document.getElementById("security-refresh-btn"),
+      createBtn: document.getElementById("security-create-btn"),
       usersSecurityNote: document.getElementById("users-security-note"),
       usersSecurityAdminWrap: document.getElementById("users-security-admin-wrap"),
       summaryRole: document.getElementById("security-summary-role"),
       summaryTotal: document.getElementById("security-summary-total"),
-      summaryActive: document.getElementById("security-summary-active"),
-      summaryInactive: document.getElementById("security-summary-inactive"),
+      summaryVisible: document.getElementById("security-summary-visible"),
+      summaryRoot: document.getElementById("security-summary-root"),
+      editorModal: document.getElementById("menu-editor-modal"),
+      editorForm: document.getElementById("menu-editor-form"),
+      editorId: document.getElementById("menu-editor-id"),
+      editorTitle: document.getElementById("menu-editor-title"),
+      editorCopy: document.getElementById("menu-editor-copy"),
+      editorPreviewName: document.getElementById("menu-editor-preview-name"),
+      editorPreviewRoute: document.getElementById("menu-editor-preview-route"),
+      editorPreviewParent: document.getElementById("menu-editor-preview-parent"),
+      editorPreviewLevel: document.getElementById("menu-editor-preview-level"),
+      editorPreviewVisibility: document.getElementById("menu-editor-preview-visibility"),
+      editorName: document.getElementById("menu-editor-name"),
+      editorCode: document.getElementById("menu-editor-code"),
+      editorParent: document.getElementById("menu-editor-parent"),
+      editorRouterName: document.getElementById("menu-editor-router-name"),
+      editorRouterPath: document.getElementById("menu-editor-router-path"),
+      editorHref: document.getElementById("menu-editor-href"),
+      editorVisible: document.getElementById("menu-editor-visible"),
+      editorSort: document.getElementById("menu-editor-sort"),
+      editorRemark: document.getElementById("menu-editor-remark"),
+      editorFeedback: document.getElementById("menu-editor-feedback"),
+      editorSubmit: document.getElementById("menu-editor-submit"),
+      editorClose: document.getElementById("menu-editor-close"),
+      editorCancel: document.getElementById("menu-editor-cancel"),
     };
+    let dialogReturnFocus = null;
 
+    bindEvents();
     renderSummary();
-    renderCreateSourceSelector();
 
     if (!helpers.isAdmin()) {
       elements.usersSecurityNote?.classList.remove("hidden");
       elements.usersSecurityAdminWrap?.classList.add("hidden");
-      helpers.setStatus("当前账号没有安全操作权限。", true);
+      helpers.setStatus("当前账号没有菜单管理权限。", true);
       return;
     }
 
-    bindEvents();
-    await loadUsers();
-    helpers.setStatus("安全操作页已就绪，可以创建账号或执行敏感操作。", false);
+    await loadMenus();
+    helpers.setStatus("菜单管理页已就绪，可以维护菜单目录和路由入口。", false);
 
     function bindEvents() {
-      elements.refreshBtn?.addEventListener("click", loadUsers);
-      elements.createForm?.addEventListener("submit", async (event) => {
+      elements.refreshBtn?.addEventListener("click", () => refreshMenus(elements.refreshBtn));
+      elements.createBtn?.addEventListener("click", () => openEditor("create"));
+      elements.filterForm?.addEventListener("submit", (event) => {
         event.preventDefault();
-        await handleAdminCreateUser();
+        applyFilter();
       });
+      elements.filterReset?.addEventListener("click", () => {
+        if (elements.filterName) {
+          elements.filterName.value = "";
+        }
+        if (elements.filterRoute) {
+          elements.filterRoute.value = "";
+        }
+        applyFilter();
+      });
+      elements.securityMenuList?.addEventListener("click", async (event) => {
+        const action = event.target.closest("[data-menu-action]");
+        if (!action) {
+          return;
+        }
+        const menuId = Number(action.dataset.menuId);
+        const menu = pageState.menus.find((item) => item.id === menuId);
+        if (!menu) {
+          return;
+        }
+        if (action.dataset.menuAction === "edit") {
+          openEditor("edit", menu, action);
+          return;
+        }
+        if (action.dataset.menuAction === "create-child") {
+          openEditor("create", null, action, { parentMenu: menu });
+          return;
+        }
+        if (action.dataset.menuAction === "delete") {
+          await deleteMenu(menu, action);
+        }
+      });
+      elements.editorClose?.addEventListener("click", closeEditor);
+      elements.editorCancel?.addEventListener("click", closeEditor);
+      elements.editorModal?.addEventListener("click", (event) => {
+        if (event.target === elements.editorModal) {
+          closeEditor();
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !elements.editorModal?.classList.contains("hidden")) {
+          closeEditor();
+        }
+      });
+      elements.editorForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await submitEditor();
+      });
+      elements.editorForm?.addEventListener("input", updateEditorPreview);
+      elements.editorForm?.addEventListener("change", updateEditorPreview);
     }
 
-    function renderCreateSourceSelector() {
-      helpers.renderAdminCreateSourceSelector({
-        container: elements.createSources,
-        sources: state.sources,
-        checkboxAttribute: "data-create-source",
-        customInputId: "security-create-source-custom",
-        customLabel: "添加自定义来源",
-        emptyMessage: "当前还没有可授权来源，你仍然可以先添加自定义来源。",
-      });
-    }
-
-    async function handleAdminCreateUser() {
-      const { payload, error } = helpers.collectAdminCreateUserPayload({
-        usernameInput: elements.createUsername,
-        passwordInput: elements.createPassword,
-        roleSelect: elements.createRole,
-        sourceContainer: elements.createSources,
-        checkboxAttribute: "data-create-source",
-        customInputId: "security-create-source-custom",
-        missingMessage: "请填写新用户的用户名和密码。",
-      });
-      if (error) {
-        helpers.setStatus(error, true);
-        return;
-      }
-
-      await helpers.runUiAction({
-        control: elements.createSubmit,
-        pendingMessage: `正在创建用户 ${payload.username}...`,
-        successMessage: `已创建用户 ${payload.username}。`,
-        errorPrefix: "创建用户失败",
-        action: () => helpers.createAdminUser(payload),
-        onSuccess: async () => {
-          if (elements.createUsername) {
-            elements.createUsername.value = "";
-          }
-          if (elements.createPassword) {
-            elements.createPassword.value = "";
-          }
-          if (elements.createRole) {
-            elements.createRole.value = "user";
-          }
-          renderCreateSourceSelector();
-          await loadUsers();
-        },
-      });
-    }
-
-    async function loadUsers() {
+    async function loadMenus() {
       try {
-        const payload = await helpers.apiJson("/auth/users");
-        pageState.users = payload.users || [];
-        renderUsers();
-        renderSummary();
+        const payload = await helpers.apiJson("/auth/menu-items");
+        pageState.menus = buildMenuRelations(payload.items || []);
+        renderParentOptions();
+        applyFilter();
       } catch (error) {
-        helpers.setStatus(`加载敏感操作列表失败：${error.message}`, true);
+        helpers.setStatus(`加载菜单目录失败：${error.message}`, true);
+        renderEmptyRow("加载菜单目录失败", error.message);
       }
     }
 
-    async function patchUserAccess(user, isActive) {
-      await helpers.updateAdminUserAccess(user.id, {
-        role: user.role,
-        allowed_sources: user.allowed_sources || [],
-        is_active: isActive,
-      });
-    }
-
-    async function toggleUserActive(user, control) {
-      const nextActive = !user.is_active;
+    async function refreshMenus(control) {
       await helpers.runUiAction({
         control,
-        pendingMessage: nextActive ? `正在重新启用 ${user.username}...` : `正在停用 ${user.username}...`,
-        successMessage: nextActive ? `已重新启用 ${user.username}。` : `已停用 ${user.username}。`,
-        errorPrefix: "更新账号状态失败",
-        action: () => patchUserAccess(user, nextActive),
-        onSuccess: loadUsers,
+        pendingMessage: "正在刷新菜单目录...",
+        successMessage: "菜单目录已刷新。",
+        errorPrefix: "刷新菜单目录失败",
+        action: () => loadMenus(),
       });
     }
 
-    async function resetUserPassword(userId, username, control) {
-      const newPassword = window.prompt(`请输入 ${username} 的新密码`, "NewPassword123");
-      if (!newPassword) {
+    function applyFilter() {
+      pageState.filterName = elements.filterName?.value.trim().toLowerCase() || "";
+      pageState.filterRoute = elements.filterRoute?.value.trim().toLowerCase() || "";
+      pageState.filteredMenus = pageState.menus.filter((item) => {
+        const matchesName = !pageState.filterName || `${item.name} ${item.menu_code}`.toLowerCase().includes(pageState.filterName);
+        const matchesRoute = !pageState.filterRoute || `${item.router_name || ""} ${item.router_path || ""} ${item.href || ""}`.toLowerCase().includes(pageState.filterRoute);
+        return matchesName && matchesRoute;
+      });
+      renderSummary();
+      renderTable();
+    }
+
+    function renderSummary() {
+      const menus = pageState.filteredMenus.length ? pageState.filteredMenus : pageState.menus;
+      const total = menus.length;
+      const visible = menus.filter((item) => item.is_visible).length;
+      const root = menus.filter((item) => item.parent_id == null).length;
+      if (elements.summaryRole) {
+        elements.summaryRole.textContent = helpers.isAdmin() ? "管理员可维护" : "只读说明";
+      }
+      if (elements.summaryTotal) {
+        elements.summaryTotal.textContent = String(total);
+      }
+      if (elements.summaryVisible) {
+        elements.summaryVisible.textContent = String(visible);
+      }
+      if (elements.summaryRoot) {
+        elements.summaryRoot.textContent = String(root);
+      }
+    }
+
+    function renderTable() {
+      if (!pageState.filteredMenus.length) {
+        renderEmptyRow("没有匹配的菜单节点", "可以尝试修改筛选条件，或直接新增菜单。");
         return;
       }
-      await helpers.runUiAction({
-        control,
-        pendingMessage: `正在重置 ${username} 的密码...`,
-        successMessage: `已重置 ${username} 的密码。`,
-        errorPrefix: "重置密码失败",
-        action: () => helpers.resetAdminUserPassword(userId, newPassword),
-      });
+      elements.securityMenuList.innerHTML = pageState.filteredMenus.map((item) => `
+        <tr class="access-user-card">
+          <td class="strong-cell">
+            <div class="permission-tree-cell" style="--permission-depth:${item.depth || 0}">
+              <strong>${helpers.escapeHtml(item.name)}</strong>
+              <span class="permission-tree-meta">${helpers.escapeHtml(item.parent_name || "根节点")} · ${helpers.escapeHtml(item.menu_code)}</span>
+            </div>
+          </td>
+          <td>${helpers.escapeHtml(item.menu_code)}</td>
+          <td>${helpers.escapeHtml(item.parent_name || "根节点")}</td>
+          <td>${helpers.escapeHtml(item.router_name || "-")}</td>
+          <td>${helpers.escapeHtml(item.href || item.router_path || "-")}</td>
+          <td><span class="table-status ${item.is_visible ? "is-active" : "is-inactive"}">${item.is_visible ? "显示" : "隐藏"}</span></td>
+          <td>${helpers.escapeHtml(String(item.sort_order ?? 100))}</td>
+          <td>
+            <div class="permission-inline-actions">
+              <button class="legacy-inline-link" type="button" data-menu-action="create-child" data-menu-id="${helpers.escapeHtml(String(item.id))}">新增下级</button>
+              <button class="legacy-inline-link" type="button" data-menu-action="edit" data-menu-id="${helpers.escapeHtml(String(item.id))}">编辑</button>
+              <button class="legacy-inline-link danger" type="button" data-menu-action="delete" data-menu-id="${helpers.escapeHtml(String(item.id))}">删除</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
     }
 
-    async function deleteUser(userId, username, control) {
-      if (!window.confirm(`确认删除用户 ${username} 吗？`)) {
-        return;
-      }
-      await helpers.runUiAction({
-        control,
-        pendingMessage: `正在删除用户 ${username}...`,
-        successMessage: `已删除用户 ${username}。`,
-        errorPrefix: "删除用户失败",
-        action: () => helpers.deleteAdminUser(userId),
-        onSuccess: loadUsers,
-      });
-    }
-
-    function renderUsers() {
-      if (!elements.securityUserList) {
-        return;
-      }
-      if (!pageState.users.length) {
-        renderEmptyRow(
-          elements.securityUserList,
-          5,
-          "还没有可执行安全操作的账号",
-          "先创建第一个业务账号或管理员账号，后续才能执行重置密码、停用和删除等动作。"
-        );
-        return;
-      }
-
-      elements.securityUserList.innerHTML = "";
-      pageState.users.forEach((user, index) => {
-        elements.securityUserList.appendChild(buildSecurityRow(user, index + 1));
-      });
-    }
-
-    function buildSecurityRow(user, rowNumber) {
-      const row = document.createElement("tr");
-      row.className = "access-user-card security-user-row";
-      const isSelf = Boolean(state.user && user.id === state.user.id);
-      const sourceHtml = (user.allowed_sources || []).length
-        ? user.allowed_sources.map((source) => `<span class="tag muted">${helpers.escapeHtml(source)}</span>`).join("")
-        : '<span class="table-muted">未分配来源</span>';
-
-      row.innerHTML = `
-        <td class="row-number-col">${rowNumber}</td>
-        <td class="strong-cell">
-          <div class="table-user-cell">
-            <strong>${helpers.escapeHtml(user.username)}</strong>
-            <span>ID ${user.id}</span>
-          </div>
-        </td>
-        <td>
-          <div class="table-role-cell">
-            <strong>${helpers.escapeHtml(user.role)}</strong>
-            <span class="table-status ${user.is_active ? "is-active" : "is-inactive"}">${user.is_active ? "启用" : "停用"}</span>
-          </div>
-        </td>
-        <td>
-          <div class="tag-list table-tag-list">${sourceHtml}</div>
-        </td>
-        <td>
-          <div class="table-operation-list security-operation-list">
-            <button class="table-icon-btn" type="button" data-toggle-active title="${user.is_active ? "停用账号" : "重新启用"}" aria-label="${user.is_active ? "停用" : "重新启用"} ${helpers.escapeHtml(user.username)}">${renderIcon(user.is_active ? "pause" : "play")}</button>
-            <button class="table-icon-btn" type="button" data-reset-password title="重置密码" aria-label="重置 ${helpers.escapeHtml(user.username)} 的密码">${renderIcon("key")}</button>
-            <button class="table-icon-btn danger" type="button" data-delete-user title="${isSelf ? "不能删除当前登录账号" : "删除用户"}" aria-label="删除 ${helpers.escapeHtml(user.username)}" ${isSelf ? "disabled" : ""}>${renderIcon("trash")}</button>
-          </div>
-        </td>
-      `;
-
-      row.querySelector("[data-toggle-active]")?.addEventListener("click", async (event) => {
-        await toggleUserActive(user, event.currentTarget);
-      });
-      row.querySelector("[data-reset-password]")?.addEventListener("click", async (event) => {
-        await resetUserPassword(user.id, user.username, event.currentTarget);
-      });
-      const deleteButton = row.querySelector("[data-delete-user]");
-      if (deleteButton && !deleteButton.disabled) {
-        deleteButton.addEventListener("click", async (event) => {
-          await deleteUser(user.id, user.username, event.currentTarget);
-        });
-      }
-      return row;
-    }
-
-    function renderEmptyRow(container, colSpan, title, body) {
-      container.innerHTML = `
+    function renderEmptyRow(title, body) {
+      elements.securityMenuList.innerHTML = `
         <tr>
-          <td colspan="${colSpan}" class="users-table-empty">
+          <td colspan="8" class="users-table-empty">
             <strong>${helpers.escapeHtml(title)}</strong>
             <span>${helpers.escapeHtml(body)}</span>
           </td>
@@ -230,32 +215,210 @@
       `;
     }
 
-    function renderSummary() {
-      const total = pageState.users.length;
-      const active = pageState.users.filter((item) => item.is_active).length;
-      const inactive = total - active;
-      if (elements.summaryRole) {
-        elements.summaryRole.textContent = helpers.isAdmin() ? "管理员可操作" : "只读说明";
+    function renderParentOptions(currentId = null, preferredParentId = "0") {
+      const options = ['<option value="0">作为根节点</option>'].concat(
+        pageState.menus
+          .filter((item) => item.id !== currentId)
+          .map((item) => `<option value="${helpers.escapeHtml(String(item.id))}">${helpers.escapeHtml(item.pathLabel)}</option>`)
+      );
+      elements.editorParent.innerHTML = options.join("");
+      elements.editorParent.value = preferredParentId;
+      updateEditorPreview();
+    }
+
+    function openEditor(mode, menu = null, trigger = null, options = {}) {
+      pageState.editorMode = mode;
+      pageState.editingMenu = menu;
+      pageState.createParent = options.parentMenu || null;
+      dialogReturnFocus = trigger || document.activeElement;
+      elements.editorModal?.classList.remove("hidden");
+      helpers.lockBodyScroll();
+      if (mode === "create") {
+        elements.editorTitle.textContent = "新增菜单";
+        elements.editorCopy.textContent = pageState.createParent
+          ? `将会在“${pageState.createParent.name}”下创建子菜单，保存后会同步到菜单角色页和侧边导航。`
+          : "保存后会立刻同步到菜单角色页和侧边导航。";
+        elements.editorSubmit.textContent = "创建菜单";
+        elements.editorForm.reset();
+        elements.editorId.value = "";
+        elements.editorVisible.value = "true";
+        elements.editorSort.value = "100";
+        renderParentOptions(null, pageState.createParent ? String(pageState.createParent.id) : "0");
+        setEditorFeedback("请填写菜单信息后保存。");
+      } else if (menu) {
+        elements.editorTitle.textContent = "编辑菜单";
+        elements.editorCopy.textContent = "你可以直接调整层级、路径、显示状态和排序值。";
+        elements.editorSubmit.textContent = "保存菜单";
+        elements.editorId.value = String(menu.id);
+        elements.editorName.value = menu.name || "";
+        elements.editorCode.value = menu.menu_code || "";
+        elements.editorRouterName.value = menu.router_name || "";
+        elements.editorRouterPath.value = menu.router_path || "";
+        elements.editorHref.value = menu.href || "";
+        elements.editorVisible.value = menu.is_visible ? "true" : "false";
+        elements.editorSort.value = String(menu.sort_order ?? 100);
+        elements.editorRemark.value = menu.remark || "";
+        renderParentOptions(menu.id, menu.parent_id ? String(menu.parent_id) : "0");
+        setEditorFeedback("修改后点击保存，菜单角色页会自动使用最新目录。");
       }
-      if (elements.summaryTotal) {
-        elements.summaryTotal.textContent = String(total);
+      updateEditorPreview();
+      elements.editorName?.focus();
+    }
+
+    function closeEditor() {
+      elements.editorModal?.classList.add("hidden");
+      helpers.unlockBodyScroll();
+      pageState.createParent = null;
+      setEditorFeedback("请填写菜单信息后保存。");
+      dialogReturnFocus?.focus?.();
+      dialogReturnFocus = null;
+    }
+
+    function setEditorFeedback(message, isError = false) {
+      elements.editorFeedback.textContent = message;
+      elements.editorFeedback.classList.toggle("is-error", Boolean(isError));
+    }
+
+    function updateEditorPreview() {
+      const name = elements.editorName?.value.trim() || "待命名菜单";
+      const routerName = elements.editorRouterName?.value.trim() || "未设置路由名称";
+      const routePath = elements.editorRouterPath?.value.trim() || elements.editorHref?.value.trim() || "未配置页面路径";
+      const parentId = Number(elements.editorParent?.value || 0);
+      const parentMenu = pageState.menus.find((item) => item.id === parentId) || pageState.createParent || null;
+      const level = parentMenu ? `${Number(parentMenu.depth || 0) + 2} 级菜单` : "根导航";
+      const parentLabel = parentId && parentMenu ? parentMenu.pathLabel : "根节点";
+      const visibility = elements.editorVisible?.value === "false" ? "隐藏" : "显示";
+      if (elements.editorPreviewName) {
+        elements.editorPreviewName.textContent = name;
       }
-      if (elements.summaryActive) {
-        elements.summaryActive.textContent = String(active);
+      if (elements.editorPreviewRoute) {
+        elements.editorPreviewRoute.textContent = `${routerName} · ${routePath}`;
       }
-      if (elements.summaryInactive) {
-        elements.summaryInactive.textContent = String(inactive);
+      if (elements.editorPreviewParent) {
+        elements.editorPreviewParent.textContent = parentId && parentMenu ? `挂载 ${parentLabel}` : "根节点";
+      }
+      if (elements.editorPreviewLevel) {
+        elements.editorPreviewLevel.textContent = level;
+      }
+      if (elements.editorPreviewVisibility) {
+        elements.editorPreviewVisibility.textContent = visibility;
       }
     }
 
-    function renderIcon(type) {
-      const icons = {
-        pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14"></path><path d="M16 5v14"></path></svg>',
-        play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z"></path></svg>',
-        key: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 9.5a4.5 4.5 0 1 1-2.8-4.2 4.5 4.5 0 0 1 2.8 4.2Z"></path><path d="m14 14 6 6"></path><path d="m17 17 2-2"></path><path d="m19 19 2-2"></path></svg>',
-        trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="m9 7 .8-2h4.4l.8 2"></path><path d="m7 7 1 13h8l1-13"></path></svg>',
+    function buildEditorPayload() {
+      const name = elements.editorName?.value.trim() || "";
+      const menuCode = elements.editorCode?.value.trim() || "";
+      const parentId = Number(elements.editorParent?.value || 0);
+      const routerName = elements.editorRouterName?.value.trim() || "";
+      const routerPath = elements.editorRouterPath?.value.trim() || "";
+      const href = elements.editorHref?.value.trim() || "";
+      const isVisible = elements.editorVisible?.value !== "false";
+      const sortOrder = Number(elements.editorSort?.value || 100);
+      const remark = elements.editorRemark?.value.trim() || "";
+
+      if (!name) {
+        return { error: "请填写菜单名称。" };
+      }
+      if (!menuCode) {
+        return { error: "请填写菜单编码。" };
+      }
+      if (!/^[a-z][a-z0-9_]{1,63}$/.test(menuCode)) {
+        return { error: "菜单编码需以字母开头，只能使用小写字母、数字或下划线。" };
+      }
+      return {
+        payload: {
+          name,
+          menu_code: menuCode,
+          parent_id: parentId,
+          router_name: routerName || null,
+          router_path: routerPath || null,
+          href: href || null,
+          is_visible: isVisible,
+          sort_order: Number.isFinite(sortOrder) ? sortOrder : 100,
+          remark: remark || null,
+        },
       };
-      return icons[type] || icons.key;
+    }
+
+    async function submitEditor() {
+      const { payload, error } = buildEditorPayload();
+      if (error) {
+        setEditorFeedback(error, true);
+        helpers.setStatus(error, true);
+        return;
+      }
+      const isCreate = pageState.editorMode === "create";
+      setEditorFeedback(isCreate ? `正在创建菜单 ${payload.name}...` : `正在保存菜单 ${payload.name}...`);
+      const result = await helpers.runUiAction({
+        control: elements.editorSubmit,
+        pendingMessage: isCreate ? `正在创建菜单 ${payload.name}...` : `正在保存菜单 ${payload.name}...`,
+        successMessage: isCreate ? `已创建菜单 ${payload.name}。` : `已更新菜单 ${payload.name}。`,
+        errorPrefix: isCreate ? "创建菜单失败" : "保存菜单失败",
+        action: () => {
+          if (isCreate) {
+            return helpers.createMenuItem(payload);
+          }
+          return helpers.updateMenuItem(Number(elements.editorId.value), payload);
+        },
+        onSuccess: async () => {
+          closeEditor();
+          await loadMenus();
+        },
+      });
+      if (!result.ok) {
+        setEditorFeedback(result.error.message, true);
+      }
+    }
+
+    async function deleteMenu(menu, control) {
+      if (!window.confirm(`确认删除菜单 ${menu.name} 吗？`)) {
+        return;
+      }
+      await helpers.runUiAction({
+        control,
+        pendingMessage: `正在删除菜单 ${menu.name}...`,
+        successMessage: `已删除菜单 ${menu.name}。`,
+        errorPrefix: "删除菜单失败",
+        action: () => helpers.deleteMenuItem(menu.id),
+        onSuccess: loadMenus,
+      });
+    }
+
+    function buildMenuRelations(items) {
+      const index = new Map();
+      items.forEach((item) => index.set(item.id, { ...item, depth: 0, parent_name: "" }));
+      const childrenByParent = new Map();
+      items.forEach((item) => {
+        const key = item.parent_id ?? 0;
+        if (!childrenByParent.has(key)) {
+          childrenByParent.set(key, []);
+        }
+        childrenByParent.get(key).push(item);
+      });
+      const roots = [];
+      index.forEach((item) => {
+        if (item.parent_id == null || !index.has(item.parent_id)) {
+          roots.push(item);
+          return;
+        }
+        const parent = index.get(item.parent_id);
+        item.parent_name = parent?.name || "";
+      });
+      const results = [];
+      function walk(item, depth, pathLabel) {
+        item.depth = depth;
+        item.pathLabel = pathLabel ? `${pathLabel} / ${item.name}` : item.name;
+        item.child_count = (childrenByParent.get(item.id) || []).length;
+        results.push(item);
+        items
+          .filter((candidate) => candidate.parent_id === item.id)
+          .sort((left, right) => (left.sort_order ?? 100) - (right.sort_order ?? 100) || left.id - right.id)
+          .forEach((child) => walk(index.get(child.id), depth + 1, item.pathLabel));
+      }
+      roots
+        .sort((left, right) => (left.sort_order ?? 100) - (right.sort_order ?? 100) || left.id - right.id)
+        .forEach((item) => walk(item, 0, ""));
+      return results;
     }
   },
 };

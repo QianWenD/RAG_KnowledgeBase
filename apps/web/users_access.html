@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RAGPro 权限管理 · 角色与授权</title>
+  <title>RAGPro 权限系统 - 菜单角色</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260422-user-cn-password">
+  <link rel="stylesheet" href="/static/styles.css?v=20260427-permission-org">
 </head>
-<body class="console-page" data-page="users" data-page-view="users-access" data-page-label="角色与授权">
+<body class="console-page" data-page="users" data-page-view="users-access" data-page-label="菜单角色">
   <div class="scene-grid" aria-hidden="true"></div>
   <div class="scene-glow" aria-hidden="true"></div>
 
@@ -18,15 +18,15 @@
       <section class="brand dossier">
         <div class="brand-topline">
           <p class="brand-kicker">RAGPro 后台</p>
-          <span class="brand-stamp">权限管理</span>
+          <span class="brand-stamp">权限系统</span>
         </div>
-        <h1>角色与授权</h1>
-        <p class="brand-copy">这一页只处理角色、来源授权和账号启停。你可以把它理解成“谁能看到什么、谁还能继续使用系统”的集中配置页。</p>
+        <h1>菜单角色管理</h1>
+        <p class="brand-copy">这里参考原系统的角色管理方式，统一维护角色编码、角色名称、角色说明，以及每个角色可见的菜单范围。</p>
         <div class="brand-strip">
-          <span>角色</span>
-          <span>来源</span>
-          <span>启停</span>
-          <span>保存</span>
+          <span>角色台账</span>
+          <span>菜单树</span>
+          <span>分配人数</span>
+          <span>保存变更</span>
         </div>
       </section>
 
@@ -41,7 +41,7 @@
           <a class="nav-link" data-nav="dashboard" href="/">总览</a>
           <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
           <a class="nav-link" data-nav="knowledge" href="/knowledge">知识运营</a>
-          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限管理</a>
+          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限系统</a>
         </div>
       </section>
 
@@ -80,52 +80,91 @@
           <div class="breadcrumb-row" aria-label="面包屑">
             <a class="breadcrumb-link" href="/">后台</a>
             <span class="breadcrumb-sep">/</span>
-            <a class="breadcrumb-link" href="/users">权限管理</a>
+            <a class="breadcrumb-link" href="/users">权限系统</a>
             <span class="breadcrumb-sep">/</span>
-            <span id="page-breadcrumb-current">角色与授权</span>
+            <span id="page-breadcrumb-current">菜单角色</span>
           </div>
-          <h2>角色与授权</h2>
+          <h2>菜单角色</h2>
         </div>
         <div class="topbar-actions">
           <span id="page-status" class="status-badge">等待操作</span>
         </div>
       </header>
 
-      <nav class="module-nav-bar" aria-label="权限管理子导航">
-        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户管理</a>
-        <a class="module-nav-link" data-module-nav="users-access" href="/users/access">角色与授权</a>
-        <a class="module-nav-link" data-module-nav="users-security" href="/users/security">安全操作</a>
+      <nav class="module-nav-bar" aria-label="权限系统子导航">
+        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户信息</a>
+        <a class="module-nav-link" data-module-nav="users-org" href="/users/org">组织机构</a>
+        <a class="module-nav-link" data-module-nav="users-access" href="/users/access">菜单角色</a>
+        <a class="module-nav-link" data-module-nav="users-security" href="/users/security">菜单管理</a>
         <a class="module-nav-link" data-module-nav="users-audit" href="/users/audit">审计日志</a>
       </nav>
 
       <section id="users-access-note" class="section-banner hidden">
-        <strong>当前无权限管理授权</strong>
-        <p>只有管理员可以变更角色、来源和账号状态。普通用户如果直接进入这个页面，只会看到说明和当前系统结构。</p>
+        <strong>当前账号没有菜单角色管理权限</strong>
+        <p>只有管理员可以调整菜单角色与菜单授权范围。</p>
       </section>
 
-      <section class="user-management-console permission-table-console">
+      <section class="user-management-console permission-workspace">
+        <section class="panel legacy-filter-panel">
+          <div class="legacy-section-title">条件筛选</div>
+          <form id="access-filter-form" class="permission-toolbar-grid">
+            <label class="legacy-filter-field" for="access-filter-name">
+              <span>角色名称</span>
+              <input id="access-filter-name" type="search" autocomplete="off">
+            </label>
+            <div class="legacy-filter-actions">
+              <button id="access-filter-submit" class="legacy-primary-btn" type="submit">查询</button>
+              <button id="access-filter-reset" class="legacy-plain-btn" type="button">重置</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel permission-summary-panel">
+          <div class="permission-summary-grid">
+            <article class="permission-summary-card">
+              <span>角色总数</span>
+              <strong id="access-summary-total">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>菜单节点</span>
+              <strong id="access-summary-menus">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>分配账号</span>
+              <strong id="access-summary-users">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>当前状态</span>
+              <strong id="access-summary-role">加载中</strong>
+            </article>
+          </div>
+        </section>
+
         <section id="users-access-admin-wrap" class="panel user-table-panel">
           <div class="user-table-toolbar">
-            <h2>角色与授权</h2>
+            <h2>菜单角色</h2>
             <div class="user-table-actions">
+              <button id="access-create-btn" class="legacy-text-action" type="button">+ 新增角色</button>
               <button id="access-refresh-btn" class="legacy-text-action" type="button">刷新</button>
-              <a class="legacy-text-action" href="/users/audit">查看审计</a>
             </div>
           </div>
           <div class="users-table-wrap">
-            <table class="admin-data-table permission-data-table access-data-table">
+            <table class="admin-data-table permission-data-table">
               <thead>
                 <tr>
-                  <th class="row-number-col" scope="col">序号</th>
-                  <th scope="col">登录账号</th>
-                  <th scope="col">角色 / 状态</th>
-                  <th scope="col">来源授权</th>
+                  <th scope="col">角色名称</th>
+                  <th scope="col">角色编码</th>
+                  <th scope="col">角色说明</th>
+                  <th scope="col">菜单数量</th>
+                  <th scope="col">分配账号</th>
+                  <th scope="col">菜单摘要</th>
+                  <th scope="col">创建时间</th>
                   <th class="operation-col" scope="col">操作</th>
                 </tr>
               </thead>
-              <tbody id="access-user-list" class="access-user-list">
+              <tbody id="access-role-list">
                 <tr>
-                  <td colspan="5" class="users-table-empty">管理员校验完成后，这里会显示可配置账号。</td>
+                  <td colspan="8" class="users-table-empty">管理员校验完成后，这里会显示菜单角色列表。</td>
                 </tr>
               </tbody>
             </table>
@@ -135,7 +174,107 @@
     </main>
   </div>
 
-  <script src="/static/common.js?v=20260422-user-cn-password"></script>
-  <script src="/static/users_access.js?v=20260422-user-cn-password"></script>
+  <div id="role-editor-modal" class="users-create-panel hidden" role="dialog" aria-modal="true" aria-labelledby="role-editor-title">
+    <div class="users-create-card permission-modal-card permission-editor-card permission-editor-card-role" role="document">
+      <div class="users-create-header">
+        <div>
+          <p class="users-create-kicker">角色台账</p>
+          <h3 id="role-editor-title">新增角色</h3>
+        </div>
+        <button id="role-editor-close" class="users-create-close" type="button" aria-label="关闭角色编辑弹框">×</button>
+      </div>
+      <p id="role-editor-copy" class="users-create-copy">角色保存后会立刻同步到用户信息页。</p>
+      <section class="permission-editor-spotlight">
+        <div class="permission-editor-heading">
+          <span class="permission-editor-eyebrow">角色预览</span>
+          <strong id="role-editor-preview-name">待命名角色</strong>
+          <p id="role-editor-preview-copy">基础信息和菜单授权会分两步完成，保存后会同步到用户信息页。</p>
+        </div>
+        <div class="permission-editor-meta">
+          <span id="role-editor-preview-code" class="permission-editor-pill">未设置编码</span>
+          <span id="role-editor-preview-users" class="permission-editor-pill">0 个账号</span>
+          <span id="role-editor-preview-count" class="permission-editor-pill">0 项菜单</span>
+        </div>
+      </section>
+      <div id="role-editor-steps" class="permission-stepper" aria-label="角色编辑步骤">
+        <div class="permission-step-item is-active" data-role-step="0">
+          <span class="permission-step-index">01</span>
+          <div class="permission-step-copy">
+            <strong>基础信息</strong>
+            <span>维护角色名称、编码和说明</span>
+          </div>
+        </div>
+        <div class="permission-step-item" data-role-step="1">
+          <span class="permission-step-index">02</span>
+          <div class="permission-step-copy">
+            <strong>菜单权限</strong>
+            <span>勾选角色可访问的菜单范围</span>
+          </div>
+        </div>
+      </div>
+      <form id="role-editor-form" class="users-create-form permission-form-grid permission-editor-form" novalidate>
+        <input id="role-editor-id" type="hidden">
+        <section class="permission-step-panel permission-editor-section permission-form-span" data-role-step-panel="0">
+          <div class="permission-editor-section-head">
+            <strong>基础信息</strong>
+            <span>先定义角色名称、编码和职责说明，再进入菜单授权步骤。</span>
+          </div>
+          <div class="permission-step-panel-grid">
+            <label class="legacy-filter-field" for="role-editor-name">
+              <span>角色名称</span>
+              <input id="role-editor-name" type="text" maxlength="64">
+            </label>
+            <label class="legacy-filter-field" for="role-editor-code">
+              <span>角色编码</span>
+              <input id="role-editor-code" type="text" maxlength="64" placeholder="例如 knowledge_editor">
+            </label>
+            <label class="legacy-filter-field permission-form-span" for="role-editor-desc">
+              <span>角色说明</span>
+              <textarea id="role-editor-desc" rows="4" maxlength="255"></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="permission-step-panel permission-editor-section permission-form-span hidden" data-role-step-panel="1">
+          <div class="permission-editor-section-head">
+            <strong>菜单权限</strong>
+            <span>按参考系统的第二步流程，勾选角色可以访问的菜单节点，并实时查看授权摘要。</span>
+          </div>
+          <div class="permission-editor-tree-grid">
+            <div class="permission-form-fieldset">
+              <div class="permission-form-legend">
+                <strong>菜单授权</strong>
+                <span>勾选后会直接影响用户页的菜单角色分配结果。</span>
+              </div>
+              <div class="permission-tree-toolbar">
+                <div class="permission-inline-actions">
+                  <button id="role-editor-select-all" class="legacy-inline-link" type="button">全选</button>
+                  <button id="role-editor-clear-all" class="legacy-inline-link" type="button">清空</button>
+                </div>
+                <span id="role-editor-selection-count" class="status-chip">已选 0 项</span>
+              </div>
+              <div id="role-editor-menu-tree" class="permission-tree-list"></div>
+            </div>
+            <aside class="permission-editor-aside">
+              <strong>授权摘要</strong>
+              <p id="role-editor-selection-copy">还没有勾选菜单节点。</p>
+              <div id="role-editor-selection-preview" class="tag-list compact-source-tags"></div>
+            </aside>
+          </div>
+        </section>
+
+        <p id="role-editor-feedback" class="users-create-feedback" role="status" aria-live="polite">请填写角色信息后保存。</p>
+        <div class="form-inline-actions users-create-footer permission-step-actions">
+          <button id="role-editor-cancel" class="legacy-plain-btn" type="button">取消</button>
+          <button id="role-editor-prev" class="legacy-plain-btn hidden" type="button">上一步</button>
+          <button id="role-editor-next" class="legacy-primary-btn" type="button">下一步</button>
+          <button id="role-editor-submit" class="legacy-primary-btn hidden" type="submit">保存角色</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/common.js?v=20260427-permission-org"></script>
+  <script src="/static/users_access.js?v=20260427-permission-org"></script>
 </body>
 </html>

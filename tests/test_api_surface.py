@@ -37,8 +37,9 @@ class APISurfaceTests(unittest.TestCase):
         self.assertIn('href="/knowledge"', response.text)
         self.assertIn('id="auth-panel"', response.text)
         self.assertIn('id="page-breadcrumb-current"', response.text)
-        self.assertIn('data-section-link', response.text)
-        self.assertIn('class="page-utility-bar"', response.text)
+        self.assertIn('id="entry-cards"', response.text)
+        self.assertIn('class="overview-card"', response.text)
+        self.assertIn('link-panel', response.text)
         self.assertNotIn('id="query-input"', response.text)
         self.assertNotIn('id="upload-form"', response.text)
         self.assertNotIn('id="access-create-form"', response.text)
@@ -51,8 +52,8 @@ class APISurfaceTests(unittest.TestCase):
         self.assertIn('id="message-template"', response.text)
         self.assertIn('id="history-center"', response.text)
         self.assertIn('id="page-breadcrumb-current"', response.text)
-        self.assertIn('href="#route-insights"', response.text)
-        self.assertIn('id="qa-summary-session"', response.text)
+        self.assertIn('id="route-insights"', response.text)
+        self.assertIn('id="qa-current-question"', response.text)
         self.assertIn('id="qa-prompt-suggestions"', response.text)
         self.assertIn('id="query-input-meter"', response.text)
         self.assertIn('id="query-source-hint"', response.text)
@@ -66,8 +67,8 @@ class APISurfaceTests(unittest.TestCase):
         self.assertIn('data-page-view="knowledge-upload"', response.text)
         self.assertIn('id="upload-form"', response.text)
         self.assertIn('id="knowledge-access-note"', response.text)
-        self.assertIn('href="#upload-ledger"', response.text)
-        self.assertIn('id="knowledge-summary-history-count"', response.text)
+        self.assertIn('id="upload-ledger"', response.text)
+        self.assertIn('id="upload-history-list"', response.text)
         self.assertIn('class="upload-pipeline"', response.text)
         self.assertIn('data-upload-step="upload"', response.text)
         self.assertIn('href="/knowledge/reindex"', response.text)
@@ -103,6 +104,9 @@ class APISurfaceTests(unittest.TestCase):
         self.assertIn('data-page="users"', response.text)
         self.assertIn('data-page-view="users-overview"', response.text)
         self.assertIn('id="users-overview-grid"', response.text)
+        self.assertIn('id="users-filter-form"', response.text)
+        self.assertIn('id="users-table-body"', response.text)
+        self.assertIn('id="user-editor-modal"', response.text)
         self.assertIn('id="users-overview-note"', response.text)
         self.assertIn('href="/users/access"', response.text)
         self.assertIn('href="/users/security"', response.text)
@@ -115,7 +119,8 @@ class APISurfaceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('data-page="users"', response.text)
         self.assertIn('data-page-view="users-access"', response.text)
-        self.assertIn('id="access-user-list"', response.text)
+        self.assertIn('id="access-role-list"', response.text)
+        self.assertIn('id="role-editor-modal"', response.text)
         self.assertIn('id="users-access-note"', response.text)
         self.assertIn('href="/users/security"', response.text)
         self.assertNotIn('id="query-input"', response.text)
@@ -126,8 +131,9 @@ class APISurfaceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('data-page="users"', response.text)
         self.assertIn('data-page-view="users-security"', response.text)
-        self.assertIn('id="security-create-form"', response.text)
-        self.assertIn('id="security-user-list"', response.text)
+        self.assertIn('id="security-filter-form"', response.text)
+        self.assertIn('id="security-menu-list"', response.text)
+        self.assertIn('id="menu-editor-modal"', response.text)
         self.assertIn('href="/users/access"', response.text)
         self.assertNotIn('id="query-input"', response.text)
         self.assertNotIn('id="upload-form"', response.text)
@@ -214,15 +220,15 @@ class APISurfaceTests(unittest.TestCase):
         response = self.client.get("/static/users.js")
         self.assertEqual(response.status_code, 200)
         self.assertIn("/auth/users", response.text)
-        self.assertIn("users-overview-grid", response.text)
-        self.assertIn("/users/access", response.text)
+        self.assertIn("user-editor-modal", response.text)
+        self.assertIn("/auth/permission-bootstrap", self.client.get("/static/common.js").text)
 
     def test_static_users_access_script_includes_access_logic(self) -> None:
         response = self.client.get("/static/users_access.js")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("/auth/users", response.text)
-        self.assertIn("/auth/users/${userId}/access", response.text)
-        self.assertIn("data-user-source", response.text)
+        self.assertIn("/auth/menu-roles", response.text)
+        self.assertIn("role-editor-menu-tree", response.text)
+        self.assertIn("data-role-action", response.text)
 
     def test_static_users_audit_script_includes_audit_logic(self) -> None:
         response = self.client.get("/static/users_audit.js")
@@ -241,9 +247,9 @@ class APISurfaceTests(unittest.TestCase):
     def test_static_users_security_script_includes_security_logic(self) -> None:
         response = self.client.get("/static/users_security.js")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("/auth/users", response.text)
-        self.assertIn("reset-password", response.text)
-        self.assertIn("data-delete-user", response.text)
+        self.assertIn("/auth/menu-items", response.text)
+        self.assertIn("security-menu-list", response.text)
+        self.assertIn("data-menu-action", response.text)
 
     def test_static_auth_script_includes_auth_flow(self) -> None:
         response = self.client.get("/static/auth.js")
@@ -454,8 +460,70 @@ class APISurfaceTests(unittest.TestCase):
         self.assertEqual(payload["debug_info"]["strategy"], "direct")
         self.assertEqual(payload["session_id"], "s1")
         self.assertEqual(payload["history_count"], 1)
+        router.route.assert_called_once_with(
+            "什么是大模型",
+            threshold=0.85,
+            source_filter="ai",
+            allowed_sources=("ai",),
+            history=[],
+        )
         faq_repository.close.assert_called_once()
         conversation_repository.close.assert_called_once()
+
+    def test_query_endpoint_defaults_to_user_allowed_sources_when_source_filter_missing(self) -> None:
+        user = AuthenticatedUser(
+            id=19,
+            username="user_2",
+            role="user",
+            allowed_sources=("med", "policy"),
+            is_active=True,
+        )
+        faq_repository = Mock()
+        conversation_repository = Mock()
+        conversation_service = Mock()
+        router = Mock()
+        router.route.return_value = {
+            "answer": "自动按权限范围检索完成",
+            "route": "rag",
+            "citations": [{"source": "med", "score": 0.8}],
+            "confidence": {"score": 0.72, "label": "medium"},
+            "debug_info": {"strategy": "direct"},
+            "retrieval_backend": "milvus",
+        }
+
+        with patch("apps.api.main._require_authenticated_user", return_value=user), patch(
+            "apps.api.main._create_faq_components",
+            return_value=(faq_repository, Mock()),
+        ), patch(
+            "apps.api.main._create_conversation_repository",
+            return_value=conversation_repository,
+        ), patch(
+            "apps.api.main._conversation_service_from_repository",
+            return_value=conversation_service,
+        ), patch(
+            "apps.api.main._conversation_get_history",
+            return_value=[],
+        ), patch(
+            "apps.api.main._conversation_save_turn",
+            return_value=[{"role": "assistant", "content": "自动按权限范围检索完成"}],
+        ), patch(
+            "apps.api.main._build_router",
+            return_value=router,
+        ):
+            conversation_service.get_or_create_session_id.return_value = "s-auto"
+            response = self.client.post(
+                "/query",
+                json={"query": "医保限制用药怎么录入？", "session_id": "s-auto", "stream": False},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        router.route.assert_called_once_with(
+            "医保限制用药怎么录入？",
+            threshold=0.85,
+            source_filter=None,
+            allowed_sources=("med", "policy"),
+            history=[],
+        )
 
     def test_query_endpoint_streams_sse_events(self) -> None:
         user = AuthenticatedUser(

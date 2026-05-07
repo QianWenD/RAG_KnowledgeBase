@@ -1,0 +1,7 @@
+interface:
+  display_name: "RAGPro 本地栈"
+  short_description: "启动、重启并检查 RAGPro 本地前后端与 Milvus。"
+  default_prompt: "Use $ragpro-local-stack to start or verify the local RAGPro server stack."
+
+policy:
+  allow_implicit_invocation: true

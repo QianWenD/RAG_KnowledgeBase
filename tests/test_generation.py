@@ -24,7 +24,12 @@ class FakeRetrievalService:
         self.vector_store = FakeVectorStore()
         self.last_query: str | None = None
 
-    def retrieve(self, query: str, source_filter: str | None = None):
+    def retrieve(
+        self,
+        query: str,
+        source_filter: str | None = None,
+        allowed_sources: tuple[str, ...] | list[str] | None = None,
+    ):
         self.last_query = query
         return self.docs
 

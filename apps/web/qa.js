@@ -7,6 +7,8 @@ window.RagProPage = {
       streaming: true,
       hasAsked: false,
     };
+    let sourceRefreshPromise = null;
+    const AUTO_SOURCE_PLACEHOLDER = "全部（按权限自动检索）";
 
     const elements = {
       sessionId: document.getElementById("session-id"),
@@ -47,13 +49,14 @@ window.RagProPage = {
     helpers.populateSourceSelect(
       elements.sourceFilter,
       state.sources || [],
-      (state.sources || []).length > 1 ? "选择" : "全部",
+      AUTO_SOURCE_PLACEHOLDER,
     );
     if ((state.sources || []).length === 1) {
       elements.sourceFilter.value = state.sources[0];
     }
     renderSummary();
     updateComposerTelemetry();
+    applySourceOptions();
     resetConversation();
     await createSession();
     helpers.setStatus("问答页已就绪，可以直接提问。");
@@ -64,6 +67,9 @@ window.RagProPage = {
       elements.copySessionBtn?.addEventListener("click", copySessionId);
       elements.clearHistoryBtn?.addEventListener("click", clearHistory);
       elements.refreshHistoryBtn?.addEventListener("click", loadHistory);
+      elements.sourceFilter?.addEventListener("focus", () => {
+        void refreshSourceFilter();
+      });
       elements.streamMode?.addEventListener("change", () => {
         pageState.streaming = elements.streamMode.checked;
         renderSummary();
@@ -76,6 +82,12 @@ window.RagProPage = {
       });
       elements.queryInput?.addEventListener("input", updateComposerTelemetry);
       elements.sourceFilter?.addEventListener("change", updateComposerTelemetry);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          return;
+        }
+        void refreshSourceFilter();
+      });
       for (const button of elements.suggestionButtons) {
         button.addEventListener("click", () => {
           const suggestion = button.getAttribute("data-prompt-suggestion") || "";
@@ -89,6 +101,43 @@ window.RagProPage = {
           activateContextPane(tab.getAttribute("data-qa-context-tab") || "");
         });
       }
+    }
+
+    function applySourceOptions(selectedSource = "") {
+      helpers.populateSourceSelect(
+        elements.sourceFilter,
+        state.sources || [],
+        AUTO_SOURCE_PLACEHOLDER,
+      );
+      if (selectedSource) {
+        helpers.setSourceSelectValue(elements.sourceFilter, selectedSource);
+      } else if ((state.sources || []).length === 1) {
+        helpers.setSourceSelectValue(elements.sourceFilter, state.sources[0]);
+      } else {
+        helpers.setSourceSelectValue(elements.sourceFilter, "");
+      }
+      renderSummary();
+      updateComposerTelemetry();
+    }
+
+    async function refreshSourceFilter() {
+      if (!state.user) {
+        return state.sources || [];
+      }
+      if (sourceRefreshPromise) {
+        return sourceRefreshPromise;
+      }
+      const preservedSource = helpers.getSourceSelectValue(elements.sourceFilter);
+      sourceRefreshPromise = (async () => {
+        if (typeof helpers.loadSources === "function") {
+          await helpers.loadSources();
+        }
+        applySourceOptions(preservedSource);
+        return state.sources || [];
+      })().finally(() => {
+        sourceRefreshPromise = null;
+      });
+      return sourceRefreshPromise;
     }
 
     function activateContextPane(target) {
@@ -190,9 +239,9 @@ window.RagProPage = {
         updateCurrentTurn(query, "已完成");
         await loadHistory();
       } catch (error) {
-        addMessage("system", `请求失败：${error.message}`);
+        addMessage("system", "这次提问暂时没有处理成功，请稍后重试，或换一个更明确的问法。");
         updateCurrentTurn(query, "请求失败");
-        helpers.setStatus("当前请求失败，请稍后重试。", true);
+        helpers.setStatus(error.message || "当前请求失败，请稍后重试。", true);
       } finally {
         pageState.pending = false;
         elements.sendBtn.disabled = false;
@@ -436,7 +485,7 @@ window.RagProPage = {
           elements.querySourceHint.textContent = `来源：${source}`;
         } else if (pageState.hasAsked || pageState.pending) {
           elements.querySourceHint.hidden = false;
-          elements.querySourceHint.textContent = "自动收口";
+          elements.querySourceHint.textContent = "未选择时将按权限范围自动检索";
         } else {
           elements.querySourceHint.hidden = true;
           elements.querySourceHint.textContent = "";

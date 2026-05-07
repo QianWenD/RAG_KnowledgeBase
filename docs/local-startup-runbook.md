@@ -1,25 +1,25 @@
-# RAGPro Local Startup Runbook
+﻿# RAGPro 本地启动手册
 
-This runbook records where to run each local command and what each process starts. All commands assume Windows PowerShell unless a section explicitly says WSL.
+本文档说明本地命令应在什么位置执行，以及每个启动命令会拉起哪些进程。除非某一节特别说明使用 WSL，否则默认命令环境均为 Windows PowerShell。
 
-## 0. Workspace
+## 0. 工作目录
 
-Run project commands from the repository root:
+所有项目命令都在仓库根目录执行：
 
 ```powershell
 Set-Location D:\dc\gz\codexItem\RAGPro
 ```
 
-The FastAPI app and the native frontend are served from the same API process:
+当前项目的 FastAPI 后端与原生前端页面由同一个 API 进程提供服务：
 
-- API entrypoint: `apps/api/main.py`
-- Frontend files: `apps/web/`
-- Static mount: `/static`
-- Main browser URL: `http://127.0.0.1:8000/`
+- API 入口：`apps/api/main.py`
+- 前端静态文件目录：`apps/web/`
+- 静态资源挂载路径：`/static`
+- 主访问地址：`http://127.0.0.1:8000/`
 
-## 1. Python Environment
+## 1. Python 环境
 
-Create or refresh the local virtual environment:
+创建或刷新本地虚拟环境：
 
 ```powershell
 python -m venv .venv
@@ -27,41 +27,47 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Install optional RAG ingestion/runtime dependencies when you need PDF/OCR/document ingestion and full retrieval behavior:
+如果需要 PDF、OCR、文档导入和完整检索能力，再安装可选的 RAG 依赖：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-rag.txt
 ```
 
-## 2. Start Backend And Frontend
+## 2. 启动后端与前端
 
-Recommended local launcher:
+推荐使用的本地启动命令：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1
 ```
 
-This starts the API and native frontend from the repo root in a new PowerShell window, waits for `/health`, and opens `http://127.0.0.1:8000/`.
+该脚本现在会默认检查并启动 Milvus，然后在仓库根目录启动 API 和原生前端页面，打开一个新的 PowerShell 窗口等待 `/health` 就绪，并访问 `http://127.0.0.1:8000/`。
 
-Start FastAPI and the frontend together from the repo root:
+如果你只想启动轻量模式，不自动拉起 Milvus，可显式跳过：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -SkipMilvus
+```
+
+如果你想直接从仓库根目录同时启动 FastAPI 和前端静态页面，可以执行：
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Equivalent helper script:
+等价的辅助脚本：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-api.ps1 -InstallBase
 ```
 
-Use `-InstallRag` if you also want the optional RAG dependencies installed before startup:
+如果希望在启动前一并安装可选的 RAG 依赖，可以使用：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-api.ps1 -InstallRag
 ```
 
-Open these pages after startup:
+启动后可直接打开以下页面：
 
 - `http://127.0.0.1:8000/`
 - `http://127.0.0.1:8000/qa`
@@ -73,23 +79,23 @@ Open these pages after startup:
 - `http://127.0.0.1:8000/login`
 - `http://127.0.0.1:8000/register`
 
-Quick API checks:
+常用 API 快速检查命令：
 
 ```powershell
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/health
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/qa
 ```
 
-## 3. MySQL And Runtime Configuration
+## 3. MySQL 与运行时配置
 
-The auth, FAQ, and conversation repositories use MySQL. Default local settings are:
+认证、FAQ 和会话相关仓储默认使用 MySQL。当前本地默认配置如下：
 
-- host: `localhost`
-- user: `root`
-- password: `123456`
-- database: `subjects_kg`
+- 主机：`localhost`
+- 用户名：`root`
+- 密码：`123456`
+- 数据库：`subjects_kg`
 
-Override them in the current shell when needed:
+如果需要在当前 PowerShell 会话中覆盖这些参数，可执行：
 
 ```powershell
 $env:RAGPRO_MYSQL_HOST = "localhost"
@@ -98,86 +104,86 @@ $env:RAGPRO_MYSQL_PASSWORD = "123456"
 $env:RAGPRO_MYSQL_DATABASE = "subjects_kg"
 ```
 
-Source keys default to `ai,java,test,ops,bigdata`. Override them with:
+知识源键值默认是 `ai,java,test,ops,bigdata`。如需覆盖，可执行：
 
 ```powershell
 $env:RAGPRO_VALID_SOURCES = "ai,java,test,ops,bigdata"
 ```
 
-## 4. Milvus Startup
+## 4. Milvus 启动
 
-Milvus is started from Windows PowerShell at the repo root, but the service itself runs inside WSL Ubuntu with Docker Compose.
+Milvus 启动命令从 Windows PowerShell 的仓库根目录执行，但服务本体运行在 WSL Ubuntu 的 Docker Compose 中。
 
-Optional prerequisite report:
+可选的前置检查命令：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\check-milvus-prereqs.ps1
 ```
 
-Start Milvus Standalone in WSL:
+在 WSL 中启动 Milvus Standalone：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-milvus-wsl.ps1
 ```
 
-Startup-manager Milvus command from a fresh shell:
+如果是从一个新的 PowerShell 窗口执行，建议按下面的完整命令顺序启动：
 
 ```powershell
 Set-Location D:\dc\gz\codexItem\RAGPro
 powershell -ExecutionPolicy Bypass -File .\scripts\start-milvus-wsl.ps1
 ```
 
-Verify Milvus from Windows:
+Windows 侧验证 Milvus 是否可用：
 
 ```powershell
 Test-NetConnection -ComputerName 127.0.0.1 -Port 19530
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/health
 ```
 
-This creates or uses `/root/milvus-standalone` inside WSL and exposes:
+该脚本会在 WSL 中创建或复用 `/root/milvus-standalone`，并暴露以下端口：
 
-- `127.0.0.1:19530` for Milvus gRPC
-- `127.0.0.1:9091` for health/metrics
+- `127.0.0.1:19530`：Milvus gRPC
+- `127.0.0.1:9091`：健康检查 / metrics
 
-Stop Milvus Standalone:
+停止 Milvus Standalone：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\stop-milvus-wsl.ps1
 ```
 
-Force the API to prefer Milvus:
+如果希望 API 优先使用 Milvus 作为向量后端，可在当前会话中设置：
 
 ```powershell
 $env:RAGPRO_VECTOR_BACKEND = "milvus"
 ```
 
-One-command local RAG stack startup:
+一条命令启动完整本地 RAG 栈：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -StartMilvus -UseMilvus -InstallRag
 ```
 
-This runs the Milvus prerequisite report, starts Milvus in WSL, starts the API/frontend in a new PowerShell window with `RAGPRO_VECTOR_BACKEND=milvus`, waits for `/health`, and opens the browser.
+这个命令会先执行 Milvus 前置检查，在 WSL 中启动 Milvus，再以 `RAGPRO_VECTOR_BACKEND=milvus` 启动 API/前端，等待 `/health` 就绪后打开浏览器。现在默认启动命令也会自动尝试拉起 Milvus，因此这一条更适合首次补依赖或需要强制刷新 Milvus 时使用。
 
-If Milvus is unavailable, development can fall back to the local vector store at `runtime/local_vector_store.pkl`.
+如果 Milvus 不可用，开发环境仍可回退到本地向量存储：`runtime/local_vector_store.pkl`。
 
-## 5. Indexing And Evaluation Workers
+## 5. 索引与评估 Worker
 
-Run workers from the repo root.
+所有 worker 命令都从仓库根目录执行。
 
-Index a source directory and replace existing vectors for that source:
+索引某个数据源目录，并覆盖该 source 现有向量：
 
 ```powershell
 .\.venv\Scripts\python.exe apps\worker\index_documents.py --directory packages\data\ai_data
 ```
 
-Append instead of replacing:
+如果希望追加而不是覆盖：
 
 ```powershell
 .\.venv\Scripts\python.exe apps\worker\index_documents.py --directory packages\data\ai_data --append
 ```
 
-Run offline evaluation:
+运行离线评估：
 
 ```powershell
 .\.venv\Scripts\python.exe apps\worker\run_evaluation.py --dataset packages\data\evaluation\phase_one_smoke.json --mode app
@@ -185,36 +191,36 @@ Run offline evaluation:
 .\.venv\Scripts\python.exe apps\worker\run_evaluation.py --dataset packages\data\evaluation\current_domain_regression.json --mode app
 ```
 
-Evaluation reports are written to `runtime/evaluation/`.
+评估报告输出目录：`runtime/evaluation/`。
 
-## 6. Tests
+## 6. 测试
 
-Run the Python regression suite:
+运行 Python 回归测试：
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover tests
 ```
 
-Install Playwright dependencies and Chromium:
+安装 Playwright 依赖和 Chromium：
 
 ```powershell
 npm install
 npm run test:e2e:install
 ```
 
-Run browser-level mocked frontend smoke tests:
+运行浏览器层的前端 smoke 测试：
 
 ```powershell
 npm run test:e2e
 ```
 
-Run the local launcher and browser smoke tests together when the API is already running or can be started by the launcher:
+如果 API 已在运行，或者允许启动脚本顺带拉起 API，也可以直接执行本地启动器并附带 smoke 测试：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -RunE2ESmoke
 ```
 
-Run the opt-in live permission and audit flow. This creates temporary `e2e_*` accounts and cleans them up after the run:
+运行可选的真实权限与审计流程测试。该测试会创建临时 `e2e_*` 账号，并在结束后清理：
 
 ```powershell
 $env:RAGPRO_E2E_LIVE = "1"
@@ -222,15 +228,15 @@ $env:RAGPRO_E2E_CREATE_ADMIN = "1"
 npm run test:e2e:live
 ```
 
-## 7. Common Local URLs
+## 7. 常用本地地址
 
-- API docs: `http://127.0.0.1:8000/docs`
-- Health: `http://127.0.0.1:8000/health`
-- Diagnostics: `http://127.0.0.1:8000/diagnostics`
-- Frontend dashboard: `http://127.0.0.1:8000/`
-- QA workspace: `http://127.0.0.1:8000/qa`
-- Knowledge upload: `http://127.0.0.1:8000/knowledge`
-- Permission overview: `http://127.0.0.1:8000/users`
-- Access management: `http://127.0.0.1:8000/users/access`
-- Security actions: `http://127.0.0.1:8000/users/security`
-- Audit logs: `http://127.0.0.1:8000/users/audit`
+- API 文档：`http://127.0.0.1:8000/docs`
+- 健康检查：`http://127.0.0.1:8000/health`
+- 诊断页面：`http://127.0.0.1:8000/diagnostics`
+- 前端首页：`http://127.0.0.1:8000/`
+- QA 工作台：`http://127.0.0.1:8000/qa`
+- 知识上传页：`http://127.0.0.1:8000/knowledge`
+- 权限总览：`http://127.0.0.1:8000/users`
+- 访问控制：`http://127.0.0.1:8000/users/access`
+- 安全操作：`http://127.0.0.1:8000/users/security`
+- 审计日志：`http://127.0.0.1:8000/users/audit`

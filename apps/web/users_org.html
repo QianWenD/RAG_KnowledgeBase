@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAGPro 权限系统 - 组织机构</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css?v=20260427-permission-org">
+</head>
+<body class="console-page" data-page="users" data-page-view="users-org" data-page-label="组织机构">
+  <div class="scene-grid" aria-hidden="true"></div>
+  <div class="scene-glow" aria-hidden="true"></div>
+
+  <div class="shell">
+    <aside class="rail">
+      <section class="brand dossier">
+        <div class="brand-topline">
+          <p class="brand-kicker">RAGPro 后台</p>
+          <span class="brand-stamp">权限系统</span>
+        </div>
+        <h1>组织机构管理</h1>
+        <p class="brand-copy">这里补齐参考系统里的组织机构层级，用来统一承接用户归属、权限归类和后续角色治理。</p>
+        <div class="brand-strip">
+          <span>机构树</span>
+          <span>节点维护</span>
+          <span>账号归属</span>
+          <span>排序调整</span>
+        </div>
+      </section>
+
+      <section class="panel nav-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">主导航</p>
+            <h2>页面入口</h2>
+          </div>
+        </div>
+        <div class="nav-links nav-links-single">
+          <a class="nav-link" data-nav="dashboard" href="/">总览</a>
+          <a class="nav-link" data-nav="qa" href="/qa">问答工作台</a>
+          <a class="nav-link" data-nav="knowledge" href="/knowledge">知识运营</a>
+          <a class="nav-link" data-nav="users" data-admin-nav href="/users">权限系统</a>
+        </div>
+      </section>
+
+      <section id="auth-panel" class="panel auth-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">当前账号</p>
+            <h2>登录状态</h2>
+          </div>
+          <span id="auth-badge" class="status-chip">检查中</span>
+        </div>
+        <div id="auth-summary" class="auth-summary">
+          <p class="note">系统正在检查当前会话和可见来源范围。</p>
+        </div>
+        <div id="auth-user-card" class="auth-card hidden">
+          <div class="stack">
+            <strong id="auth-username">-</strong>
+            <span id="auth-role" class="subtle">-</span>
+          </div>
+          <div class="stack">
+            <span class="label">可见来源</span>
+            <div id="auth-source-tags" class="tag-list"></div>
+          </div>
+          <div class="session-actions">
+            <button id="auth-refresh-btn" class="ghost-btn" type="button">刷新状态</button>
+            <button id="change-password-btn" class="ghost-btn" type="button">修改密码</button>
+            <button id="logout-btn" class="ghost-btn danger" type="button">退出登录</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="board page-board">
+      <header class="topbar">
+        <div class="topbar-main">
+          <div class="breadcrumb-row" aria-label="面包屑">
+            <a class="breadcrumb-link" href="/">后台</a>
+            <span class="breadcrumb-sep">/</span>
+            <a class="breadcrumb-link" href="/users">权限系统</a>
+            <span class="breadcrumb-sep">/</span>
+            <span id="page-breadcrumb-current">组织机构</span>
+          </div>
+          <h2>组织机构</h2>
+        </div>
+        <div class="topbar-actions">
+          <span id="page-status" class="status-badge">等待操作</span>
+        </div>
+      </header>
+
+      <nav class="module-nav-bar" aria-label="权限系统子导航">
+        <a class="module-nav-link" data-module-nav="users-overview" href="/users">用户信息</a>
+        <a class="module-nav-link" data-module-nav="users-org" href="/users/org">组织机构</a>
+        <a class="module-nav-link" data-module-nav="users-access" href="/users/access">菜单角色</a>
+        <a class="module-nav-link" data-module-nav="users-security" href="/users/security">菜单管理</a>
+        <a class="module-nav-link" data-module-nav="users-audit" href="/users/audit">审计日志</a>
+      </nav>
+
+      <section id="users-org-note" class="section-banner hidden">
+        <strong>当前账号没有组织机构管理权限</strong>
+        <p>只有管理员可以维护组织树、调整节点层级和查看机构下账号数量。</p>
+      </section>
+
+      <section id="users-org-admin-wrap" class="permission-workspace">
+        <section class="panel legacy-filter-panel">
+          <div class="legacy-section-title">条件筛选</div>
+          <form id="org-filter-form" class="permission-toolbar-grid">
+            <label class="legacy-filter-field" for="org-filter-code">
+              <span>组织编码</span>
+              <input id="org-filter-code" type="search" autocomplete="off">
+            </label>
+            <label class="legacy-filter-field" for="org-filter-name">
+              <span>组织名称</span>
+              <input id="org-filter-name" type="search" autocomplete="off">
+            </label>
+            <div class="legacy-filter-actions">
+              <button id="org-filter-submit" class="legacy-primary-btn" type="submit">查询</button>
+              <button id="org-filter-reset" class="legacy-plain-btn" type="button">重置</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel permission-summary-panel">
+          <div class="permission-summary-grid">
+            <article class="permission-summary-card">
+              <span>机构总数</span>
+              <strong id="org-summary-total">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>根节点</span>
+              <strong id="org-summary-root">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>挂载账号</span>
+              <strong id="org-summary-users">0</strong>
+            </article>
+            <article class="permission-summary-card">
+              <span>当前状态</span>
+              <strong id="org-summary-role">加载中</strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="org-structure-grid">
+          <section class="panel org-tree-panel">
+            <div class="user-table-toolbar">
+              <h2>组织树预览</h2>
+              <button id="org-refresh-btn" class="legacy-text-action" type="button">刷新</button>
+            </div>
+            <div id="org-tree-list" class="org-tree-list">
+              <div class="note">组织结构加载完成后，会在这里显示层级关系。</div>
+            </div>
+          </section>
+
+          <section class="panel user-table-panel">
+            <div class="user-table-toolbar">
+              <h2>组织节点</h2>
+              <div class="user-table-actions">
+                <button id="org-create-btn" class="legacy-text-action" type="button">+ 新增机构</button>
+              </div>
+            </div>
+            <div class="users-table-wrap">
+              <table class="admin-data-table permission-data-table">
+                <thead>
+                  <tr>
+                    <th scope="col">组织编码</th>
+                    <th scope="col">组织名称</th>
+                    <th scope="col">类型</th>
+                    <th scope="col">上级节点</th>
+                    <th scope="col">账号数</th>
+                    <th scope="col">排序</th>
+                    <th scope="col">说明</th>
+                    <th class="operation-col" scope="col">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="org-unit-list">
+                  <tr>
+                    <td colspan="8" class="users-table-empty">校验完成后，这里会显示组织机构节点。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="org-editor-modal" class="users-create-panel hidden" role="dialog" aria-modal="true" aria-labelledby="org-editor-title">
+    <div class="users-create-card permission-modal-card" role="document">
+      <div class="users-create-header">
+        <div>
+          <p class="users-create-kicker">组织节点</p>
+          <h3 id="org-editor-title">新增机构</h3>
+        </div>
+        <button id="org-editor-close" class="users-create-close" type="button" aria-label="关闭组织机构编辑弹框">×</button>
+      </div>
+      <p id="org-editor-copy" class="users-create-copy">保存后会同步刷新组织树和用户页的机构下拉选项。</p>
+      <form id="org-editor-form" class="users-create-form permission-form-grid" novalidate>
+        <input id="org-editor-id" type="hidden">
+        <label class="legacy-filter-field" for="org-editor-code">
+          <span>组织编码</span>
+          <input id="org-editor-code" type="text" maxlength="64" placeholder="例如 knowledge_center">
+        </label>
+        <label class="legacy-filter-field" for="org-editor-name">
+          <span>组织名称</span>
+          <input id="org-editor-name" type="text" maxlength="128">
+        </label>
+        <label class="legacy-filter-field" for="org-editor-type">
+          <span>组织类型</span>
+          <input id="org-editor-type" type="text" maxlength="32" value="department" placeholder="例如 department">
+        </label>
+        <label class="legacy-filter-field" for="org-editor-parent">
+          <span>上级节点</span>
+          <select id="org-editor-parent">
+            <option value="0">作为根节点</option>
+          </select>
+        </label>
+        <label class="legacy-filter-field" for="org-editor-sort">
+          <span>排序值</span>
+          <input id="org-editor-sort" type="number" min="0" max="9999" step="1" value="100">
+        </label>
+        <label class="legacy-filter-field permission-form-span" for="org-editor-desc">
+          <span>组织说明</span>
+          <textarea id="org-editor-desc" rows="3" maxlength="255"></textarea>
+        </label>
+
+        <p id="org-editor-feedback" class="users-create-feedback" role="status" aria-live="polite">请填写组织信息后保存。</p>
+        <div class="form-inline-actions users-create-footer">
+          <button id="org-editor-cancel" class="legacy-plain-btn" type="button">取消</button>
+          <button id="org-editor-submit" class="legacy-primary-btn" type="submit">保存机构</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/common.js?v=20260427-permission-org"></script>
+  <script src="/static/users_org.js?v=20260427-permission-org"></script>
+</body>
+</html>

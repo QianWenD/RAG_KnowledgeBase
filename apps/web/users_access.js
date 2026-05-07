@@ -1,186 +1,210 @@
-﻿window.RagProPage = {
-  async init({ state, helpers }) {
+window.RagProPage = {
+  async init({ helpers }) {
     const pageState = {
-      users: [],
+      roles: [],
+      filteredRoles: [],
+      menuItems: [],
+      filterName: "",
+      editorMode: "create",
+      editingRole: null,
+      editorStep: 0,
     };
 
     const elements = {
-      accessUserList: document.getElementById("access-user-list"),
+      accessRoleList: document.getElementById("access-role-list"),
       accessRefreshBtn: document.getElementById("access-refresh-btn"),
+      accessCreateBtn: document.getElementById("access-create-btn"),
       usersAccessNote: document.getElementById("users-access-note"),
       usersAccessAdminWrap: document.getElementById("users-access-admin-wrap"),
+      filterForm: document.getElementById("access-filter-form"),
+      filterName: document.getElementById("access-filter-name"),
+      filterReset: document.getElementById("access-filter-reset"),
       summaryRole: document.getElementById("access-summary-role"),
-      summaryAdmins: document.getElementById("access-summary-admins"),
+      summaryTotal: document.getElementById("access-summary-total"),
+      summaryMenus: document.getElementById("access-summary-menus"),
       summaryUsers: document.getElementById("access-summary-users"),
-      summarySources: document.getElementById("access-summary-sources"),
+      editorModal: document.getElementById("role-editor-modal"),
+      editorForm: document.getElementById("role-editor-form"),
+      editorId: document.getElementById("role-editor-id"),
+      editorTitle: document.getElementById("role-editor-title"),
+      editorCopy: document.getElementById("role-editor-copy"),
+      editorPreviewName: document.getElementById("role-editor-preview-name"),
+      editorPreviewCopy: document.getElementById("role-editor-preview-copy"),
+      editorPreviewCode: document.getElementById("role-editor-preview-code"),
+      editorPreviewUsers: document.getElementById("role-editor-preview-users"),
+      editorPreviewCount: document.getElementById("role-editor-preview-count"),
+      editorSteps: Array.from(document.querySelectorAll("[data-role-step]")),
+      editorStepPanels: Array.from(document.querySelectorAll("[data-role-step-panel]")),
+      editorName: document.getElementById("role-editor-name"),
+      editorCode: document.getElementById("role-editor-code"),
+      editorDesc: document.getElementById("role-editor-desc"),
+      editorMenuTree: document.getElementById("role-editor-menu-tree"),
+      editorSelectAll: document.getElementById("role-editor-select-all"),
+      editorClearAll: document.getElementById("role-editor-clear-all"),
+      editorSelectionCount: document.getElementById("role-editor-selection-count"),
+      editorSelectionCopy: document.getElementById("role-editor-selection-copy"),
+      editorSelectionPreview: document.getElementById("role-editor-selection-preview"),
+      editorFeedback: document.getElementById("role-editor-feedback"),
+      editorPrev: document.getElementById("role-editor-prev"),
+      editorNext: document.getElementById("role-editor-next"),
+      editorSubmit: document.getElementById("role-editor-submit"),
+      editorClose: document.getElementById("role-editor-close"),
+      editorCancel: document.getElementById("role-editor-cancel"),
     };
+    let dialogReturnFocus = null;
 
+    bindEvents();
     renderSummary();
 
     if (!helpers.isAdmin()) {
       elements.usersAccessNote?.classList.remove("hidden");
       elements.usersAccessAdminWrap?.classList.add("hidden");
-      helpers.setStatus("当前账号没有授权管理能力。", true);
+      helpers.setStatus("当前账号没有菜单角色管理权限。", true);
       return;
     }
 
-    elements.accessRefreshBtn?.addEventListener("click", loadUsers);
-    await loadUsers();
-    helpers.setStatus("角色与授权页已就绪，可以批量调整来源范围和账号状态。", false);
+    await loadData();
+    helpers.setStatus("菜单角色页已就绪，可以按角色台账维护菜单授权。", false);
 
-    async function loadUsers() {
+    function bindEvents() {
+      elements.accessRefreshBtn?.addEventListener("click", () => refreshRoles(elements.accessRefreshBtn));
+      elements.accessCreateBtn?.addEventListener("click", () => openEditor("create"));
+      elements.filterForm?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        applyFilter();
+      });
+      elements.filterReset?.addEventListener("click", () => {
+        if (elements.filterName) {
+          elements.filterName.value = "";
+        }
+        applyFilter();
+      });
+      elements.editorSelectAll?.addEventListener("click", () => toggleAllMenus(true));
+      elements.editorClearAll?.addEventListener("click", () => toggleAllMenus(false));
+      elements.editorPrev?.addEventListener("click", () => setEditorStep(0));
+      elements.editorNext?.addEventListener("click", advanceEditorStep);
+      elements.accessRoleList?.addEventListener("click", async (event) => {
+        const action = event.target.closest("[data-role-action]");
+        if (!action) {
+          return;
+        }
+        const roleId = Number(action.dataset.roleId);
+        const role = pageState.roles.find((item) => item.id === roleId);
+        if (!role) {
+          return;
+        }
+        if (action.dataset.roleAction === "edit") {
+          openEditor("edit", role, action);
+          return;
+        }
+        if (action.dataset.roleAction === "delete") {
+          await deleteRole(role, action);
+        }
+      });
+      elements.editorClose?.addEventListener("click", closeEditor);
+      elements.editorCancel?.addEventListener("click", closeEditor);
+      elements.editorModal?.addEventListener("click", (event) => {
+        if (event.target === elements.editorModal) {
+          closeEditor();
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !elements.editorModal?.classList.contains("hidden")) {
+          closeEditor();
+        }
+      });
+      elements.editorForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await submitEditor();
+      });
+      elements.editorMenuTree?.addEventListener("change", () => updateSelectionCount());
+      elements.editorForm?.addEventListener("input", updateRolePreview);
+      elements.editorForm?.addEventListener("change", updateRolePreview);
+    }
+
+    async function loadData() {
       try {
-        const payload = await helpers.apiJson("/auth/users");
-        pageState.users = payload.users || [];
-        renderUsers();
-        renderSummary();
+        const [rolePayload, bootstrap] = await Promise.all([
+          helpers.apiJson("/auth/menu-roles"),
+          helpers.getPermissionBootstrap(),
+        ]);
+        pageState.roles = rolePayload.items || [];
+        pageState.menuItems = flattenTree(bootstrap.menu_items || [], "children");
+        applyFilter();
       } catch (error) {
-        helpers.setStatus(`加载授权列表失败：${error.message}`, true);
+        helpers.setStatus(`加载菜单角色失败：${error.message}`, true);
+        renderEmptyRow("加载菜单角色失败", error.message);
       }
     }
 
-    async function saveUserAccess(userId, payload, control) {
+    async function refreshRoles(control) {
       await helpers.runUiAction({
         control,
-        pendingMessage: "正在保存授权...",
-        successMessage: "授权更新成功。",
-        errorPrefix: "授权更新失败",
-        action: () => helpers.updateAdminUserAccess(userId, payload),
-        onSuccess: loadUsers,
+        pendingMessage: "正在刷新菜单角色...",
+        successMessage: "菜单角色已刷新。",
+        errorPrefix: "刷新菜单角色失败",
+        action: () => loadData(),
       });
     }
 
-    function renderUsers() {
-      if (!elements.accessUserList) {
-        return;
-      }
-      if (!pageState.users.length) {
-        renderEmptyRow(
-          elements.accessUserList,
-          5,
-          "还没有可配置账号",
-          "你可以先去安全操作页创建账号，然后再回到这里分配角色和来源。"
-        );
-        return;
-      }
-
-      elements.accessUserList.innerHTML = "";
-      pageState.users.forEach((user, index) => {
-        elements.accessUserList.appendChild(buildAccessRow(user, index + 1));
+    function applyFilter() {
+      pageState.filterName = elements.filterName?.value.trim().toLowerCase() || "";
+      pageState.filteredRoles = pageState.roles.filter((item) => {
+        if (!pageState.filterName) {
+          return true;
+        }
+        return `${item.role_name} ${item.role_code}`.toLowerCase().includes(pageState.filterName);
       });
+      renderSummary();
+      renderTable();
     }
 
-    function buildAccessRow(user, rowNumber) {
-      const row = document.createElement("tr");
-      row.className = "access-user-card editable-user-row";
-      const availableSources = helpers.mergeSourceValues(state.sources || [], user.allowed_sources || []);
-      const assignedSources = Array.isArray(user.allowed_sources) ? user.allowed_sources : [];
-      const checkboxHtml = availableSources.map((source) => {
-        const checked = assignedSources.includes(source) ? "checked" : "";
-        return `
-          <label class="source-checkbox">
-            <input type="checkbox" data-user-source="${helpers.escapeHtml(source)}" ${checked}>
-            <span>${helpers.escapeHtml(source)}</span>
-          </label>
-        `;
-      }).join("");
-      const sourceSummaryHtml = assignedSources.length
-        ? assignedSources.slice(0, 4).map((source) => `<span class="tag muted">${helpers.escapeHtml(source)}</span>`).join("")
-        : '<span class="table-muted">未分配来源</span>';
-      const sourceOverflow = assignedSources.length > 4
-        ? `<span class="source-count-chip">+${assignedSources.length - 4}</span>`
-        : "";
+    function renderSummary() {
+      const total = pageState.filteredRoles.length || pageState.roles.length;
+      const menuCount = pageState.menuItems.filter((item) => item.href || item.router_path).length;
+      const userCount = (pageState.roles || []).reduce((sum, item) => sum + Number(item.assigned_user_count || 0), 0);
+      if (elements.summaryRole) {
+        elements.summaryRole.textContent = helpers.isAdmin() ? "管理员可维护" : "只读说明";
+      }
+      if (elements.summaryTotal) {
+        elements.summaryTotal.textContent = String(total);
+      }
+      if (elements.summaryMenus) {
+        elements.summaryMenus.textContent = String(menuCount);
+      }
+      if (elements.summaryUsers) {
+        elements.summaryUsers.textContent = String(userCount);
+      }
+    }
 
-      row.innerHTML = `
-        <td class="row-number-col">${rowNumber}</td>
-        <td class="strong-cell">
-          <div class="table-user-cell">
-            <strong>${helpers.escapeHtml(user.username)}</strong>
-            <span>ID ${user.id}</span>
-          </div>
-        </td>
-        <td>
-          <div class="table-edit-grid">
-            <label class="compact-field">
-              <span>角色</span>
-              <select data-role-select>
-                <option value="user" ${user.role === "user" ? "selected" : ""}>user</option>
-                <option value="admin" ${user.role === "admin" ? "selected" : ""}>admin</option>
-              </select>
-            </label>
-            <label class="table-toggle">
-              <input type="checkbox" data-active-toggle ${user.is_active ? "checked" : ""}>
-              <span>${user.is_active ? "启用中" : "已停用"}</span>
-            </label>
-          </div>
-        </td>
-        <td class="source-editor-cell">
-          <div class="source-summary-row">
-            <div class="tag-list compact-source-tags">${sourceSummaryHtml}${sourceOverflow}</div>
-            <button class="table-icon-btn source-edit-toggle" type="button" data-source-edit-toggle aria-expanded="false" title="编辑来源" aria-label="编辑 ${helpers.escapeHtml(user.username)} 的来源授权">${renderIcon("edit")}</button>
-          </div>
-          <div class="source-editor-panel" data-source-editor hidden>
-            <div class="source-checkbox-grid table-source-stack">
-              ${checkboxHtml || '<span class="table-muted">暂无可分配来源</span>'}
-              <label class="source-custom-field compact-custom-field">
-                <span>自定义来源</span>
-                <input type="text" data-user-source-custom maxlength="50" placeholder="policy_2026">
-              </label>
+    function renderTable() {
+      if (!pageState.filteredRoles.length) {
+        renderEmptyRow("没有匹配的菜单角色", "你可以尝试修改筛选条件，或者直接新增角色。");
+        return;
+      }
+      elements.accessRoleList.innerHTML = pageState.filteredRoles.map((role) => `
+        <tr class="access-user-card">
+          <td class="strong-cell">${helpers.escapeHtml(role.role_name)}</td>
+          <td>${helpers.escapeHtml(role.role_code)}</td>
+          <td>${helpers.escapeHtml(role.role_desc || "-")}</td>
+          <td>${helpers.escapeHtml(String((role.menu_ids || []).length))}</td>
+          <td>${helpers.escapeHtml(String(role.assigned_user_count || 0))}</td>
+          <td>${renderMenuSummary(role.menu_names || [])}</td>
+          <td class="date-cell">${helpers.formatDateTime(role.created_at)}</td>
+          <td>
+            <div class="permission-inline-actions">
+              <button class="legacy-inline-link" type="button" data-role-action="edit" data-role-id="${helpers.escapeHtml(String(role.id))}">编辑</button>
+              <button class="legacy-inline-link danger" type="button" data-role-action="delete" data-role-id="${helpers.escapeHtml(String(role.id))}">删除</button>
             </div>
-          </div>
-        </td>
-        <td>
-          <div class="table-operation-list">
-            <button class="table-icon-btn is-save" type="button" data-save-access title="保存授权" aria-label="保存 ${helpers.escapeHtml(user.username)} 的授权">${renderIcon("save")}</button>
-            <a class="table-icon-btn" href="${helpers.getUserAdminActionHref("security", user)}" title="安全操作" aria-label="进入 ${helpers.escapeHtml(user.username)} 的安全操作">${renderIcon("settings")}</a>
-          </div>
-        </td>
-      `;
-
-      row.querySelector("[data-source-edit-toggle]")?.addEventListener("click", () => {
-        const editor = row.querySelector("[data-source-editor]");
-        const toggle = row.querySelector("[data-source-edit-toggle]");
-        const expanded = editor?.hidden;
-        if (!editor || !toggle) {
-          return;
-        }
-        editor.hidden = !expanded;
-        toggle.setAttribute("aria-expanded", String(Boolean(expanded)));
-        row.classList.toggle("is-source-open", Boolean(expanded));
-      });
-
-      row.querySelector("[data-save-access]")?.addEventListener("click", async (event) => {
-        const checkedSources = Array.from(row.querySelectorAll("[data-user-source]:checked"))
-          .map((node) => node.getAttribute("data-user-source"));
-        const customSource = row.querySelector("[data-user-source-custom]")?.value.trim() || "";
-        if (customSource && !helpers.isValidSourceName(customSource)) {
-          helpers.setStatus("自定义来源只能使用 1-50 位字母、数字、下划线或短横线。", true);
-          return;
-        }
-        const allowedSources = helpers.mergeSourceValues(
-          checkedSources,
-          customSource ? [customSource] : [],
-        );
-        const role = row.querySelector("[data-role-select]")?.value || "user";
-        const isActive = Boolean(row.querySelector("[data-active-toggle]")?.checked);
-        await saveUserAccess(
-          user.id,
-          {
-            role,
-            allowed_sources: allowedSources,
-            is_active: isActive,
-          },
-          event.currentTarget,
-        );
-      });
-
-      return row;
+          </td>
+        </tr>
+      `).join("");
     }
 
-    function renderEmptyRow(container, colSpan, title, body) {
-      container.innerHTML = `
+    function renderEmptyRow(title, body) {
+      elements.accessRoleList.innerHTML = `
         <tr>
-          <td colspan="${colSpan}" class="users-table-empty">
+          <td colspan="8" class="users-table-empty">
             <strong>${helpers.escapeHtml(title)}</strong>
             <span>${helpers.escapeHtml(body)}</span>
           </td>
@@ -188,31 +212,247 @@
       `;
     }
 
-    function renderSummary() {
-      const adminCount = pageState.users.filter((item) => item.role === "admin").length;
-      const total = pageState.users.length;
-      const sourceCount = Array.isArray(state.sources) ? state.sources.length : 0;
-      if (elements.summaryRole) {
-        elements.summaryRole.textContent = helpers.isAdmin() ? "管理员可编辑" : "只读说明";
+    function renderMenuSummary(names) {
+      if (!names.length) {
+        return '<span class="table-muted">未分配菜单</span>';
       }
-      if (elements.summaryAdmins) {
-        elements.summaryAdmins.textContent = String(adminCount);
+      return `<div class="tag-list compact-source-tags">${names.slice(0, 4).map((item) => `<span class="tag muted">${helpers.escapeHtml(item)}</span>`).join("")}${names.length > 4 ? `<span class="source-count-chip">+${names.length - 4}</span>` : ""}</div>`;
+    }
+
+    function openEditor(mode, role = null, trigger = null) {
+      pageState.editorMode = mode;
+      pageState.editingRole = role;
+      pageState.editorStep = 0;
+      dialogReturnFocus = trigger || document.activeElement;
+      elements.editorModal?.classList.remove("hidden");
+      helpers.lockBodyScroll();
+      if (mode === "create") {
+        elements.editorTitle.textContent = "新增角色";
+        elements.editorCopy.textContent = "角色保存后会立刻同步到用户信息页。";
+        elements.editorSubmit.textContent = "创建角色";
+        elements.editorForm.reset();
+        elements.editorId.value = "";
+        renderMenuTree([]);
+        setEditorFeedback("请填写角色信息后保存。");
+      } else if (role) {
+        elements.editorTitle.textContent = "编辑角色";
+        elements.editorCopy.textContent = "你可以直接调整角色说明和菜单授权范围。";
+        elements.editorSubmit.textContent = "保存角色";
+        elements.editorId.value = String(role.id);
+        elements.editorName.value = role.role_name || "";
+        elements.editorCode.value = role.role_code || "";
+        elements.editorDesc.value = role.role_desc || "";
+        renderMenuTree(role.menu_ids || []);
+        setEditorFeedback("修改后点击保存，系统会自动同步用户角色映射。");
       }
-      if (elements.summaryUsers) {
-        elements.summaryUsers.textContent = String(total - adminCount);
+      setEditorStep(0);
+      updateRolePreview();
+      elements.editorName?.focus();
+    }
+
+    function closeEditor() {
+      elements.editorModal?.classList.add("hidden");
+      helpers.unlockBodyScroll();
+      setEditorStep(0);
+      setEditorFeedback("请填写角色信息后保存。");
+      dialogReturnFocus?.focus?.();
+      dialogReturnFocus = null;
+    }
+
+    function setEditorStep(step) {
+      pageState.editorStep = step;
+      elements.editorStepPanels.forEach((panel) => {
+        panel.classList.toggle("hidden", Number(panel.dataset.roleStepPanel) !== step);
+      });
+      elements.editorSteps.forEach((item) => {
+        const itemStep = Number(item.dataset.roleStep);
+        item.classList.toggle("is-active", itemStep === step);
+        item.classList.toggle("is-complete", itemStep < step);
+      });
+      elements.editorPrev?.classList.toggle("hidden", step === 0);
+      elements.editorNext?.classList.toggle("hidden", step !== 0);
+      elements.editorSubmit?.classList.toggle("hidden", step !== 1);
+    }
+
+    function advanceEditorStep() {
+      const { error } = buildEditorPayload({ basicOnly: true });
+      if (error) {
+        setEditorFeedback(error, true);
+        helpers.setStatus(error, true);
+        return;
       }
-      if (elements.summarySources) {
-        elements.summarySources.textContent = String(sourceCount);
+      setEditorFeedback("基础信息已确认，请继续勾选菜单权限。");
+      setEditorStep(1);
+    }
+
+    function renderMenuTree(selectedIds) {
+      const selectedSet = new Set((selectedIds || []).map((item) => Number(item)));
+      if (!pageState.menuItems.length) {
+        elements.editorMenuTree.innerHTML = '<div class="note">当前还没有菜单节点，请先到菜单管理页创建。</div>';
+        updateSelectionCount();
+        return;
+      }
+      elements.editorMenuTree.innerHTML = pageState.menuItems.map((item) => `
+        <label class="permission-tree-item" style="--permission-depth:${item.depth || 0}">
+          <input type="checkbox" data-menu-id="${helpers.escapeHtml(String(item.id))}" ${selectedSet.has(item.id) ? "checked" : ""}>
+          <span class="permission-tree-item-title">${helpers.escapeHtml(item.name)}</span>
+          <span class="permission-tree-item-copy">${helpers.escapeHtml(item.href || item.router_path || item.menu_code)}</span>
+        </label>
+      `).join("");
+      updateSelectionCount();
+    }
+
+    function toggleAllMenus(checked) {
+      Array.from(elements.editorMenuTree?.querySelectorAll("[data-menu-id]") || []).forEach((node) => {
+        node.checked = checked;
+      });
+      updateSelectionCount();
+    }
+
+    function updateSelectionCount() {
+      if (!elements.editorSelectionCount) {
+        return;
+      }
+      const selected = elements.editorMenuTree?.querySelectorAll("[data-menu-id]:checked").length || 0;
+      elements.editorSelectionCount.textContent = `已选 ${selected} 项`;
+      updateRolePreview();
+    }
+
+    function updateRolePreview() {
+      const roleName = elements.editorName?.value.trim() || "待命名角色";
+      const roleCode = elements.editorCode?.value.trim();
+      const selectedIds = Array.from(elements.editorMenuTree?.querySelectorAll("[data-menu-id]:checked") || [])
+        .map((node) => Number(node.getAttribute("data-menu-id")))
+        .filter((value) => Number.isFinite(value));
+      const selectedSet = new Set(selectedIds);
+      const selectedMenus = pageState.menuItems.filter((item) => selectedSet.has(item.id));
+      if (elements.editorPreviewName) {
+        elements.editorPreviewName.textContent = roleName;
+      }
+      if (elements.editorPreviewCopy) {
+        elements.editorPreviewCopy.textContent = pageState.editorMode === "create"
+          ? "基础信息和菜单授权会分两步完成，保存后会同步到用户信息页。"
+          : "角色说明和菜单授权会实时联动，保存后用户页会直接读取这组角色能力。";
+      }
+      if (elements.editorPreviewCode) {
+        elements.editorPreviewCode.textContent = roleCode ? `编码 ${roleCode}` : "未设置编码";
+      }
+      if (elements.editorPreviewUsers) {
+        elements.editorPreviewUsers.textContent = `${pageState.editingRole?.assigned_user_count || 0} 个账号`;
+      }
+      if (elements.editorPreviewCount) {
+        elements.editorPreviewCount.textContent = `${selectedMenus.length} 项菜单`;
+      }
+      if (elements.editorSelectionCopy) {
+        elements.editorSelectionCopy.textContent = selectedMenus.length
+          ? `已选择 ${selectedMenus.length} 个菜单节点，保存后会同步给当前角色下的账号。`
+          : "还没有勾选菜单节点。";
+      }
+      if (elements.editorSelectionPreview) {
+        if (!selectedMenus.length) {
+          elements.editorSelectionPreview.innerHTML = '<span class="table-muted">尚未选择菜单</span>';
+          return;
+        }
+        elements.editorSelectionPreview.innerHTML = selectedMenus
+          .slice(0, 4)
+          .map((item) => `<span class="tag muted">${helpers.escapeHtml(item.name)}</span>`)
+          .join("") + (selectedMenus.length > 4 ? `<span class="source-count-chip">+${selectedMenus.length - 4}</span>` : "");
       }
     }
 
-    function renderIcon(type) {
-      const icons = {
-        edit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.7V20h3.3L17.1 10.2l-3.3-3.3L4 16.7Z"></path><path d="m15 5.7 1.2-1.2a1.8 1.8 0 0 1 2.6 0l.7.7a1.8 1.8 0 0 1 0 2.6L18.3 9"></path></svg>',
-        save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12l2 2v14H5Z"></path><path d="M8 4v6h8V4"></path><path d="M8 20v-6h8v6"></path></svg>',
-        settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path><path d="m19 12 .9-1.7-2-3.4-1.9.1a7.8 7.8 0 0 0-1.5-.9L13.5 4h-4l-.9 2.1c-.5.2-1 .5-1.5.9L5.2 6.9l-2 3.4L4 12l-.9 1.7 2 3.4 1.9-.1c.5.4 1 .7 1.5.9l1 2.1h4l1-2.1c.5-.2 1-.5 1.5-.9l1.9.1 2-3.4L19 12Z"></path></svg>',
+    function setEditorFeedback(message, isError = false) {
+      elements.editorFeedback.textContent = message;
+      elements.editorFeedback.classList.toggle("is-error", Boolean(isError));
+    }
+
+    function buildEditorPayload(options = {}) {
+      const { basicOnly = false } = options;
+      const roleName = elements.editorName?.value.trim() || "";
+      const roleCode = elements.editorCode?.value.trim() || "";
+      const roleDesc = elements.editorDesc?.value.trim() || "";
+      const menuIds = Array.from(elements.editorMenuTree?.querySelectorAll("[data-menu-id]:checked") || [])
+        .map((node) => Number(node.getAttribute("data-menu-id")))
+        .filter((value) => Number.isFinite(value));
+
+      if (!roleName) {
+        return { error: "请填写角色名称。" };
+      }
+      if (!roleCode) {
+        return { error: "请填写角色编码。" };
+      }
+      if (!/^[a-z][a-z0-9_]{1,63}$/.test(roleCode)) {
+        return { error: "角色编码需以字母开头，只能使用小写字母、数字或下划线。" };
+      }
+      if (basicOnly) {
+        return {
+          payload: {
+            role_name: roleName,
+            role_code: roleCode,
+            role_desc: roleDesc || null,
+          },
+        };
+      }
+      return {
+        payload: {
+          role_name: roleName,
+          role_code: roleCode,
+          role_desc: roleDesc || null,
+          menu_ids: menuIds,
+        },
       };
-      return icons[type] || icons.settings;
+    }
+
+    async function submitEditor() {
+      const { payload, error } = buildEditorPayload();
+      if (error) {
+        setEditorFeedback(error, true);
+        helpers.setStatus(error, true);
+        return;
+      }
+      const isCreate = pageState.editorMode === "create";
+      setEditorFeedback(isCreate ? `正在创建角色 ${payload.role_name}...` : `正在保存角色 ${payload.role_name}...`);
+      const result = await helpers.runUiAction({
+        control: elements.editorSubmit,
+        pendingMessage: isCreate ? `正在创建角色 ${payload.role_name}...` : `正在保存角色 ${payload.role_name}...`,
+        successMessage: isCreate ? `已创建角色 ${payload.role_name}。` : `已更新角色 ${payload.role_name}。`,
+        errorPrefix: isCreate ? "创建角色失败" : "保存角色失败",
+        action: () => {
+          if (isCreate) {
+            return helpers.createMenuRole(payload);
+          }
+          return helpers.updateMenuRole(Number(elements.editorId.value), payload);
+        },
+        onSuccess: async () => {
+          closeEditor();
+          await loadData();
+        },
+      });
+      if (!result.ok) {
+        setEditorFeedback(result.error.message, true);
+      }
+    }
+
+    async function deleteRole(role, control) {
+      if (!window.confirm(`确认删除角色 ${role.role_name} 吗？`)) {
+        return;
+      }
+      await helpers.runUiAction({
+        control,
+        pendingMessage: `正在删除角色 ${role.role_name}...`,
+        successMessage: `已删除角色 ${role.role_name}。`,
+        errorPrefix: "删除角色失败",
+        action: () => helpers.deleteMenuRole(role.id),
+        onSuccess: loadData,
+      });
+    }
+
+    function flattenTree(items, childKey, depth = 0) {
+      const results = [];
+      (items || []).forEach((item) => {
+        results.push({ ...item, depth });
+        results.push(...flattenTree(item[childKey] || [], childKey, depth + 1));
+      });
+      return results;
     }
   },
 };
