@@ -94,7 +94,6 @@
             <section class="panel conversation">
               <div id="message-list" class="message-list">
                 <article class="message system">
-                  <span class="message-tag">系统</span>
                   <div class="message-body">可以直接提问。我会在这里给出回答，右侧保留路由、引用和最近记录。</div>
                 </article>
               </div>
@@ -153,8 +152,8 @@
             <section class="qa-context-pane" id="qa-context-session" role="tabpanel" aria-labelledby="qa-tab-session" data-qa-context-pane="session" hidden>
               <div class="qa-context-head">
                 <div>
-                  <p class="panel-kicker">会话状态</p>
-                  <h2>当前会话</h2>
+                  <p class="panel-kicker">当前会话</p>
+                  <h2>会话操作</h2>
                 </div>
                 <button id="new-session-btn" class="ghost-btn" type="button">新建会话</button>
               </div>
@@ -172,7 +171,7 @@
               <div class="qa-context-head">
                 <div>
                   <p class="panel-kicker">路由说明</p>
-                  <h2>决策备注</h2>
+                  <h2>路由结果</h2>
                 </div>
               </div>
               <div class="qa-meta-rail" aria-label="最近一次回答状态">
@@ -197,16 +196,7 @@
                   <strong id="meta-context">0</strong>
                 </div>
               </div>
-              <div class="meta-notes">
-                <article class="status-line session-row">
-                  <span class="label">路由原因</span>
-                  <p id="route-reason">等待请求。</p>
-                </article>
-                <article class="status-line session-row">
-                  <span class="label">策略原因</span>
-                  <p id="strategy-reason">等待请求。</p>
-                </article>
-              </div>
+              <div id="qa-route-detail-list" class="qa-detail-list" aria-live="polite"></div>
             </section>
 
             <section class="qa-context-pane" id="qa-context-citations" role="tabpanel" aria-labelledby="qa-tab-citations" data-qa-context-pane="citations" hidden>
@@ -222,12 +212,8 @@
             </section>
 
             <section class="qa-context-pane" id="history-center" role="tabpanel" aria-labelledby="qa-tab-history" data-qa-context-pane="history" hidden>
-              <div class="qa-context-head">
-                <div>
-                  <p class="panel-kicker">会话历史</p>
-                  <h2>最近记录</h2>
-                </div>
-                <button id="refresh-history-btn" class="ghost-btn" type="button">刷新历史</button>
+              <div id="session-list" class="session-list">
+                <div class="note">当前还没有加载历史会话。</div>
               </div>
               <div class="session-row">
                 <span class="label">历史条数</span>
@@ -245,7 +231,6 @@
 
   <template id="message-template">
     <article class="message">
-      <span class="message-tag">系统</span>
       <div class="message-body"></div>
     </article>
   </template>

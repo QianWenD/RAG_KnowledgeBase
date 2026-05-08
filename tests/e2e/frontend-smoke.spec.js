@@ -224,6 +224,52 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator("#query-input")).not.toHaveValue("");
   });
 
+  test("QA messages do not show role label chips", async ({ page }) => {
+    await page.route("**/sessions", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ sessions: [], session_count: 0 }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ session_id: "role-label-session" }),
+      });
+    });
+    await page.route("**/sessions/role-label-session/history", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ session_id: "role-label-session", history: [], history_count: 0 }),
+      });
+    });
+    await page.route("**/query", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          session_id: "role-label-session",
+          answer: "Role label chips are hidden.",
+          route: "general_llm",
+          citations: [],
+          context_count: 0,
+        }),
+      });
+    });
+
+    await page.goto(`${baseURL}/qa`);
+    await expect(page.locator(".message-tag")).toHaveCount(0);
+    await page.locator("#stream-mode").uncheck();
+    await page.locator("#query-input").fill("Hide role labels");
+    await page.locator("#send-btn").click();
+    await expect(page.locator(".message.assistant").last()).toContainText("Role label chips are hidden.");
+    await expect(page.locator(".message-tag")).toHaveCount(0);
+  });
+
   test("QA composer refreshes source options when choosing target source", async ({ page }) => {
     let sourceRequests = 0;
 
@@ -258,14 +304,365 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator('#source-filter option[value="med"]')).toHaveCount(1);
   });
 
+  test("QA composer shows a visible thinking process while waiting for an answer", async ({ page }) => {
+    let releaseQuery;
+    const queryCanResolve = new Promise((resolve) => {
+      releaseQuery = resolve;
+    });
+
+    await page.route("**/sessions", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ sessions: [], session_count: 0 }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ session_id: "thinking-session" }),
+      });
+    });
+    await page.route("**/sessions/thinking-session/history", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ session_id: "thinking-session", history: [], history_count: 0 }),
+      });
+    });
+    await page.route("**/query", async (route) => {
+      await queryCanResolve;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          session_id: "thinking-session",
+          answer: "Delayed answer is ready.",
+          route: "general_llm",
+          intent: "general",
+          retrieval_strategy: "none",
+          retrieval_backend: "none",
+          context_count: 0,
+          citations: [],
+        }),
+      });
+    });
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(`${baseURL}/qa`);
+    await page.locator("#stream-mode").uncheck();
+    await page.locator("#query-input").fill("Why is the answer taking time?");
+    await page.locator("#send-btn").click();
+
+    const thinkingMessage = page.locator(".message.assistant.is-thinking");
+    await expect(thinkingMessage.locator(".search-progress")).toContainText("检索中");
+    await expect(thinkingMessage.locator(".search-progress-dot")).toHaveCount(3);
+    await expect(thinkingMessage.locator(".search-progress-dot").first()).toHaveText(".");
+    const dotStyle = await thinkingMessage.locator(".search-progress-dot").first().evaluate((node) => {
+      const style = window.getComputedStyle(node);
+      return {
+        animationName: style.animationName,
+        fontSize: Number.parseFloat(style.fontSize),
+      };
+    });
+    expect(dotStyle.animationName).toBe("qa-search-dot-bounce");
+    expect(dotStyle.fontSize).toBeGreaterThanOrEqual(20);
+    await expect(thinkingMessage.locator(".thinking-card")).toHaveCount(0);
+    await expect(page.locator("#qa-current-stage")).toContainText("正在处理");
+
+    releaseQuery();
+    await expect(page.locator(".message.assistant.is-thinking")).toHaveCount(0);
+    await expect(page.locator(".message.assistant").last()).toContainText("Delayed answer is ready.");
+  });
+
+  test("QA streaming keeps the thinking process visible until the answer completes", async ({ page }) => {
+    await page.route("**/sessions", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ sessions: [], session_count: 0 }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ session_id: "stream-thinking-session" }),
+      });
+    });
+    await page.route("**/sessions/stream-thinking-session/history", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ session_id: "stream-thinking-session", history: [], history_count: 0 }),
+      });
+    });
+    await page.addInitScript(() => {
+      let streamController;
+      let encoder;
+      window.__resolveQaStreamEnd = null;
+      window.__emitQaStreamChunk = null;
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const url = typeof input === "string" ? input : input.url;
+        if (url === "/query" && init?.method === "POST") {
+          const stream = new ReadableStream({
+            start(controller) {
+              streamController = controller;
+              encoder = new TextEncoder();
+              controller.enqueue(encoder.encode('data: {"event":"start","session_id":"stream-thinking-session","route":"rag","citations":[],"context_count":84}\n\n'));
+              window.__emitQaStreamChunk = () => {
+                controller.enqueue(encoder.encode('data: {"event":"chunk","token":"Partial answer is streaming."}\n\n'));
+              };
+              window.__resolveQaStreamEnd = () => {
+                controller.enqueue(encoder.encode('data: {"event":"end","answer":"Partial answer is streaming. Final answer.","session_id":"stream-thinking-session","route":"rag","citations":[],"context_count":84}\n\n'));
+                controller.close();
+              };
+            },
+            cancel() {
+              streamController = null;
+            },
+          });
+          return Promise.resolve(new Response(stream, {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+          }));
+        }
+        return originalFetch(input, init);
+      };
+    });
+
+    await page.goto(`${baseURL}/qa`);
+    await page.locator("#query-input").fill("Stream an answer slowly");
+    await page.locator("#send-btn").click();
+
+    await expect(page.locator(".message.assistant.is-thinking .search-progress")).toContainText("检索84篇结果");
+    await page.evaluate(() => window.__emitQaStreamChunk());
+    await expect(page.locator(".message.assistant.is-thinking")).toContainText("Partial answer is streaming.");
+    await expect(page.locator(".message.assistant.is-thinking .search-progress")).toContainText("检索84篇结果");
+    await expect(page.locator(".message.assistant.is-thinking .thinking-card")).toHaveCount(0);
+
+    await page.evaluate(() => window.__resolveQaStreamEnd());
+    await expect(page.locator(".message.assistant.is-thinking")).toHaveCount(0);
+    await expect(page.locator(".message.assistant").last()).toContainText("Final answer.");
+  });
+
+  test("QA workbench exposes richer route citation and history details", async ({ page }) => {
+    const longHistoryAnswer = `${"history prefix ".repeat(14)}FULL_HISTORY_DETAIL_VISIBLE with the complete answer body.`;
+
+    await page.route("**/sessions", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ session_id: "qa-context-session" }),
+      });
+    });
+    await page.route("**/sessions/qa-context-session/history", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          session_id: "qa-context-session",
+          history: [
+            {
+              question: "How should med source answers be reviewed?",
+              answer: longHistoryAnswer,
+            },
+            {
+              question: "What did the previous route use?",
+              answer: "The previous route used semantic retrieval.",
+            },
+          ],
+          history_count: 2,
+        }),
+      });
+    });
+    await page.route("**/query", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          session_id: "qa-context-session",
+          answer: "RAG answer from med source.",
+          route: "rag",
+          intent: "professional",
+          retrieval_strategy: "semantic",
+          retrieval_backend: "local",
+          context_count: 2,
+          route_reason: "Matched knowledge base content.",
+          strategy_reason: "Used semantic retrieval.",
+          source_filter: "med",
+          retrieval_query: "med policy query",
+          confidence: { label: "high", score: 0.9 },
+          citations: [
+            {
+              source: "med",
+              timestamp: "2026-05-07T10:00:00",
+              excerpt: "cardio excerpt full evidence",
+              score: 0.91,
+              matched_chunks: 3,
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto(`${baseURL}/qa`);
+    await expect(page.locator("#session-id")).toContainText("qa-context-session");
+    await page.locator("#stream-mode").uncheck();
+    await page.locator("#query-input").fill("Use med source for policy context");
+    await page.locator("#send-btn").click();
+
+    await expect(page.locator("#meta-route")).toHaveText("rag");
+    await expect(page.locator("#route-insights")).not.toContainText("决策备注");
+    await expect(page.locator("#route-insights")).not.toContainText("路由原因");
+    await expect(page.locator("#route-insights")).not.toContainText("策略原因");
+    await expect(page.locator("#route-reason")).toHaveCount(0);
+    await expect(page.locator("#strategy-reason")).toHaveCount(0);
+    await expect(page.locator("#qa-route-detail-list")).toContainText("med");
+    await expect(page.locator("#qa-route-detail-list")).toContainText("med policy query");
+    await expect(page.locator("#qa-route-detail-list")).toContainText("high");
+
+    await page.locator('[data-qa-context-tab="citations"]').click();
+    await expect(page.locator("#citations-list")).toContainText("cardio excerpt full evidence");
+    await expect(page.locator("#citations-list")).toContainText("score 0.91");
+
+    await page.locator('[data-qa-context-tab="history"]').click();
+    await expect(page.locator("#history-list")).toContainText("FULL_HISTORY_DETAIL_VISIBLE");
+  });
+
+  test("QA history tab restores history from a previous session without duplicating session tab", async ({ page }) => {
+    const sessions = Array.from({ length: 16 }, (_, index) => ({
+      session_id: index === 0 ? "previous-session" : `older-session-${index}`,
+      turn_count: index + 1,
+      last_question: index === 0 ? "Previous question about med" : `Older session question ${index}`,
+      last_answer: `Previous answer summary ${index}`,
+      updated_at: `2026-05-07 10:${30 - index}:00`,
+    }));
+    const restoredHistory = Array.from({ length: 16 }, (_, index) => ({
+      question: index === 0 ? "Previous question about med" : `Restored question ${index}`,
+      answer: index === 0
+        ? "RESTORED_HISTORY_VISIBLE answer body"
+        : `Restored answer ${index} ${"with enough detail ".repeat(8)}`,
+    }));
+
+    await page.route("**/sessions", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            sessions,
+            session_count: sessions.length,
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ session_id: "new-session" }),
+      });
+    });
+    await page.route("**/sessions/*/history", async (route) => {
+      const sessionId = new URL(route.request().url()).pathname.split("/")[2];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          session_id: sessionId,
+          history: sessionId === "previous-session" ? restoredHistory : [],
+          history_count: sessionId === "previous-session" ? restoredHistory.length : 0,
+        }),
+      });
+    });
+
+    await page.goto(`${baseURL}/qa`);
+    const tabBarBox = await page.locator(".qa-context-tabs").boundingBox();
+    const contextPanelBox = await page.locator(".qa-context-panel").boundingBox();
+    expect(tabBarBox.width).toBeLessThan(contextPanelBox.width - 20);
+    await page.locator('[data-qa-context-tab="session"]').click();
+    await expect(page.locator("#qa-context-session #session-list")).toHaveCount(0);
+
+    await page.locator('[data-qa-context-tab="history"]').click();
+    await expect(page.locator(".qa-current-turn")).toBeHidden();
+    await expect(page.locator("#history-center .qa-context-head")).toHaveCount(0);
+    await expect(page.locator("#refresh-history-btn")).toHaveCount(0);
+    await expect(page.locator("#refresh-sessions-btn")).toHaveCount(0);
+    await expect(page.locator("#history-center")).not.toContainText("会话历史");
+    await expect(page.locator("#history-center")).not.toContainText("刷新历史");
+    await expect(page.locator("#history-center")).not.toContainText("历史会话");
+    await expect(page.locator("#history-center")).not.toContainText("选择会话后查看记录");
+    await expect(page.locator("#history-center")).not.toContainText("刷新会话");
+    await expect(page.locator("#history-center #session-list")).toContainText("previous-session");
+    await expect(page.locator("#history-center #session-list")).toContainText("Previous question about med");
+
+    await page.locator('[data-session-id="previous-session"]').click();
+    await expect(page.locator("#session-id")).toContainText("previous-session");
+    await expect(page.locator("#history-list")).toContainText("RESTORED_HISTORY_VISIBLE");
+
+    await expect(page.locator("#history-center #session-list")).toHaveCSS("overflow-y", "auto");
+    await expect(page.locator("#history-list")).toHaveCSS("overflow-y", "auto");
+    const sessionListBox = await page.locator("#history-center #session-list").boundingBox();
+    const historyListBox = await page.locator("#history-list").boundingBox();
+    expect(sessionListBox.height).toBeLessThanOrEqual(230);
+    expect(historyListBox.height).toBeGreaterThanOrEqual(180);
+    expect(historyListBox.height).toBeLessThanOrEqual(360);
+    const internalScroll = await page.evaluate(() => {
+      const probe = (selector) => {
+        const node = document.querySelector(selector);
+        if (!node) {
+          return null;
+        }
+        node.scrollTop = 0;
+        node.scrollTop = 9999;
+        return {
+          clientHeight: node.clientHeight,
+          scrollHeight: node.scrollHeight,
+          scrollTop: node.scrollTop,
+        };
+      };
+      return {
+        sessions: probe("#history-center #session-list"),
+        history: probe("#history-list"),
+      };
+    });
+    expect(internalScroll.sessions.scrollHeight).toBeGreaterThan(internalScroll.sessions.clientHeight);
+    expect(internalScroll.sessions.scrollTop).toBeGreaterThan(0);
+    expect(internalScroll.history.scrollHeight).toBeGreaterThan(internalScroll.history.clientHeight);
+    expect(internalScroll.history.scrollTop).toBeGreaterThan(0);
+    const pageHeight = await page.evaluate(() => ({
+      clientHeight: document.scrollingElement?.clientHeight || 0,
+      scrollHeight: document.scrollingElement?.scrollHeight || 0,
+    }));
+    expect(pageHeight.scrollHeight).toBeLessThanOrEqual(pageHeight.clientHeight + 1);
+  });
+
   test("knowledge upload pipeline reflects selected file state", async ({ page }) => {
     await page.goto(`${baseURL}/knowledge`);
+    await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-sources"]')).toHaveCount(0);
+    await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-reindex"]')).toHaveCount(0);
+    await expect(page.locator('.side-nav [href="/knowledge/sources"]')).toHaveCount(1);
+    await expect(page.locator("#upload-size-hint")).toContainText("25 MB");
     await expect(page.locator('[data-upload-step="select"]')).toHaveClass(/is-active/);
     await page.locator("#upload-file-input").setInputFiles(
       path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
     );
     await expect(page.locator('[data-upload-step="prepare"]')).toHaveClass(/is-active/);
     await expect(page.locator("#upload-file-list")).toContainText("frontend-smoke-upload.txt");
+    await expect(page.locator('[data-upload-file-remove="0"]')).toBeVisible();
+    await page.locator('[data-upload-file-remove="0"]').click();
+    await expect(page.locator("#upload-file-list")).not.toContainText("frontend-smoke-upload.txt");
+    await expect(page.locator('[data-upload-step="select"]')).toHaveClass(/is-active/);
+  });
+
+  test("knowledge reindex page avoids upload entry tab", async ({ page }) => {
+    await page.goto(`${baseURL}/knowledge/reindex`);
+    await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-upload"]')).toHaveCount(0);
+    await expect(page.locator("#reindex-panel")).toBeVisible();
   });
 
   test("knowledge upload supports custom source entry", async ({ page }) => {
@@ -296,6 +693,50 @@ test.describe("RAGPro frontend smoke", () => {
     );
     await page.locator("#upload-submit-btn").click();
     await expect.poll(() => latestUploadBody).toContain("policy_2026");
+  });
+
+  test("knowledge upload shows moving progress while request is pending", async ({ page }) => {
+    let releaseUpload;
+    const uploadCanResolve = new Promise((resolve) => {
+      releaseUpload = resolve;
+    });
+    await page.route("**/documents/upload", async (route) => {
+      await uploadCanResolve;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          source: "ai",
+          replace_source: false,
+          file_count: 1,
+          raw_document_count: 1,
+          document_chunks: 1,
+          deleted_before_index: 0,
+          retrieval_backend: "local",
+          files: [],
+        }),
+      });
+    });
+
+    await page.goto(`${baseURL}/knowledge`);
+    await page.locator("#upload-source").selectOption("ai");
+    await page.locator("#upload-file-input").setInputFiles(
+      path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
+    );
+    await page.locator("#upload-submit-btn").click();
+
+    await expect(page.locator(".upload-progress")).toHaveAttribute("aria-busy", "true");
+    await expect(page.locator("#upload-progress-fill")).toHaveClass(/is-moving/);
+    await expect
+      .poll(async () => {
+        const progressText = await page.locator("#upload-progress-value").textContent();
+        return Number.parseInt(progressText || "0", 10);
+      })
+      .toBeGreaterThan(0);
+
+    releaseUpload();
+    await expect(page.locator("#upload-progress-value")).toHaveText("100%");
+    await expect(page.locator(".upload-progress")).toHaveAttribute("aria-busy", "false");
   });
 
   test("knowledge upload refreshes source options when choosing target source", async ({ page }) => {
@@ -353,6 +794,7 @@ test.describe("RAGPro frontend smoke", () => {
     });
 
     await page.goto(`${baseURL}/knowledge/sources`);
+    await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-sources"]')).toHaveCount(0);
     await expect(page.locator("#source-table")).toContainText("ai");
     await page.locator("#source-register-input").fill("policy_2026");
     await page.locator("#source-register-submit").click();

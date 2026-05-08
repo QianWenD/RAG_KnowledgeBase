@@ -21,7 +21,7 @@
           <span class="brand-stamp">知识运营</span>
         </div>
         <h1>上传入库页</h1>
-        <p class="brand-copy">这个子页专门处理文档上传、入库进度和最近结果。需要重建索引或查看数据源时，请切到右侧子模块导航。</p>
+        <p class="brand-copy">这个子页专门处理文档上传、入库进度和最近结果。需要重建索引或查看数据源时，请从左侧导航进入对应模块。</p>
         <div class="brand-strip">
           <span>上传</span>
           <span>入库</span>
@@ -91,12 +91,6 @@
         </div>
       </header>
 
-      <nav class="module-nav-bar" aria-label="知识运营子导航">
-        <a class="module-nav-link" data-module-nav="knowledge-upload" href="/knowledge">上传入库</a>
-        <a class="module-nav-link" data-module-nav="knowledge-reindex" href="/knowledge/reindex">重建索引</a>
-        <a class="module-nav-link" data-module-nav="knowledge-sources" href="/knowledge/sources">数据源管理</a>
-      </nav>
-
       <section class="knowledge-workbench">
         <section class="panel upload-panel" id="knowledge-panel">
           <div class="panel-head">
@@ -130,13 +124,14 @@
               <input id="upload-file-input" name="files" type="file" multiple accept=".txt,.md,.markdown,.html,.htm,.pdf,.docx,.ppt,.pptx">
               <strong>拖拽文件到这里，或点击选择</strong>
               <span>PDF / DOCX / TXT / Markdown / HTML / PPT / PPTX</span>
+              <small id="upload-size-hint" class="upload-size-hint">单个文件最大 25 MB，建议按来源分批上传。</small>
             </label>
 
             <div id="upload-file-list" class="file-list">
               <div class="note">当前还没有选择文件。</div>
             </div>
 
-            <div class="upload-progress" aria-live="polite">
+            <div class="upload-progress" aria-live="polite" aria-busy="false">
               <div class="upload-progress-head">
                 <strong id="upload-progress-label">等待上传</strong>
                 <span id="upload-progress-value" class="subtle">0%</span>

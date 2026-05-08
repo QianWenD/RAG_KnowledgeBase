@@ -33,11 +33,38 @@ class ConversationService:
     def get_or_create_session_id(session_id: str | None = None) -> str:
         return session_id or str(uuid.uuid4())
 
-    def get_history(self, session_id: str, *, user_id: int | None = None) -> list[dict]:
+    def get_history(
+        self,
+        session_id: str,
+        *,
+        user_id: int | None = None,
+        include_unowned: bool = False,
+    ) -> list[dict]:
         try:
-            return self.repository.fetch_recent_history(session_id, user_id=user_id, limit=self.max_turns)
+            return self.repository.fetch_recent_history(
+                session_id,
+                user_id=user_id,
+                include_unowned=include_unowned,
+                limit=self.max_turns,
+            )
         except TypeError:
             return self.repository.fetch_recent_history(session_id, limit=self.max_turns)
+
+    def list_sessions(
+        self,
+        *,
+        user_id: int | None = None,
+        include_unowned: bool = False,
+        limit: int = 20,
+    ) -> list[dict]:
+        try:
+            return self.repository.list_sessions(
+                user_id=user_id,
+                include_unowned=include_unowned,
+                limit=limit,
+            )
+        except TypeError:
+            return self.repository.list_sessions(limit=limit)
 
     def save_turn(
         self,
@@ -57,9 +84,15 @@ class ConversationService:
             self.repository.trim_history(session_id, keep=self.max_turns)
         return self.get_history(session_id, user_id=user_id)
 
-    def clear_history(self, session_id: str, *, user_id: int | None = None) -> None:
+    def clear_history(
+        self,
+        session_id: str,
+        *,
+        user_id: int | None = None,
+        include_unowned: bool = False,
+    ) -> None:
         try:
-            self.repository.clear_history(session_id, user_id=user_id)
+            self.repository.clear_history(session_id, user_id=user_id, include_unowned=include_unowned)
         except TypeError:
             self.repository.clear_history(session_id)
 

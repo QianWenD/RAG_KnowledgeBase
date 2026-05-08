@@ -372,6 +372,72 @@ class APISurfaceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"session_id": "session-x"})
 
+    def test_list_sessions_endpoint_returns_authenticated_user_sessions(self) -> None:
+        user = AuthenticatedUser(
+            id=3,
+            username="alice",
+            role="user",
+            allowed_sources=("ai",),
+            is_active=True,
+        )
+        repository = Mock()
+        conversation_service = Mock()
+        conversation_service.list_sessions.return_value = [
+            {
+                "session_id": "old-session",
+                "turn_count": 2,
+                "last_question": "上一轮问了什么",
+                "last_answer": "上一轮回答内容",
+                "updated_at": "2026-05-07 10:00:00",
+            }
+        ]
+
+        with patch("apps.api.main._require_authenticated_user", return_value=user), patch(
+            "apps.api.main._create_conversation_repository",
+            return_value=repository,
+        ), patch(
+            "apps.api.main._conversation_service_from_repository",
+            return_value=conversation_service,
+        ):
+            response = self.client.get("/sessions")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["sessions"][0]["session_id"], "old-session")
+        self.assertEqual(response.json()["session_count"], 1)
+        conversation_service.list_sessions.assert_called_once_with(user_id=3, include_unowned=False, limit=20)
+        repository.close.assert_called_once()
+
+    def test_admin_session_history_can_include_unowned_legacy_turns(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai",),
+            is_active=True,
+        )
+        repository = Mock()
+        conversation_service = Mock()
+        conversation_service.get_history.return_value = [
+            {"question": "旧会话问题", "answer": "旧会话答案"},
+        ]
+
+        with patch("apps.api.main._require_authenticated_user", return_value=admin), patch(
+            "apps.api.main._create_conversation_repository",
+            return_value=repository,
+        ), patch(
+            "apps.api.main._conversation_service_from_repository",
+            return_value=conversation_service,
+        ):
+            response = self.client.get("/sessions/legacy-session/history")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["history_count"], 1)
+        conversation_service.get_history.assert_called_once_with(
+            "legacy-session",
+            user_id=1,
+            include_unowned=True,
+        )
+
     def test_faq_query_endpoint_returns_service_payload(self) -> None:
         admin_user = AuthenticatedUser(
             id=4,

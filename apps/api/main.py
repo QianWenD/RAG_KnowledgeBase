@@ -296,11 +296,30 @@ def _build_router(faq_service) -> UnifiedQueryRouter:
     )
 
 
-def _conversation_get_history(service, session_id: str, *, user_id: int) -> list[dict]:
+def _conversation_get_history(
+    service,
+    session_id: str,
+    *,
+    user_id: int,
+    include_unowned: bool = False,
+) -> list[dict]:
     try:
-        return service.get_history(session_id, user_id=user_id)
+        return service.get_history(session_id, user_id=user_id, include_unowned=include_unowned)
     except TypeError:
         return service.get_history(session_id)
+
+
+def _conversation_list_sessions(
+    service,
+    *,
+    user_id: int,
+    include_unowned: bool = False,
+    limit: int = 20,
+) -> list[dict]:
+    try:
+        return service.list_sessions(user_id=user_id, include_unowned=include_unowned, limit=limit)
+    except TypeError:
+        return service.list_sessions(limit=limit)
 
 
 def _conversation_save_turn(service, session_id: str, question: str, answer: str, *, user_id: int) -> list[dict]:
@@ -310,9 +329,9 @@ def _conversation_save_turn(service, session_id: str, question: str, answer: str
         return service.save_turn(session_id, question, answer)
 
 
-def _conversation_clear_history(service, session_id: str, *, user_id: int) -> None:
+def _conversation_clear_history(service, session_id: str, *, user_id: int, include_unowned: bool = False) -> None:
     try:
-        service.clear_history(session_id, user_id=user_id)
+        service.clear_history(session_id, user_id=user_id, include_unowned=include_unowned)
     except TypeError:
         service.clear_history(session_id)
 
@@ -1410,6 +1429,27 @@ def create_session(request: Request, payload: dict | None = None) -> dict:
     return {"session_id": session_id}
 
 
+@app.get("/sessions")
+def list_sessions(request: Request) -> dict:
+    user = _require_authenticated_user(request)
+    repository = None
+    try:
+        repository = _create_conversation_repository()
+        service = _conversation_service_from_repository(repository)
+        sessions = _conversation_list_sessions(
+            service,
+            user_id=user.id,
+            include_unowned=user.role == "admin",
+        )
+        return {"sessions": sessions, "session_count": len(sessions)}
+    except Exception as exc:
+        logger.exception("Session list endpoint failed.")
+        raise HTTPException(status_code=503, detail=f"Session list unavailable: {exc}") from exc
+    finally:
+        if repository is not None:
+            repository.close()
+
+
 @app.get("/sources")
 def get_sources(request: Request) -> dict:
     user = _require_authenticated_user(request)
@@ -1458,7 +1498,12 @@ def get_session_history(session_id: str, request: Request) -> dict:
     try:
         repository = _create_conversation_repository()
         service = _conversation_service_from_repository(repository)
-        history = _conversation_get_history(service, session_id, user_id=user.id)
+        history = _conversation_get_history(
+            service,
+            session_id,
+            user_id=user.id,
+            include_unowned=user.role == "admin",
+        )
         return {
             "session_id": session_id,
             "history": history,
@@ -1479,7 +1524,12 @@ def clear_session_history(session_id: str, request: Request) -> dict:
     try:
         repository = _create_conversation_repository()
         service = _conversation_service_from_repository(repository)
-        _conversation_clear_history(service, session_id, user_id=user.id)
+        _conversation_clear_history(
+            service,
+            session_id,
+            user_id=user.id,
+            include_unowned=user.role == "admin",
+        )
         return {"session_id": session_id, "cleared": True}
     except Exception as exc:
         logger.exception("Clear session history endpoint failed.")
@@ -1603,7 +1653,12 @@ def unified_query(payload: QueryRequest, request: Request):
         history = (
             payload.history
             if payload.history is not None
-            else _conversation_get_history(conversation_service, session_id, user_id=user.id)
+            else _conversation_get_history(
+                conversation_service,
+                session_id,
+                user_id=user.id,
+                include_unowned=user.role == "admin",
+            )
         )
 
         if payload.stream:

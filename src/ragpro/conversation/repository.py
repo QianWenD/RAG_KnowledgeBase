@@ -70,7 +70,14 @@ class ConversationMySQLRepository:
             self.cursor.execute("CREATE INDEX idx_user_session ON conversations (user_id, session_id)")
         self.connection.commit()
 
-    def fetch_recent_history(self, session_id: str, *, user_id: int | None = None, limit: int = 5) -> list[dict]:
+    def fetch_recent_history(
+        self,
+        session_id: str,
+        *,
+        user_id: int | None = None,
+        include_unowned: bool = False,
+        limit: int = 5,
+    ) -> list[dict]:
         if user_id is None:
             self.cursor.execute(
                 """
@@ -81,6 +88,17 @@ class ConversationMySQLRepository:
                 LIMIT %s
                 """,
                 (session_id, limit),
+            )
+        elif include_unowned:
+            self.cursor.execute(
+                """
+                SELECT question, answer
+                FROM conversations
+                WHERE session_id = %s AND (user_id = %s OR user_id IS NULL)
+                ORDER BY timestamp DESC, id DESC
+                LIMIT %s
+                """,
+                (session_id, user_id, limit),
             )
         else:
             self.cursor.execute(
@@ -95,6 +113,55 @@ class ConversationMySQLRepository:
             )
         rows = self.cursor.fetchall()
         return [{"question": row[0], "answer": row[1]} for row in rows[::-1]]
+
+    def list_sessions(
+        self,
+        *,
+        user_id: int | None = None,
+        include_unowned: bool = False,
+        limit: int = 20,
+    ) -> list[dict]:
+        if user_id is None:
+            where_clause = ""
+            params: tuple[object, ...] = (limit,)
+        elif include_unowned:
+            where_clause = "WHERE user_id = %s OR user_id IS NULL"
+            params = (user_id, limit)
+        else:
+            where_clause = "WHERE user_id = %s"
+            params = (user_id, limit)
+
+        self.cursor.execute(
+            f"""
+            SELECT latest.session_id, latest.question, latest.answer, latest.timestamp, counts.turn_count
+            FROM conversations AS latest
+            INNER JOIN (
+                SELECT session_id, MAX(id) AS latest_id, COUNT(*) AS turn_count
+                FROM conversations
+                {where_clause}
+                GROUP BY session_id
+                ORDER BY MAX(timestamp) DESC, MAX(id) DESC
+                LIMIT %s
+            ) AS counts
+              ON latest.session_id = counts.session_id AND latest.id = counts.latest_id
+            ORDER BY latest.timestamp DESC, latest.id DESC
+            """,
+            params,
+        )
+        rows = self.cursor.fetchall()
+        sessions = []
+        for row in rows:
+            updated_at = row[3]
+            sessions.append(
+                {
+                    "session_id": row[0],
+                    "last_question": row[1],
+                    "last_answer": row[2],
+                    "updated_at": updated_at.isoformat(sep=" ") if hasattr(updated_at, "isoformat") else str(updated_at),
+                    "turn_count": int(row[4] or 0),
+                }
+            )
+        return sessions
 
     def append_turn(
         self,
@@ -148,9 +215,14 @@ class ConversationMySQLRepository:
             )
         self.connection.commit()
 
-    def clear_history(self, session_id: str, *, user_id: int | None = None) -> None:
+    def clear_history(self, session_id: str, *, user_id: int | None = None, include_unowned: bool = False) -> None:
         if user_id is None:
             self.cursor.execute("DELETE FROM conversations WHERE session_id = %s", (session_id,))
+        elif include_unowned:
+            self.cursor.execute(
+                "DELETE FROM conversations WHERE session_id = %s AND (user_id = %s OR user_id IS NULL)",
+                (session_id, user_id),
+            )
         else:
             self.cursor.execute(
                 "DELETE FROM conversations WHERE session_id = %s AND user_id = %s",

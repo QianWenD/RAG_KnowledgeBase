@@ -2,6 +2,7 @@ window.RagProPage = {
   async init({ state, helpers }) {
     const pageState = {
       sessionId: "",
+      sessions: [],
       history: [],
       pending: false,
       streaming: true,
@@ -21,8 +22,7 @@ window.RagProPage = {
       strategy: document.getElementById("meta-strategy"),
       backend: document.getElementById("meta-backend"),
       context: document.getElementById("meta-context"),
-      routeReason: document.getElementById("route-reason"),
-      strategyReason: document.getElementById("strategy-reason"),
+      routeDetailList: document.getElementById("qa-route-detail-list"),
       sourceFilter: document.getElementById("source-filter"),
       queryInput: document.getElementById("query-input"),
       queryInputMeter: document.getElementById("query-input-meter"),
@@ -32,7 +32,7 @@ window.RagProPage = {
       newSessionBtn: document.getElementById("new-session-btn"),
       copySessionBtn: document.getElementById("copy-session-btn"),
       clearHistoryBtn: document.getElementById("clear-history-btn"),
-      refreshHistoryBtn: document.getElementById("refresh-history-btn"),
+      sessionList: document.getElementById("session-list"),
       messageTemplate: document.getElementById("message-template"),
       summarySession: document.getElementById("qa-summary-session"),
       summarySources: document.getElementById("qa-summary-sources"),
@@ -41,6 +41,7 @@ window.RagProPage = {
       suggestionButtons: Array.from(document.querySelectorAll("[data-prompt-suggestion]")),
       contextTabs: Array.from(document.querySelectorAll("[data-qa-context-tab]")),
       contextPanes: Array.from(document.querySelectorAll("[data-qa-context-pane]")),
+      currentTurnPanel: document.querySelector(".qa-current-turn"),
       currentQuestion: document.getElementById("qa-current-question"),
       currentStage: document.getElementById("qa-current-stage"),
     };
@@ -59,6 +60,7 @@ window.RagProPage = {
     applySourceOptions();
     resetConversation();
     await createSession();
+    await loadSessionList();
     helpers.setStatus("问答页已就绪，可以直接提问。");
 
     function bindEvents() {
@@ -66,7 +68,13 @@ window.RagProPage = {
       elements.newSessionBtn?.addEventListener("click", createSession);
       elements.copySessionBtn?.addEventListener("click", copySessionId);
       elements.clearHistoryBtn?.addEventListener("click", clearHistory);
-      elements.refreshHistoryBtn?.addEventListener("click", loadHistory);
+      elements.sessionList?.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-session-id]");
+        if (!target) {
+          return;
+        }
+        void selectSession(target.getAttribute("data-session-id") || "");
+      });
       elements.sourceFilter?.addEventListener("focus", () => {
         void refreshSourceFilter();
       });
@@ -154,6 +162,9 @@ window.RagProPage = {
         pane.classList.toggle("is-active", isActive);
         pane.hidden = !isActive;
       }
+      if (elements.currentTurnPanel) {
+        elements.currentTurnPanel.hidden = target === "history";
+      }
     }
 
     async function createSession() {
@@ -174,9 +185,36 @@ window.RagProPage = {
         renderHistoryCount();
         renderSummary();
         resetConversation();
+        renderSessionList();
       } catch (error) {
         helpers.setStatus(`创建会话失败：${error.message}`, true);
       }
+    }
+
+    async function loadSessionList() {
+      if (!state.user) {
+        return;
+      }
+      try {
+        const payload = await helpers.apiJson("/sessions");
+        pageState.sessions = payload.sessions || [];
+        renderSessionList();
+      } catch (error) {
+        helpers.setStatus(`加载历史会话失败：${error.message}`, true);
+      }
+    }
+
+    async function selectSession(sessionId) {
+      if (!sessionId || sessionId === pageState.sessionId) {
+        return;
+      }
+      pageState.sessionId = sessionId;
+      elements.sessionId.textContent = pageState.sessionId || "尚未创建";
+      elements.copySessionBtn.disabled = !pageState.sessionId;
+      resetConversation();
+      await loadHistory();
+      renderSessionList();
+      helpers.setStatus("历史会话已恢复。");
     }
 
     async function loadHistory() {
@@ -203,6 +241,7 @@ window.RagProPage = {
         renderHistory();
         renderHistoryCount();
         resetConversation();
+        await loadSessionList();
         helpers.setStatus("当前会话历史已清空。");
       } catch (error) {
         helpers.setStatus(`清空历史失败：${error.message}`, true);
@@ -224,21 +263,27 @@ window.RagProPage = {
       pageState.hasAsked = true;
       elements.sendBtn.disabled = true;
       updateComposerTelemetry();
-      updateCurrentTurn(query, pageState.streaming ? "流式生成中" : "请求中");
+      updateCurrentTurn(query, "正在处理问题");
       addMessage("user", query);
+      const assistantNode = addThinkingMessage();
       elements.queryInput.value = "";
       updateComposerTelemetry();
       helpers.setStatus(pageState.streaming ? "正在流式生成答案..." : "正在请求答案...");
 
       try {
         if (pageState.streaming) {
-          await sendStreamingQuery(query);
+          await sendStreamingQuery(query, assistantNode);
         } else {
-          await sendNormalQuery(query);
+          await sendNormalQuery(query, assistantNode);
         }
         updateCurrentTurn(query, "已完成");
         await loadHistory();
+        await loadSessionList();
       } catch (error) {
+        completeAssistantMessage(
+          assistantNode,
+          "这次提问暂时没有处理成功，请稍后重试，或换一个更明确的问法。",
+        );
         addMessage("system", "这次提问暂时没有处理成功，请稍后重试，或换一个更明确的问法。");
         updateCurrentTurn(query, "请求失败");
         helpers.setStatus(error.message || "当前请求失败，请稍后重试。", true);
@@ -249,7 +294,7 @@ window.RagProPage = {
       }
     }
 
-    async function sendNormalQuery(query) {
+    async function sendNormalQuery(query, assistantNode) {
       const payload = await helpers.apiJson("/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -258,10 +303,10 @@ window.RagProPage = {
       pageState.sessionId = payload.session_id || pageState.sessionId;
       elements.sessionId.textContent = pageState.sessionId || "尚未创建";
       applyMeta(payload);
-      addMessage("assistant", payload.answer || "当前没有返回答案。");
+      completeAssistantMessage(assistantNode, payload.answer || "当前没有返回答案。");
     }
 
-    async function sendStreamingQuery(query) {
+    async function sendStreamingQuery(query, assistantNode) {
       const response = await fetch("/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -271,7 +316,7 @@ window.RagProPage = {
         throw await helpers.buildHttpError(response);
       }
 
-      const assistantNode = addMessage("assistant", "");
+      const answerNode = assistantNode || addMessage("assistant", "");
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let buffer = "";
@@ -295,14 +340,15 @@ window.RagProPage = {
           if (payload.event === "start") {
             pageState.sessionId = payload.session_id || pageState.sessionId;
             elements.sessionId.textContent = pageState.sessionId || "尚未创建";
+            updateSearchProgress(answerNode, payload);
             applyMeta(payload);
           } else if (payload.event === "chunk") {
             answer += payload.token || "";
-            assistantNode.querySelector(".message-body").textContent = answer;
+            updateAssistantDraft(answerNode, answer || "正在生成答案...");
             scrollMessages();
           } else if (payload.event === "end") {
             answer = payload.answer || answer;
-            assistantNode.querySelector(".message-body").textContent = answer || "当前没有返回答案。";
+            completeAssistantMessage(answerNode, answer || "当前没有返回答案。");
             applyMeta(payload);
           } else if (payload.event === "error") {
             throw new Error(payload.error || "流式响应失败");
@@ -324,21 +370,113 @@ window.RagProPage = {
     function addMessage(role, text) {
       const node = elements.messageTemplate.content.firstElementChild.cloneNode(true);
       node.classList.add(role);
-      node.querySelector(".message-tag").textContent = role === "user"
-        ? "用户"
-        : role === "assistant"
-          ? "助手"
-          : "系统";
       node.querySelector(".message-body").textContent = text || "";
       elements.messageList.appendChild(node);
       scrollMessages();
       return node;
     }
 
+    function addThinkingMessage() {
+      const node = addMessage("assistant", "");
+      node.classList.add("is-thinking");
+      node.querySelector(".message-body").innerHTML = `
+        <div class="search-progress" role="status" aria-live="polite">
+          <span data-search-status-text>检索中</span>
+          <span class="search-progress-dots" aria-hidden="true">
+            <span class="search-progress-dot">.</span>
+            <span class="search-progress-dot">.</span>
+            <span class="search-progress-dot">.</span>
+          </span>
+        </div>
+      `;
+      scrollMessages();
+      return node;
+    }
+
+    function completeAssistantMessage(node, text) {
+      if (!node) {
+        addMessage("assistant", text);
+        return;
+      }
+      node.classList.remove("is-thinking");
+      node.querySelector(".message-body").textContent = text || "";
+      scrollMessages();
+    }
+
+    function updateSearchProgress(node, payload = {}) {
+      if (!node) {
+        return;
+      }
+      const status = node.querySelector("[data-search-status-text]");
+      if (!status) {
+        return;
+      }
+      const count = Number(payload.context_count ?? payload.retrieval_count ?? payload.citation_count);
+      if (Number.isFinite(count) && count > 0) {
+        status.innerHTML = `检索<span class="search-progress-count">${helpers.escapeHtml(count)}</span>篇结果`;
+      } else {
+        status.textContent = "检索中";
+      }
+    }
+
+    function updateAssistantDraft(node, text) {
+      if (!node) {
+        addMessage("assistant", text);
+        return;
+      }
+      node.classList.add("is-thinking");
+      const body = node.querySelector(".message-body");
+      let draft = body.querySelector("[data-thinking-answer]");
+      if (!draft) {
+        draft = document.createElement("div");
+        draft.className = "thinking-answer";
+        draft.setAttribute("data-thinking-answer", "");
+        body.appendChild(draft);
+      }
+      draft.textContent = text || "正在生成答案...";
+      scrollMessages();
+    }
+
+    function renderSessionList() {
+      if (!elements.sessionList) {
+        return;
+      }
+      if (!pageState.sessions.length) {
+        elements.sessionList.innerHTML = helpers.renderEmptyState(
+          "还没有历史会话",
+          "完成至少一轮问答后，这里会列出可恢复的会话记录。",
+          "soft",
+        );
+        return;
+      }
+      elements.sessionList.innerHTML = pageState.sessions.map((session) => {
+        const isActive = session.session_id === pageState.sessionId;
+        const updatedAt = session.updated_at || "时间未知";
+        const question = session.last_question || "未记录最近问题";
+        const answer = session.last_answer || "未记录最近回答";
+        return `
+          <button class="session-history-item${isActive ? " is-active" : ""}" type="button" data-session-id="${helpers.escapeHtml(session.session_id || "")}">
+            <span class="session-history-main">
+              <strong>${helpers.escapeHtml(question)}</strong>
+              <small>${helpers.escapeHtml(answer)}</small>
+            </span>
+            <span class="session-history-meta">
+              <code>${helpers.escapeHtml(session.session_id || "-")}</code>
+              <span>${helpers.escapeHtml(updatedAt)} · ${helpers.escapeHtml(session.turn_count || 0)} 轮</span>
+            </span>
+          </button>
+        `;
+      }).join("");
+    }
+
     function renderHistory() {
+      if (pageState.history.length) {
+        renderRichHistory();
+        return;
+      }
       if (!pageState.history.length) {
         elements.historyList.innerHTML = helpers.renderEmptyState(
-          "还没有会话历史",
+          "暂无历史记录",
           "发送第一轮问题后，最近的问答记录会展示在这里，方便你继续追问或回看。",
           "soft",
         );
@@ -354,6 +492,32 @@ window.RagProPage = {
         `;
         elements.historyList.appendChild(row);
       }
+    }
+
+    function renderRichHistory() {
+      if (!pageState.history.length) {
+        renderHistory();
+        return;
+      }
+      elements.historyList.innerHTML = "";
+      pageState.history.forEach((item, index) => {
+        const question = item.question || "未命名问题";
+        const answer = item.answer || "当前记录没有答案内容。";
+        const node = document.createElement("details");
+        node.className = "history-item qa-history-detail";
+        node.open = index === 0;
+        node.innerHTML = `
+          <summary>
+            <span class="qa-history-index">#${index + 1}</span>
+            <strong>${helpers.escapeHtml(question)}</strong>
+          </summary>
+          <div class="qa-history-body">
+            <span class="label">完整回答</span>
+            <p>${helpers.escapeHtml(answer)}</p>
+          </div>
+        `;
+        elements.historyList.appendChild(node);
+      });
     }
 
     function renderHistoryCount() {
@@ -372,8 +536,7 @@ window.RagProPage = {
       setText(elements.strategy, payload.retrieval_strategy || "-");
       setText(elements.backend, payload.retrieval_backend || "-");
       setText(elements.context, String(payload.context_count || 0));
-      setText(elements.routeReason, payload.route_reason || "等待请求");
-      setText(elements.strategyReason, payload.strategy_reason || "等待请求");
+      renderRouteDetails(payload);
       renderCitations(payload.citations || []);
       renderSummary(payload.retrieval_backend || "未知");
 
@@ -386,6 +549,57 @@ window.RagProPage = {
       if (elements.currentStage && statusParts.length) {
         elements.currentStage.textContent = statusParts.join(" / ");
       }
+    }
+
+    function textOrFallback(value, fallback = "-") {
+      if (value === null || value === undefined || value === "") {
+        return fallback;
+      }
+      return String(value);
+    }
+
+    function formatConfidence(confidence) {
+      if (!confidence) {
+        return "未返回";
+      }
+      const label = textOrFallback(confidence.label, "unknown");
+      const score = confidence.score !== null && confidence.score !== undefined
+        ? ` ${confidence.score}`
+        : "";
+      return `${label}${score}`;
+    }
+
+    function renderRouteDetails(payload = {}) {
+      if (!elements.routeDetailList) {
+        return;
+      }
+      const citations = Array.isArray(payload.citations) ? payload.citations : [];
+      const selectedSource = payload.source_filter
+        || helpers.getSourceSelectValue(elements.sourceFilter)
+        || AUTO_SOURCE_PLACEHOLDER;
+      const details = [
+        ["目标来源", selectedSource],
+        ["检索问题", payload.retrieval_query || payload.normalized_query || "未返回"],
+        ["置信度", formatConfidence(payload.confidence)],
+        ["引用数量", `${citations.length} 条`],
+      ];
+
+      if (payload.matched_question) {
+        details.push(["匹配问题", payload.matched_question]);
+      }
+      if (payload.fallback_reason) {
+        details.push(["降级原因", payload.fallback_reason]);
+      }
+      if (payload.error) {
+        details.push(["异常信息", payload.error]);
+      }
+
+      elements.routeDetailList.innerHTML = details.map(([label, value]) => `
+        <article class="qa-detail-row">
+          <span>${helpers.escapeHtml(label)}</span>
+          <strong>${helpers.escapeHtml(textOrFallback(value))}</strong>
+        </article>
+      `).join("");
     }
 
     function renderCitations(citations) {
@@ -401,7 +615,8 @@ window.RagProPage = {
       elements.citationsList.innerHTML = "";
       for (const item of citations) {
         const node = document.createElement("article");
-        node.className = "citation-item";
+        node.className = "citation-item qa-evidence-card";
+        node.setAttribute("data-citation-source", item.source || "unknown");
         const matchedChunks = item.matched_chunks
           ? `<span class="subtle">命中 ${helpers.escapeHtml(item.matched_chunks)}</span>`
           : "";
@@ -426,8 +641,13 @@ window.RagProPage = {
       setText(elements.strategy, "-");
       setText(elements.backend, "-");
       setText(elements.context, "0");
-      setText(elements.routeReason, "等待请求");
-      setText(elements.strategyReason, "等待请求");
+      if (elements.routeDetailList) {
+        elements.routeDetailList.innerHTML = helpers.renderEmptyState(
+          "等待路由详情",
+          "发起提问后，这里会展示目标来源、检索问题、置信度和引用数量。",
+          "soft",
+        );
+      }
       if (elements.citationsList) {
         elements.citationsList.innerHTML = helpers.renderEmptyState(
           "当前没有引用证据",

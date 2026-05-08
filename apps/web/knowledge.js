@@ -2,12 +2,15 @@ window.RagProPage = {
   async init({ state, helpers }) {
     const UPLOAD_HISTORY_KEY = "ragpro.uploadHistory";
     const MAX_UPLOAD_HISTORY = 8;
+    const MAX_UPLOAD_FILE_BYTES = 25 * 1024 * 1024;
+    const MAX_UPLOAD_FILE_COUNT = 10;
     const pageState = {
       uploadPending: false,
       uploadFiles: [],
       uploadHistory: loadUploadHistory(),
     };
     let sourceRefreshPromise = null;
+    let uploadProgressTimer = null;
     const preferredSource = new URLSearchParams(window.location.search).get("source") || "";
 
     const elements = {
@@ -18,6 +21,7 @@ window.RagProPage = {
       uploadSubmitBtn: document.getElementById("upload-submit-btn"),
       uploadDropZone: document.getElementById("upload-drop-zone"),
       uploadFileList: document.getElementById("upload-file-list"),
+      uploadProgress: document.querySelector(".upload-progress"),
       uploadProgressLabel: document.getElementById("upload-progress-label"),
       uploadProgressValue: document.getElementById("upload-progress-value"),
       uploadProgressFill: document.getElementById("upload-progress-fill"),
@@ -53,6 +57,13 @@ window.RagProPage = {
       });
       elements.uploadFileInput?.addEventListener("change", () => {
         setUploadFiles(Array.from(elements.uploadFileInput.files || []));
+      });
+      elements.uploadFileList?.addEventListener("click", (event) => {
+        const removeButton = event.target.closest("[data-upload-file-remove]");
+        if (!removeButton || pageState.uploadPending) {
+          return;
+        }
+        removeUploadFile(Number(removeButton.dataset.uploadFileRemove));
       });
       elements.uploadForm?.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -147,11 +158,27 @@ window.RagProPage = {
         helpers.setStatus("请至少选择一个文件。", true);
         return;
       }
+      if (files.length > MAX_UPLOAD_FILE_COUNT) {
+        renderUploadResult({ message: `单次最多选择 ${MAX_UPLOAD_FILE_COUNT} 个文件，请拆分后上传。`, isError: true });
+        helpers.setStatus(`单次最多选择 ${MAX_UPLOAD_FILE_COUNT} 个文件。`, true);
+        return;
+      }
+      const oversizedFiles = files.filter((file) => file.size > MAX_UPLOAD_FILE_BYTES);
+      if (oversizedFiles.length) {
+        const names = oversizedFiles.map((file) => file.name).slice(0, 3).join("、");
+        renderUploadResult({
+          message: `单个文件最大 ${helpers.formatBytes(MAX_UPLOAD_FILE_BYTES)}，请先压缩或拆分：${names}`,
+          isError: true,
+        });
+        helpers.setStatus("存在超过上传上限的文件。", true);
+        return;
+      }
 
       pageState.uploadPending = true;
       elements.uploadSubmitBtn.disabled = true;
       setUploadProgress(0, "正在准备上传");
       setUploadStage("prepare");
+      startUploadProgressLoop();
       helpers.setStatus("正在上传并入库...");
 
       const formData = new FormData();
@@ -163,6 +190,7 @@ window.RagProPage = {
 
       try {
         const result = await submitUploadRequest(formData);
+        stopUploadProgressLoop();
         pageState.uploadHistory = [
           {
             source: result.source,
@@ -187,11 +215,13 @@ window.RagProPage = {
         renderSummary();
         helpers.setStatus("文档上传并入库完成。");
       } catch (error) {
+        stopUploadProgressLoop();
         setUploadProgress(0, "上传失败");
         setUploadStage("error");
         renderUploadResult({ message: `上传失败：${error.message}`, isError: true });
         helpers.setStatus("上传失败，请检查服务状态后重试。", true);
       } finally {
+        stopUploadProgressLoop();
         pageState.uploadPending = false;
         elements.uploadSubmitBtn.disabled = false;
       }
@@ -206,7 +236,8 @@ window.RagProPage = {
             return;
           }
           const percent = Math.round((event.loaded / event.total) * 100);
-          setUploadProgress(percent, percent >= 100 ? "服务端处理中..." : "正在上传");
+          const visiblePercent = percent >= 100 ? 96 : Math.min(percent, 96);
+          setUploadProgress(visiblePercent, percent >= 100 ? "服务端处理中..." : "正在上传");
           setUploadStage(percent >= 100 ? "process" : "upload");
         });
         xhr.onreadystatechange = () => {
@@ -234,11 +265,31 @@ window.RagProPage = {
     }
 
     function setUploadFiles(files) {
-      pageState.uploadFiles = files;
+      const incomingFiles = Array.from(files || []);
+      pageState.uploadFiles = incomingFiles.slice(0, MAX_UPLOAD_FILE_COUNT);
+      if (elements.uploadFileInput && !pageState.uploadFiles.length) {
+        elements.uploadFileInput.value = "";
+      }
+      if (incomingFiles.length > MAX_UPLOAD_FILE_COUNT) {
+        renderUploadResult({
+          message: `单次最多选择 ${MAX_UPLOAD_FILE_COUNT} 个文件，已保留前 ${MAX_UPLOAD_FILE_COUNT} 个。`,
+          isError: true,
+        });
+      }
       renderSelectedFiles();
       if (!pageState.uploadPending) {
-        setUploadStage(files.length ? "prepare" : "select");
+        setUploadStage(pageState.uploadFiles.length ? "prepare" : "select");
       }
+    }
+
+    function removeUploadFile(index) {
+      if (!Number.isInteger(index) || index < 0 || index >= pageState.uploadFiles.length) {
+        return;
+      }
+      if (elements.uploadFileInput) {
+        elements.uploadFileInput.value = "";
+      }
+      setUploadFiles(pageState.uploadFiles.filter((_, fileIndex) => fileIndex !== index));
     }
 
     function renderSelectedFiles() {
@@ -250,18 +301,57 @@ window.RagProPage = {
         );
         return;
       }
-      elements.uploadFileList.innerHTML = pageState.uploadFiles.map((file) => `
-        <div class="upload-file-item">
-          <strong>${helpers.escapeHtml(file.name)}</strong>
-          <span class="subtle">${helpers.formatBytes(file.size)}</span>
+      elements.uploadFileList.innerHTML = pageState.uploadFiles.map((file, index) => `
+        <div class="upload-file-item" data-upload-file-index="${index}">
+          <span class="upload-file-main">
+            <strong>${helpers.escapeHtml(file.name)}</strong>
+            <span class="subtle">${helpers.formatBytes(file.size)}</span>
+          </span>
+          <button
+            class="upload-file-remove"
+            type="button"
+            data-upload-file-remove="${index}"
+            aria-label="移除 ${helpers.escapeHtml(file.name)}"
+            ${pageState.uploadPending ? "disabled" : ""}
+          >移除</button>
         </div>
       `).join("");
     }
 
     function setUploadProgress(percent, label) {
+      const normalizedPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
       elements.uploadProgressLabel.textContent = label;
-      elements.uploadProgressValue.textContent = `${percent}%`;
-      elements.uploadProgressFill.style.width = `${percent}%`;
+      elements.uploadProgressValue.textContent = `${normalizedPercent}%`;
+      elements.uploadProgressFill.style.width = `${normalizedPercent}%`;
+      elements.uploadProgressFill.dataset.progress = String(normalizedPercent);
+    }
+
+    function startUploadProgressLoop() {
+      stopUploadProgressLoop();
+      elements.uploadProgress?.setAttribute("aria-busy", "true");
+      elements.uploadProgressFill?.classList.add("is-moving");
+      setUploadProgress(8, "正在上传");
+      setUploadStage("upload");
+      uploadProgressTimer = window.setInterval(() => {
+        if (!pageState.uploadPending) {
+          return;
+        }
+        const currentProgress = Number(elements.uploadProgressFill?.dataset.progress || 0);
+        const increment = currentProgress < 50 ? 7 : currentProgress < 78 ? 4 : 2;
+        const nextProgress = Math.min(94, currentProgress + increment);
+        const isProcessing = nextProgress >= 82;
+        setUploadProgress(nextProgress, isProcessing ? "服务端处理中..." : "正在上传");
+        setUploadStage(isProcessing ? "process" : "upload");
+      }, 420);
+    }
+
+    function stopUploadProgressLoop() {
+      if (uploadProgressTimer) {
+        window.clearInterval(uploadProgressTimer);
+        uploadProgressTimer = null;
+      }
+      elements.uploadProgress?.setAttribute("aria-busy", "false");
+      elements.uploadProgressFill?.classList.remove("is-moving");
     }
 
     function setUploadStage(stage) {
