@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -61,6 +62,38 @@ class DocumentUploadServiceTests(unittest.TestCase):
         self.assertEqual(retrieval.deleted_sources, [])
         self.assertTrue(retrieval.added_documents)
         self.assertEqual(result["files"][0]["filename"], "notes.txt")
+
+    def test_upload_service_extracts_text_from_pptx_without_optional_loader(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_root = Path(tmpdir)
+            pptx_path = temp_root / "policy.pptx"
+            self._write_minimal_pptx(
+                pptx_path,
+                "医保限制用药录入",
+                "在医保目录维护中选择限制用药规则并保存。",
+            )
+            retrieval = FakeRetrievalService()
+            service = DocumentUploadService(
+                upload_root=temp_root / "uploads",
+                retrieval_service_factory=lambda: retrieval,
+                max_file_size_bytes=1024 * 1024,
+            )
+
+            result = service.upload_documents(
+                source="med",
+                files=[
+                    IncomingDocument(
+                        filename="policy.pptx",
+                        path=pptx_path,
+                        content_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    )
+                ],
+            )
+
+        self.assertEqual(result["source"], "med")
+        self.assertGreater(result["document_chunks"], 0)
+        indexed_text = "\n".join(doc.page_content for doc in retrieval.added_documents)
+        self.assertIn("医保限制用药录入", indexed_text)
 
     def test_upload_service_replace_source_deletes_existing_vectors_first(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -150,6 +183,25 @@ class DocumentUploadServiceTests(unittest.TestCase):
                         )
                     ],
                 )
+
+    @staticmethod
+    def _write_minimal_pptx(path: Path, *texts: str) -> None:
+        slide_text = "".join(f"<a:p><a:r><a:t>{text}</a:t></a:r></a:p>" for text in texts)
+        slide_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+       xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+  <p:cSld>
+    <p:spTree>
+      <p:sp>
+        <p:txBody>{slide_text}</p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+</p:sld>
+"""
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("[Content_Types].xml", "<Types></Types>")
+            archive.writestr("ppt/slides/slide1.xml", slide_xml)
 
 
 if __name__ == "__main__":

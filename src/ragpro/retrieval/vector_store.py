@@ -85,14 +85,14 @@ class VectorStore:
         )
         self._create_or_load_collection()
         self.backend = "milvus"
-        logger.info("Vector backend initialized: milvus")
+        logger.debug("Vector backend initialized: milvus")
 
     def _initialize_local_backend(self) -> None:
         self.backend = "local"
         self.local_store_path.parent.mkdir(parents=True, exist_ok=True)
         self.local_records = self._load_local_records()
         self._rebuild_local_index()
-        logger.info("Vector backend initialized: local (%s)", self.local_store_path)
+        logger.debug("Vector backend initialized: local (%s)", self.local_store_path)
 
     def _create_or_load_collection(self) -> None:
         from pymilvus import DataType
@@ -152,7 +152,7 @@ class VectorStore:
         existing = {row["id"]: row for row in self.local_records}
         for doc in documents:
             record = {
-                "id": hashlib.md5(doc.page_content.encode("utf-8")).hexdigest(),
+                "id": self._build_document_id(doc),
                 "text": doc.page_content,
                 "parent_id": doc.metadata["parent_id"],
                 "parent_content": doc.metadata["parent_content"],
@@ -181,7 +181,7 @@ class VectorStore:
 
             data.append(
                 {
-                    "id": hashlib.md5(doc.page_content.encode("utf-8")).hexdigest(),
+                    "id": self._build_document_id(doc),
                     "text": doc.page_content,
                     "dense_vector": np.asarray(embeddings["dense"][index], dtype=np.float32),
                     "sparse_vector": sparse_vector,
@@ -194,6 +194,18 @@ class VectorStore:
 
         self.client.upsert(collection_name=self.collection_name, data=data)
         logger.info("Upserted %s documents into Milvus.", len(data))
+
+    @staticmethod
+    def _build_document_id(doc: Document) -> str:
+        identity = "|".join(
+            [
+                str(doc.metadata.get("source") or "unknown"),
+                str(doc.metadata.get("file_path") or ""),
+                str(doc.metadata.get("id") or ""),
+                doc.page_content,
+            ]
+        )
+        return hashlib.md5(identity.encode("utf-8")).hexdigest()
 
     def _delete_source_local(self, source: str) -> int:
         before = len(self.local_records)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -28,8 +29,9 @@ class DocumentUploadError(ValueError):
 @dataclass(frozen=True)
 class IncomingDocument:
     filename: str
-    content: bytes
+    content: bytes | None = None
     content_type: str | None = None
+    path: Path | None = None
 
 
 class DocumentUploadService:
@@ -130,7 +132,7 @@ class DocumentUploadService:
         if suffix not in ALLOWED_UPLOAD_EXTENSIONS:
             raise DocumentUploadError(f"Unsupported file type: {suffix or '[no extension]'}")
 
-        size_bytes = len(item.content)
+        size_bytes = item.path.stat().st_size if item.path else len(item.content or b"")
         if size_bytes <= 0:
             raise DocumentUploadError(f"Uploaded file is empty: {original_name}")
         if size_bytes > self.max_file_size_bytes:
@@ -139,7 +141,10 @@ class DocumentUploadService:
             )
 
         target_path = self._resolve_target_path(request_dir, original_name)
-        target_path.write_bytes(item.content)
+        if item.path:
+            shutil.copyfile(item.path, target_path)
+        else:
+            target_path.write_bytes(item.content or b"")
         return {
             "filename": original_name,
             "stored_name": target_path.name,

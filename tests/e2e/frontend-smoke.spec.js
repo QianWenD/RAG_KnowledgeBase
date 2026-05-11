@@ -739,6 +739,74 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator(".upload-progress")).toHaveAttribute("aria-busy", "false");
   });
 
+  test("knowledge upload polls async ingestion job until it completes", async ({ page }) => {
+    let jobPolls = 0;
+    await page.route("**/documents/upload", async (route) => {
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          job_id: "upload_job_1",
+          status: "queued",
+          stage: "queued",
+          progress: 5,
+          source: "ai",
+          file_count: 1,
+          message: "文件已接收，等待入库。",
+          poll_url: "/documents/upload-jobs/upload_job_1",
+        }),
+      });
+    });
+    await page.route("**/documents/upload-jobs/upload_job_1", async (route) => {
+      jobPolls += 1;
+      const body = jobPolls <= 2
+        ? {
+            job_id: "upload_job_1",
+            status: "running",
+            stage: "process",
+            progress: 62,
+            source: "ai",
+            message: "正在解析、切块并写入向量库...",
+          }
+        : {
+            job_id: "upload_job_1",
+            status: "succeeded",
+            stage: "done",
+            progress: 100,
+            source: "ai",
+            message: "文档上传并入库完成。",
+            result: {
+              source: "ai",
+              replace_source: false,
+              file_count: 1,
+              raw_document_count: 1,
+              document_chunks: 7,
+              deleted_before_index: 0,
+              retrieval_backend: "local",
+              files: [],
+            },
+          };
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(body),
+      });
+    });
+
+    await page.goto(`${baseURL}/knowledge`);
+    await page.locator("#upload-source").selectOption("ai");
+    await page.locator("#upload-file-input").setInputFiles(
+      path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
+    );
+    await page.locator("#upload-submit-btn").click();
+
+    await expect(page.locator("#upload-progress-label")).toContainText("正在解析");
+    await expect.poll(() => jobPolls).toBeGreaterThanOrEqual(3);
+    await expect(page.locator("#upload-progress-value")).toHaveText("100%");
+    await expect(page.locator("#upload-result")).toContainText("生成 7 个切块");
+    await expect(page.locator(".upload-progress")).toHaveAttribute("aria-busy", "false");
+  });
+
   test("knowledge upload refreshes source options when choosing target source", async ({ page }) => {
     let sourceRequests = 0;
 

@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
+from threading import Lock
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
@@ -21,6 +24,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from ragpro.auth import QueryAccessError, filter_sources_for_user, resolve_query_source_scope
 from ragpro.config import get_logger, get_settings
+from ragpro.ingestion.upload_jobs import UploadJobRegistry
 from ragpro.runtime import run_healthcheck, run_preflight
 from ragpro.routing import UnifiedQueryRouter
 
@@ -40,6 +44,13 @@ settings = get_settings()
 app = FastAPI(title="RAGPro API", description="Formalized API entrypoint for the RAGPro project")
 if WEB_ROOT.exists():
     app.mount("/static", StaticFiles(directory=str(WEB_ROOT)), name="static")
+_upload_job_registry = UploadJobRegistry()
+_upload_job_executor = ThreadPoolExecutor(
+    max_workers=max(1, settings.upload_job_workers),
+    thread_name_prefix="ragpro-upload",
+)
+_rag_service = None
+_rag_service_lock = Lock()
 
 AUDIT_ACTIONS = (
     "register",
@@ -90,12 +101,25 @@ def _build_rag_service():
     from ragpro.generation.service import RAGGenerationService
     from ragpro.retrieval import RetrievalService, VectorStore
 
-    retrieval_service = RetrievalService(vector_store=VectorStore())
-    return RAGGenerationService(
-        retrieval_service=retrieval_service,
-        llm=_call_local_llm,
-        llm_stream=_stream_local_llm,
-    )
+    global _rag_service
+    if _rag_service is not None:
+        return _rag_service
+
+    with _rag_service_lock:
+        if _rag_service is not None:
+            return _rag_service
+
+        retrieval_service = RetrievalService(vector_store=VectorStore())
+        service = RAGGenerationService(
+            retrieval_service=retrieval_service,
+            llm=_call_local_llm,
+            llm_stream=_stream_local_llm,
+        )
+        if getattr(retrieval_service.vector_store, "backend", None) != "milvus":
+            return service
+
+        _rag_service = service
+        return _rag_service
 
 
 def _build_document_upload_service():
@@ -1561,9 +1585,150 @@ def faq_query(payload: QueryRequest, request: Request) -> dict:
             repository.close()
 
 
+_UPLOAD_STREAM_CHUNK_BYTES = 1024 * 1024
+
+
+def _upload_job_payload(job: dict | None) -> dict | None:
+    if job is None:
+        return None
+    payload = dict(job)
+    payload["poll_url"] = f"/documents/upload-jobs/{payload['job_id']}"
+    return payload
+
+
+def _pending_upload_root() -> Path:
+    return settings.upload_dir / "_pending_jobs"
+
+
+def _resolve_staged_upload_path(staging_dir: Path, filename: str) -> Path:
+    base = Path(filename)
+    stem = base.stem[:120] or "upload"
+    suffix = base.suffix
+    candidate = staging_dir / f"{stem}{suffix}"
+    index = 1
+    while candidate.exists():
+        candidate = staging_dir / f"{stem}_{index}{suffix}"
+        index += 1
+    return candidate
+
+
+def _cleanup_directory(path: Path | None) -> None:
+    if path is None or not path.exists():
+        return
+    for child in sorted(path.rglob("*"), reverse=True):
+        if child.is_file():
+            child.unlink(missing_ok=True)
+        elif child.is_dir():
+            child.rmdir()
+    path.rmdir()
+
+
+async def _stage_uploaded_file(item: UploadFile, staging_dir: Path):
+    from ragpro.ingestion import DocumentUploadError, IncomingDocument
+    from ragpro.ingestion.upload_service import ALLOWED_UPLOAD_EXTENSIONS, DocumentUploadService
+
+    original_name = DocumentUploadService._sanitize_filename(item.filename or "")
+    suffix = Path(original_name).suffix.lower()
+    if suffix not in ALLOWED_UPLOAD_EXTENSIONS:
+        raise DocumentUploadError(f"Unsupported file type: {suffix or '[no extension]'}")
+
+    target_path = _resolve_staged_upload_path(staging_dir, original_name)
+    size_bytes = 0
+    try:
+        with target_path.open("wb") as handle:
+            while True:
+                chunk = await item.read(_UPLOAD_STREAM_CHUNK_BYTES)
+                if not chunk:
+                    break
+                size_bytes += len(chunk)
+                if size_bytes > settings.max_upload_file_size_bytes:
+                    raise DocumentUploadError(
+                        f"File too large: {original_name} exceeds {settings.max_upload_file_size_bytes} bytes"
+                    )
+                handle.write(chunk)
+    except Exception:
+        target_path.unlink(missing_ok=True)
+        raise
+
+    if size_bytes <= 0:
+        target_path.unlink(missing_ok=True)
+        raise DocumentUploadError(f"Uploaded file is empty: {original_name}")
+
+    return IncomingDocument(
+        filename=original_name,
+        content_type=item.content_type,
+        path=target_path,
+    )
+
+
+async def _stage_uploaded_files(files: list[UploadFile]) -> list:
+    staging_dir = _pending_upload_root() / uuid4().hex
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    staged_files = []
+    try:
+        for item in files:
+            staged_files.append(await _stage_uploaded_file(item, staging_dir))
+        return staged_files
+    except Exception:
+        _cleanup_directory(staging_dir)
+        raise
+
+
+def _submit_upload_job(*, source: str, files: list, replace_source: bool) -> dict:
+    job = _upload_job_registry.create(
+        source=source,
+        replace_source=replace_source,
+        file_count=len(files),
+    )
+    job_id = job["job_id"]
+    staging_dir = Path(files[0].path).parent if files and getattr(files[0], "path", None) else None
+    _upload_job_executor.submit(
+        _run_upload_job,
+        job_id,
+        source,
+        files,
+        replace_source,
+        staging_dir,
+    )
+    return _upload_job_payload(job)
+
+
+def _run_upload_job(job_id: str, source: str, files: list, replace_source: bool, staging_dir: Path | None) -> None:
+    from ragpro.ingestion import DocumentUploadError
+
+    try:
+        _upload_job_registry.mark_running(
+            job_id,
+            stage="process",
+            progress=45,
+            message="正在解析、切块并写入向量库...",
+        )
+        service = _build_document_upload_service()
+        result = service.upload_documents(
+            source=source,
+            files=files,
+            replace_source=replace_source,
+        )
+        _upload_job_registry.mark_succeeded(job_id, result)
+    except DocumentUploadError as exc:
+        _upload_job_registry.mark_failed(job_id, str(exc))
+    except ValueError as exc:
+        _upload_job_registry.mark_failed(job_id, str(exc))
+    except Exception as exc:
+        logger.exception("Document upload job failed.")
+        _upload_job_registry.mark_failed(job_id, f"Document upload unavailable: {exc}")
+    finally:
+        _cleanup_directory(staging_dir)
+
+
+def _get_upload_job(job_id: str) -> dict | None:
+    return _upload_job_payload(_upload_job_registry.get(job_id))
+
+
 @app.post("/documents/upload")
 async def upload_documents(
     request: Request,
+    response: Response,
     source: str = Form(...),
     replace_source: bool = Form(False),
     files: list[UploadFile] = File(...),
@@ -1577,21 +1742,12 @@ async def upload_documents(
 
     from ragpro.ingestion import DocumentUploadError, IncomingDocument
 
-    incoming_files: list[IncomingDocument] = []
     try:
-        for item in files:
-            content = await item.read()
-            incoming_files.append(
-                IncomingDocument(
-                    filename=item.filename or "",
-                    content=content,
-                    content_type=item.content_type,
-                )
-            )
-        service = _build_document_upload_service()
-        return service.upload_documents(
+        staged_files: list[IncomingDocument] = await _stage_uploaded_files(files)
+        response.status_code = 202
+        return _submit_upload_job(
             source=source,
-            files=incoming_files,
+            files=staged_files,
             replace_source=replace_source,
         )
     except DocumentUploadError as exc:
@@ -1606,6 +1762,15 @@ async def upload_documents(
     finally:
         for item in files:
             await item.close()
+
+
+@app.get("/documents/upload-jobs/{job_id}")
+def get_upload_job(job_id: str, request: Request) -> dict:
+    _require_admin_user(request)
+    job = _get_upload_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Upload job not found.")
+    return job
 
 
 @app.post("/reindex")

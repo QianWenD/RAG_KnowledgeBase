@@ -4,6 +4,8 @@ window.RagProPage = {
     const MAX_UPLOAD_HISTORY = 8;
     const MAX_UPLOAD_FILE_BYTES = 25 * 1024 * 1024;
     const MAX_UPLOAD_FILE_COUNT = 10;
+    const UPLOAD_JOB_POLL_INTERVAL_MS = 900;
+    const UPLOAD_JOB_TIMEOUT_MS = 30 * 60 * 1000;
     const pageState = {
       uploadPending: false,
       uploadFiles: [],
@@ -189,7 +191,8 @@ window.RagProPage = {
       }
 
       try {
-        const result = await submitUploadRequest(formData);
+        const uploadResponse = await submitUploadRequest(formData);
+        const result = uploadResponse?.job_id ? await waitForUploadJob(uploadResponse) : uploadResponse;
         stopUploadProgressLoop();
         pageState.uploadHistory = [
           {
@@ -264,6 +267,90 @@ window.RagProPage = {
       });
     }
 
+    async function waitForUploadJob(initialJob) {
+      stopUploadProgressLoop();
+      activateUploadProgressBusy();
+      let job = initialJob;
+      const startedAt = Date.now();
+      applyUploadJobProgress(job);
+      while (!["succeeded", "failed"].includes(job.status)) {
+        if (Date.now() - startedAt > UPLOAD_JOB_TIMEOUT_MS) {
+          throw new Error("上传入库任务超时，请稍后到历史记录中确认结果。");
+        }
+        await delay(UPLOAD_JOB_POLL_INTERVAL_MS);
+        job = await fetchUploadJob(job.job_id);
+        applyUploadJobProgress(job);
+      }
+      if (job.status === "failed") {
+        throw new Error(job.error || job.message || "上传入库失败");
+      }
+      return job.result || job;
+    }
+
+    async function fetchUploadJob(jobId) {
+      return helpers.apiJson(`/documents/upload-jobs/${encodeURIComponent(jobId)}`);
+    }
+
+    function applyUploadJobProgress(job) {
+      const stage = normalizeUploadJobStage(job);
+      const progress = Number.isFinite(Number(job.progress)) ? Number(job.progress) : progressForUploadJobStage(stage);
+      setUploadProgress(progress, job.message || labelForUploadJobStage(stage));
+      setUploadStage(stage);
+      helpers.setStatus(job.message || "上传入库任务正在处理...");
+    }
+
+    function normalizeUploadJobStage(job) {
+      if (job.status === "succeeded") {
+        return "done";
+      }
+      if (job.status === "failed") {
+        return "error";
+      }
+      if (job.stage === "queued") {
+        return "prepare";
+      }
+      if (job.stage === "process" || job.stage === "done" || job.stage === "upload") {
+        return job.stage;
+      }
+      return "process";
+    }
+
+    function progressForUploadJobStage(stage) {
+      if (stage === "prepare") {
+        return 12;
+      }
+      if (stage === "upload") {
+        return 35;
+      }
+      if (stage === "process") {
+        return 68;
+      }
+      if (stage === "done") {
+        return 100;
+      }
+      return 0;
+    }
+
+    function labelForUploadJobStage(stage) {
+      if (stage === "prepare") {
+        return "入库任务已创建";
+      }
+      if (stage === "upload") {
+        return "正在保存文件";
+      }
+      if (stage === "process") {
+        return "正在解析、切块并写入向量库";
+      }
+      if (stage === "done") {
+        return "上传完成";
+      }
+      return "上传失败";
+    }
+
+    function delay(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
     function setUploadFiles(files) {
       const incomingFiles = Array.from(files || []);
       pageState.uploadFiles = incomingFiles.slice(0, MAX_UPLOAD_FILE_COUNT);
@@ -328,8 +415,7 @@ window.RagProPage = {
 
     function startUploadProgressLoop() {
       stopUploadProgressLoop();
-      elements.uploadProgress?.setAttribute("aria-busy", "true");
-      elements.uploadProgressFill?.classList.add("is-moving");
+      activateUploadProgressBusy();
       setUploadProgress(8, "正在上传");
       setUploadStage("upload");
       uploadProgressTimer = window.setInterval(() => {
@@ -352,6 +438,11 @@ window.RagProPage = {
       }
       elements.uploadProgress?.setAttribute("aria-busy", "false");
       elements.uploadProgressFill?.classList.remove("is-moving");
+    }
+
+    function activateUploadProgressBusy() {
+      elements.uploadProgress?.setAttribute("aria-busy", "true");
+      elements.uploadProgressFill?.classList.add("is-moving");
     }
 
     function setUploadStage(stage) {

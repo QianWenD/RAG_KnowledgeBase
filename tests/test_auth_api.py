@@ -3,7 +3,7 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 try:
     from fastapi.testclient import TestClient
@@ -699,7 +699,7 @@ class AuthAPITests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def test_admin_can_upload_documents_to_custom_source(self) -> None:
+    def test_admin_upload_documents_returns_async_job(self) -> None:
         admin = AuthenticatedUser(
             id=1,
             username="admin",
@@ -709,24 +709,25 @@ class AuthAPITests(unittest.TestCase):
         )
         captured: dict[str, object] = {}
 
-        class FakeUploadService:
-            def upload_documents(self, *, source, files, replace_source=False):
-                captured["source"] = source
-                return {
-                    "source": source,
-                    "replace_source": replace_source,
-                    "file_count": len(files),
-                    "raw_document_count": len(files),
-                    "document_chunks": 1,
-                    "deleted_before_index": 0,
-                    "retrieval_backend": "local",
-                    "upload_directory": "runtime/uploads/policy_2026",
-                    "files": [{"filename": "notes.txt", "stored_name": "notes.txt"}],
-                }
+        def fake_submit_upload_job(*, source, files, replace_source):
+            captured["source"] = source
+            captured["file_count"] = len(files)
+            captured["replace_source"] = replace_source
+            return {
+                "job_id": "upload_job_1",
+                "status": "queued",
+                "stage": "queued",
+                "progress": 5,
+                "source": source,
+                "file_count": len(files),
+                "message": "文件已接收，等待入库。",
+                "poll_url": "/documents/upload-jobs/upload_job_1",
+            }
 
         with (
             patch("apps.api.main._require_admin_user", return_value=admin),
-            patch("apps.api.main._build_document_upload_service", return_value=FakeUploadService()),
+            patch("apps.api.main._stage_uploaded_files", new=AsyncMock(return_value=[Mock(path=None)])),
+            patch("apps.api.main._submit_upload_job", side_effect=fake_submit_upload_job),
         ):
             response = self.client.post(
                 "/documents/upload",
@@ -734,9 +735,42 @@ class AuthAPITests(unittest.TestCase):
                 files=[("files", ("notes.txt", b"RAG notes", "text/plain"))],
             )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["source"], "policy_2026")
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json()["job_id"], "upload_job_1")
+        self.assertEqual(response.json()["status"], "queued")
+        self.assertEqual(response.json()["poll_url"], "/documents/upload-jobs/upload_job_1")
         self.assertEqual(captured["source"], "policy_2026")
+        self.assertEqual(captured["file_count"], 1)
+
+    def test_admin_can_read_upload_job_status(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch(
+                "apps.api.main._get_upload_job",
+                return_value={
+                    "job_id": "upload_job_1",
+                    "status": "succeeded",
+                    "stage": "done",
+                    "progress": 100,
+                    "source": "policy_2026",
+                    "message": "文档上传并入库完成。",
+                    "result": {"source": "policy_2026", "file_count": 1, "document_chunks": 3},
+                },
+            ),
+        ):
+            response = self.client.get("/documents/upload-jobs/upload_job_1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "succeeded")
+        self.assertEqual(response.json()["result"]["document_chunks"], 3)
 
     def test_query_rejects_source_outside_user_scope(self) -> None:
         user = AuthenticatedUser(

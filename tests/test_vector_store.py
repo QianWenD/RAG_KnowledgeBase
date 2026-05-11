@@ -33,6 +33,18 @@ class VectorStoreSparseCompatibilityTests(unittest.TestCase):
 
         self.assertEqual(row, {1: 0.5, 3: 0.7})
 
+    def test_document_id_uses_metadata_identity_to_avoid_batch_duplicates(self) -> None:
+        first = Document(
+            page_content="重复文本",
+            metadata={"source": "med", "file_path": "a.pptx", "id": "slide-1"},
+        )
+        second = Document(
+            page_content="重复文本",
+            metadata={"source": "med", "file_path": "a.pptx", "id": "slide-2"},
+        )
+
+        self.assertNotEqual(VectorStore._build_document_id(first), VectorStore._build_document_id(second))
+
 
 class LocalVectorStoreSourceReplacementTests(unittest.TestCase):
     def setUp(self) -> None:

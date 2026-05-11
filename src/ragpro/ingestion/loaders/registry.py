@@ -4,6 +4,8 @@ from datetime import datetime
 import importlib
 import logging
 from pathlib import Path
+import zipfile
+from xml.etree import ElementTree
 
 from langchain_core.documents import Document
 
@@ -173,12 +175,56 @@ def _load_powerpoint_documents(path: Path) -> list[Document]:
         "langchain_community.document_loaders",
         "UnstructuredPowerPointLoader",
     )
-    if loader_cls is None:
+    if loader_cls is not None:
+        documents = loader_cls(str(path)).load()
+        for doc in documents:
+            doc.metadata.setdefault("extraction_method", "unstructured_powerpoint")
+        return documents
+
+    if path.suffix.lower() == ".pptx":
+        return _load_pptx_with_zip_xml(path)
+    return []
+
+
+def _load_pptx_with_zip_xml(path: Path) -> list[Document]:
+    try:
+        with zipfile.ZipFile(path) as archive:
+            slide_names = sorted(
+                name
+                for name in archive.namelist()
+                if name.startswith("ppt/slides/slide") and name.endswith(".xml")
+            )
+            documents: list[Document] = []
+            for slide_index, slide_name in enumerate(slide_names, start=1):
+                raw_xml = archive.read(slide_name)
+                text = _extract_pptx_slide_text(raw_xml)
+                if not text:
+                    continue
+                documents.append(
+                    Document(
+                        page_content=text,
+                        metadata={
+                            "page": slide_index,
+                            "slide": slide_index,
+                            "extraction_method": "pptx_zip_xml",
+                        },
+                    )
+                )
+            return documents
+    except (OSError, zipfile.BadZipFile, ElementTree.ParseError) as exc:
+        logger.warning("PPTX zip/xml extraction failed for %s: %s", path, exc)
         return []
-    documents = loader_cls(str(path)).load()
-    for doc in documents:
-        doc.metadata.setdefault("extraction_method", "unstructured_powerpoint")
-    return documents
+
+
+def _extract_pptx_slide_text(raw_xml: bytes) -> str:
+    root = ElementTree.fromstring(raw_xml)
+    text_nodes = []
+    for node in root.iter():
+        if node.tag.endswith("}t") and node.text:
+            text = node.text.strip()
+            if text:
+                text_nodes.append(text)
+    return "\n".join(text_nodes).strip()
 
 
 def load_file(path: str | Path, source: str | None = None) -> list[Document]:
