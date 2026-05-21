@@ -270,6 +270,87 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator(".message-tag")).toHaveCount(0);
   });
 
+  test("QA workbench keeps the latest answer after leaving and returning", async ({ page }) => {
+    let sessionPostCount = 0;
+    await page.route("**/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        sessionPostCount += 1;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ session_id: "persisted-qa-session" }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          sessions: [
+            {
+              session_id: "persisted-qa-session",
+              last_question: "Keep this question visible",
+              last_answer: "PERSISTED_ANSWER_VISIBLE",
+              turn_count: 1,
+              updated_at: "2026-05-20 17:45:00",
+            },
+          ],
+        }),
+      });
+    });
+    await page.route("**/sessions/persisted-qa-session/history", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ session_id: "persisted-qa-session", history: [], history_count: 0 }),
+      });
+    });
+    await page.route("**/query", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          session_id: "persisted-qa-session",
+          answer: "PERSISTED_ANSWER_VISIBLE",
+          route: "rag",
+          intent: "qa",
+          retrieval_strategy: "hybrid",
+          retrieval_backend: "local",
+          context_count: 2,
+          source_filter: "ai",
+          retrieval_query: "Keep this question visible",
+          confidence: { label: "high", score: 0.88 },
+          citations: [
+            {
+              source: "ai",
+              excerpt: "persisted citation excerpt",
+              score: 0.91,
+              timestamp: "2026-05-20",
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto(`${baseURL}/qa`);
+    await page.locator("#stream-mode").uncheck();
+    await page.locator("#query-input").fill("Keep this question visible");
+    await page.locator("#send-btn").click();
+    await expect(page.locator(".message.assistant").last()).toContainText("PERSISTED_ANSWER_VISIBLE");
+    await expect(page.locator("#qa-current-question")).toContainText("Keep this question visible");
+
+    await page.goto(`${baseURL}/knowledge`);
+    await page.goto(`${baseURL}/qa`);
+
+    await expect(page.locator("#session-id")).toContainText("persisted-qa-session");
+    await expect(page.locator(".message.user")).toContainText("Keep this question visible");
+    await expect(page.locator(".message.assistant").last()).toContainText("PERSISTED_ANSWER_VISIBLE");
+    await expect(page.locator("#qa-current-question")).toContainText("Keep this question visible");
+    await page.locator('[data-qa-context-tab="citations"]').click();
+    await expect(page.locator("#citations-list")).toContainText("persisted citation excerpt");
+    expect(sessionPostCount).toBe(1);
+  });
+
   test("QA composer refreshes source options when choosing target source", async ({ page }) => {
     let sourceRequests = 0;
 
@@ -641,22 +722,33 @@ test.describe("RAGPro frontend smoke", () => {
     expect(pageHeight.scrollHeight).toBeLessThanOrEqual(pageHeight.clientHeight + 1);
   });
 
-  test("knowledge upload pipeline reflects selected file state", async ({ page }) => {
+  test("knowledge upload plan reflects selected file state", async ({ page }) => {
     await page.goto(`${baseURL}/knowledge`);
     await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-sources"]')).toHaveCount(0);
     await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-reindex"]')).toHaveCount(0);
     await expect(page.locator('.side-nav [href="/knowledge/sources"]')).toHaveCount(1);
-    await expect(page.locator("#upload-size-hint")).toContainText("25 MB");
-    await expect(page.locator('[data-upload-step="select"]')).toHaveClass(/is-active/);
-    await page.locator("#upload-file-input").setInputFiles(
+    await expect(page.locator("#batch-upload-panel")).toContainText("不会替换前面已经选好的文件");
+    await expect(page.locator("#upload-form")).toBeHidden();
+    await expect(page.locator("#batch-add-item-btn")).toHaveCount(0);
+    await expect(page.locator("#batch-upload-items")).not.toContainText("任务 1");
+    await expect(page.locator("#batch-upload-items")).toContainText("拖拽文件追加");
+    await page.locator('[data-batch-file-input="0"]').setInputFiles(
       path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
     );
-    await expect(page.locator('[data-upload-step="prepare"]')).toHaveClass(/is-active/);
-    await expect(page.locator("#upload-file-list")).toContainText("frontend-smoke-upload.txt");
-    await expect(page.locator('[data-upload-file-remove="0"]')).toBeVisible();
-    await page.locator('[data-upload-file-remove="0"]').click();
-    await expect(page.locator("#upload-file-list")).not.toContainText("frontend-smoke-upload.txt");
-    await expect(page.locator('[data-upload-step="select"]')).toHaveClass(/is-active/);
+    await expect(page.locator("#batch-upload-items")).toContainText("frontend-smoke-upload.txt");
+    const dataTransfer = await page.evaluateHandle(() => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File(["dragged fixture"], "drag-added.txt", { type: "text/plain" }));
+      return transfer;
+    });
+    await page.locator(".batch-file-drop").dispatchEvent("drop", { dataTransfer });
+    await expect(page.locator("#batch-upload-items")).toContainText("drag-added.txt");
+    await expect(page.locator("#batch-upload-count")).toHaveText("2 个文件");
+    await expect(page.locator('[data-batch-file-remove="0"][data-batch-file-index="0"]')).toBeVisible();
+    await page.locator('[data-batch-file-remove="0"][data-batch-file-index="0"]').click();
+    await expect(page.locator("#batch-upload-items")).not.toContainText("frontend-smoke-upload.txt");
+    await expect(page.locator("#batch-upload-items")).toContainText("drag-added.txt");
+    await expect(page.locator("#batch-upload-count")).toHaveText("1 个文件");
   });
 
   test("knowledge reindex page avoids upload entry tab", async ({ page }) => {
@@ -667,32 +759,45 @@ test.describe("RAGPro frontend smoke", () => {
 
   test("knowledge upload supports custom source entry", async ({ page }) => {
     let latestUploadBody = "";
-    await page.route("**/documents/upload", async (route) => {
+    await page.route("**/documents/batch-upload", async (route) => {
       latestUploadBody = route.request().postData() || "";
       await route.fulfill({
-        status: 200,
+        status: 202,
         contentType: "application/json",
         body: JSON.stringify({
-          source: "policy_2026",
-          replace_source: false,
-          file_count: 1,
-          raw_document_count: 1,
-          document_chunks: 1,
-          deleted_before_index: 0,
-          retrieval_backend: "local",
-          files: [],
+          status: "succeeded",
+          progress: 100,
+          job_count: 1,
+          completed_count: 1,
+          failed_count: 0,
+          jobs: [
+            {
+              source: "policy_2026",
+              status: "succeeded",
+              progress: 100,
+              result: {
+                source: "policy_2026",
+                replace_source: false,
+                file_count: 2,
+                document_chunks: 1,
+                retrieval_backend: "local",
+              },
+            },
+          ],
         }),
       });
     });
 
     await page.goto(`${baseURL}/knowledge`);
-    await page.locator("#upload-source").selectOption("__custom_source__");
-    await page.locator("#upload-source-custom").fill("policy_2026");
-    await page.locator("#upload-file-input").setInputFiles(
+    await page.locator('[data-batch-source="0"]').selectOption("__custom_source__");
+    await page.locator('[data-source-custom-for="batch-source-1"]').fill("policy_2026");
+    await page.locator('[data-batch-file-input="0"]').setInputFiles([
       path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
-    );
-    await page.locator("#upload-submit-btn").click();
-    await expect.poll(() => latestUploadBody).toContain("policy_2026");
+      path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload-extra.txt"),
+    ]);
+    await page.locator("#batch-upload-submit-btn").click();
+    await expect.poll(() => latestUploadBody).toContain('"source":"policy_2026"');
+    await expect.poll(() => latestUploadBody).toContain('"file_count":2');
   });
 
   test("knowledge upload shows moving progress while request is pending", async ({ page }) => {
@@ -700,91 +805,137 @@ test.describe("RAGPro frontend smoke", () => {
     const uploadCanResolve = new Promise((resolve) => {
       releaseUpload = resolve;
     });
-    await page.route("**/documents/upload", async (route) => {
+    await page.route("**/documents/batch-upload", async (route) => {
       await uploadCanResolve;
       await route.fulfill({
-        status: 200,
+        status: 202,
         contentType: "application/json",
         body: JSON.stringify({
-          source: "ai",
-          replace_source: false,
-          file_count: 1,
-          raw_document_count: 1,
-          document_chunks: 1,
-          deleted_before_index: 0,
-          retrieval_backend: "local",
-          files: [],
+          status: "succeeded",
+          progress: 100,
+          job_count: 1,
+          completed_count: 1,
+          failed_count: 0,
+          jobs: [
+            {
+              source: "ai",
+              status: "succeeded",
+              progress: 100,
+              result: {
+                source: "ai",
+                replace_source: false,
+                file_count: 1,
+                document_chunks: 1,
+                retrieval_backend: "local",
+              },
+            },
+          ],
         }),
       });
     });
 
     await page.goto(`${baseURL}/knowledge`);
-    await page.locator("#upload-source").selectOption("ai");
-    await page.locator("#upload-file-input").setInputFiles(
+    await page.locator('[data-batch-source="0"]').selectOption("ai");
+    await page.locator('[data-batch-file-input="0"]').setInputFiles(
       path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
     );
-    await page.locator("#upload-submit-btn").click();
+    await page.locator("#batch-upload-submit-btn").click();
 
-    await expect(page.locator(".upload-progress")).toHaveAttribute("aria-busy", "true");
-    await expect(page.locator("#upload-progress-fill")).toHaveClass(/is-moving/);
+    await expect(page.locator(".batch-upload-progress")).toHaveAttribute("aria-busy", "true");
+    await expect(page.locator("#batch-progress-fill")).toHaveClass(/is-moving/);
     await expect
       .poll(async () => {
-        const progressText = await page.locator("#upload-progress-value").textContent();
+        const progressText = await page.locator("#batch-progress-value").textContent();
         return Number.parseInt(progressText || "0", 10);
       })
       .toBeGreaterThan(0);
 
     releaseUpload();
-    await expect(page.locator("#upload-progress-value")).toHaveText("100%");
-    await expect(page.locator(".upload-progress")).toHaveAttribute("aria-busy", "false");
+    await expect(page.locator("#batch-progress-value")).toHaveText("100%");
+    await expect(page.locator(".batch-upload-progress")).toHaveAttribute("aria-busy", "false");
   });
 
   test("knowledge upload polls async ingestion job until it completes", async ({ page }) => {
     let jobPolls = 0;
-    await page.route("**/documents/upload", async (route) => {
+    await page.route("**/documents/batch-upload", async (route) => {
       await route.fulfill({
         status: 202,
         contentType: "application/json",
         body: JSON.stringify({
-          job_id: "upload_job_1",
+          batch_id: "batch_1",
           status: "queued",
-          stage: "queued",
           progress: 5,
-          source: "ai",
-          file_count: 1,
-          message: "文件已接收，等待入库。",
-          poll_url: "/documents/upload-jobs/upload_job_1",
+          message: "入库任务已创建，等待处理。",
+          job_count: 1,
+          completed_count: 0,
+          failed_count: 0,
+          poll_url: "/documents/batch-upload-jobs/batch_1",
+          jobs: [
+            {
+              job_id: "upload_job_1",
+              status: "queued",
+              stage: "queued",
+              progress: 5,
+              source: "ai",
+              file_count: 1,
+              message: "文件已接收，等待入库。",
+            },
+          ],
         }),
       });
     });
-    await page.route("**/documents/upload-jobs/upload_job_1", async (route) => {
+    await page.route("**/documents/batch-upload-jobs/batch_1", async (route) => {
       jobPolls += 1;
       const body = jobPolls <= 2
         ? {
-            job_id: "upload_job_1",
+            batch_id: "batch_1",
             status: "running",
-            stage: "process",
             progress: 62,
-            source: "ai",
             message: "正在解析、切块并写入向量库...",
+            job_count: 1,
+            completed_count: 0,
+            failed_count: 0,
+            jobs: [
+              {
+                job_id: "upload_job_1",
+                status: "running",
+                stage: "process",
+                progress: 62,
+                source: "ai",
+                file_count: 1,
+                message: "正在解析、切块并写入向量库...",
+              },
+            ],
           }
         : {
-            job_id: "upload_job_1",
+            batch_id: "batch_1",
             status: "succeeded",
-            stage: "done",
             progress: 100,
-            source: "ai",
-            message: "文档上传并入库完成。",
-            result: {
-              source: "ai",
-              replace_source: false,
-              file_count: 1,
-              raw_document_count: 1,
-              document_chunks: 7,
-              deleted_before_index: 0,
-              retrieval_backend: "local",
-              files: [],
-            },
+            message: "入库完成：1 个任务全部成功。",
+            job_count: 1,
+            completed_count: 1,
+            failed_count: 0,
+            jobs: [
+              {
+                job_id: "upload_job_1",
+                status: "succeeded",
+                stage: "done",
+                progress: 100,
+                source: "ai",
+                file_count: 1,
+                message: "文档上传并入库完成。",
+                result: {
+                  source: "ai",
+                  replace_source: false,
+                  file_count: 1,
+                  raw_document_count: 1,
+                  document_chunks: 7,
+                  deleted_before_index: 0,
+                  retrieval_backend: "local",
+                  files: [],
+                },
+              },
+            ],
           };
       await route.fulfill({
         status: 200,
@@ -794,17 +945,98 @@ test.describe("RAGPro frontend smoke", () => {
     });
 
     await page.goto(`${baseURL}/knowledge`);
-    await page.locator("#upload-source").selectOption("ai");
-    await page.locator("#upload-file-input").setInputFiles(
+    await page.locator('[data-batch-source="0"]').selectOption("ai");
+    await page.locator('[data-batch-file-input="0"]').setInputFiles(
       path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
     );
-    await page.locator("#upload-submit-btn").click();
+    await page.locator("#batch-upload-submit-btn").click();
 
-    await expect(page.locator("#upload-progress-label")).toContainText("正在解析");
+    await expect(page.locator("#batch-progress-label")).toContainText("正在解析");
     await expect.poll(() => jobPolls).toBeGreaterThanOrEqual(3);
-    await expect(page.locator("#upload-progress-value")).toHaveText("100%");
-    await expect(page.locator("#upload-result")).toContainText("生成 7 个切块");
-    await expect(page.locator(".upload-progress")).toHaveAttribute("aria-busy", "false");
+    await expect(page.locator("#batch-progress-value")).toHaveText("100%");
+    await expect(page.locator("#batch-upload-result")).toContainText("入库完成");
+    await expect(page.locator("#upload-history-list")).toContainText("7 个切块");
+    await expect(page.locator(".batch-upload-progress")).toHaveAttribute("aria-busy", "false");
+  });
+
+  test("knowledge upload submits one appended file basket", async ({ page }) => {
+    let latestBatchBody = "";
+    let batchPolls = 0;
+    await page.route("**/documents/batch-upload", async (route) => {
+      latestBatchBody = route.request().postData() || "";
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          batch_id: "batch_1",
+          status: "queued",
+          progress: 5,
+          message: "入库任务已创建，等待处理。",
+          job_count: 1,
+          completed_count: 0,
+          failed_count: 0,
+          poll_url: "/documents/batch-upload-jobs/batch_1",
+          jobs: [
+            {
+              job_id: "upload_job_1",
+              status: "queued",
+              stage: "queued",
+              progress: 5,
+              source: "ai",
+              file_count: 2,
+              message: "文件已接收，等待入库。",
+            },
+          ],
+        }),
+      });
+    });
+    await page.route("**/documents/batch-upload-jobs/batch_1", async (route) => {
+      batchPolls += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          batch_id: "batch_1",
+          status: "succeeded",
+          progress: 100,
+          message: "入库完成：1 个任务全部成功。",
+          job_count: 1,
+          completed_count: 1,
+          failed_count: 0,
+          poll_url: "/documents/batch-upload-jobs/batch_1",
+          jobs: [
+            {
+              job_id: "upload_job_1",
+              status: "succeeded",
+              stage: "done",
+              progress: 100,
+              source: "ai",
+              file_count: 2,
+              message: "文档上传并入库完成。",
+              result: { source: "ai", file_count: 2, document_chunks: 4, retrieval_backend: "local" },
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto(`${baseURL}/knowledge`);
+    await expect(page.locator("#batch-upload-panel")).toBeVisible();
+    await expect(page.locator("#batch-add-item-btn")).toHaveCount(0);
+    await page.locator('[data-batch-source="0"]').selectOption("ai");
+    await page.locator('[data-batch-file-input="0"]').setInputFiles([
+      path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload.txt"),
+      path.join(process.cwd(), "tests", "fixtures", "frontend-smoke-upload-extra.txt"),
+    ]);
+    await page.locator("#batch-upload-submit-btn").click();
+
+    await expect.poll(() => latestBatchBody).toContain('"source":"ai"');
+    await expect.poll(() => latestBatchBody).toContain('"file_count":2');
+    await expect.poll(() => batchPolls).toBeGreaterThanOrEqual(1);
+    await expect(page.locator("#batch-progress-value")).toHaveText("100%");
+    await expect(page.locator("#batch-progress-label")).toContainText("2 个文件");
+    await expect(page.locator("#batch-upload-result")).toContainText("2 个文件");
+    await expect(page.locator("#batch-job-list")).toContainText("2 个文件");
   });
 
   test("knowledge upload refreshes source options when choosing target source", async ({ page }) => {
@@ -827,11 +1059,11 @@ test.describe("RAGPro frontend smoke", () => {
 
     await page.goto(`${baseURL}/knowledge`);
     await expect.poll(() => sourceRequests).toBe(1);
-    await expect(page.locator('#upload-source option[value="policy_2026"]')).toHaveCount(0);
+    await expect(page.locator('[data-batch-source="0"] option[value="policy_2026"]')).toHaveCount(0);
 
-    await page.locator("#upload-source").focus();
+    await page.locator('[data-batch-source="0"]').focus();
     await expect.poll(() => sourceRequests).toBe(2);
-    await expect(page.locator('#upload-source option[value="policy_2026"]')).toHaveCount(1);
+    await expect(page.locator('[data-batch-source="0"] option[value="policy_2026"]')).toHaveCount(1);
   });
 
   test("knowledge sources page registers custom source", async ({ page }) => {

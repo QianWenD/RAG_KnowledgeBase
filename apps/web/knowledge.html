@@ -96,7 +96,7 @@
           <div class="panel-head">
             <div>
               <p class="panel-kicker">上传入库</p>
-              <h2>上传文件</h2>
+              <h2>上传入库计划</h2>
             </div>
             <span class="status-chip">管理员可用</span>
           </div>
@@ -106,7 +106,7 @@
             <p>你可以查看这一页的说明，但没有文档上传和入库权限。如需操作，请使用管理员账号。</p>
           </div>
 
-          <form id="upload-form" class="upload-form">
+          <form id="upload-form" class="upload-form hidden" aria-hidden="true">
             <div class="upload-grid">
               <label class="control-field stacked" for="upload-source">
                 <span>目标来源</span>
@@ -155,7 +155,43 @@
             </div>
           </form>
 
-          <div id="upload-result" class="upload-result note">暂时还没有上传结果。</div>
+          <div id="upload-result" class="upload-result note hidden">暂时还没有上传结果。</div>
+
+          <section id="batch-upload-panel" class="batch-upload-card" aria-labelledby="batch-upload-title">
+            <div class="batch-upload-title-row">
+              <div>
+                <p class="panel-kicker">统一入口</p>
+                <h3 id="batch-upload-title">待入库文件</h3>
+              </div>
+              <span id="batch-upload-count" class="status-chip">0 个文件</span>
+            </div>
+
+            <p class="batch-upload-copy">选择一个目标来源后，可以点击或拖拽不断加入文件；新加入的文件会追加到列表，不会替换前面已经选好的文件。</p>
+
+            <form id="batch-upload-form" class="batch-upload-form">
+              <div id="batch-upload-items" class="batch-upload-items"></div>
+
+              <div class="batch-upload-toolbar">
+                <button id="batch-upload-submit-btn" class="send-btn" type="submit">提交入库</button>
+              </div>
+            </form>
+
+            <div class="batch-upload-progress" aria-live="polite" aria-busy="false">
+              <div class="upload-progress-head">
+                <strong id="batch-progress-label">等待上传</strong>
+                <span id="batch-progress-value" class="subtle">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="batch-progress-fill" class="progress-fill"></div>
+              </div>
+            </div>
+
+            <div id="batch-job-list" class="batch-job-list">
+              <div class="note">任务提交后，每个来源的处理状态会显示在这里。</div>
+            </div>
+
+            <div id="batch-upload-result" class="upload-result note">暂时还没有入库结果。</div>
+          </section>
         </section>
 
         <aside class="knowledge-side" aria-label="上传辅助信息">

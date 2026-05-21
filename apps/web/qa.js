@@ -1,5 +1,7 @@
 window.RagProPage = {
   async init({ state, helpers }) {
+    const QA_WORKBENCH_STATE_VERSION = 1;
+    const QA_WORKBENCH_STATE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
     const pageState = {
       sessionId: "",
       sessions: [],
@@ -7,6 +9,7 @@ window.RagProPage = {
       pending: false,
       streaming: true,
       hasAsked: false,
+      lastPayload: null,
     };
     let sourceRefreshPromise = null;
     const AUTO_SOURCE_PLACEHOLDER = "全部（按权限自动检索）";
@@ -58,10 +61,15 @@ window.RagProPage = {
     renderSummary();
     updateComposerTelemetry();
     applySourceOptions();
-    resetConversation();
-    await createSession();
+    const restoredWorkbench = restoreWorkbenchState();
+    if (restoredWorkbench) {
+      await loadHistory();
+    } else {
+      resetConversation();
+      await createSession();
+    }
     await loadSessionList();
-    helpers.setStatus("问答页已就绪，可以直接提问。");
+    helpers.setStatus(restoredWorkbench ? "已恢复上一次问答状态，可以继续追问。" : "问答页已就绪，可以直接提问。");
 
     function bindEvents() {
       elements.sendBtn?.addEventListener("click", sendQuery);
@@ -186,6 +194,7 @@ window.RagProPage = {
         renderSummary();
         resetConversation();
         renderSessionList();
+        persistWorkbenchState();
       } catch (error) {
         helpers.setStatus(`创建会话失败：${error.message}`, true);
       }
@@ -214,6 +223,7 @@ window.RagProPage = {
       resetConversation();
       await loadHistory();
       renderSessionList();
+      persistWorkbenchState();
       helpers.setStatus("历史会话已恢复。");
     }
 
@@ -242,6 +252,7 @@ window.RagProPage = {
         renderHistoryCount();
         resetConversation();
         await loadSessionList();
+        persistWorkbenchState();
         helpers.setStatus("当前会话历史已清空。");
       } catch (error) {
         helpers.setStatus(`清空历史失败：${error.message}`, true);
@@ -279,6 +290,7 @@ window.RagProPage = {
         updateCurrentTurn(query, "已完成");
         await loadHistory();
         await loadSessionList();
+        persistWorkbenchState();
       } catch (error) {
         completeAssistantMessage(
           assistantNode,
@@ -531,6 +543,7 @@ window.RagProPage = {
     }
 
     function applyMeta(payload) {
+      pageState.lastPayload = payload ? { ...payload } : null;
       setText(elements.route, payload.route || "-");
       setText(elements.intent, payload.intent || "-");
       setText(elements.strategy, payload.retrieval_strategy || "-");
@@ -635,6 +648,111 @@ window.RagProPage = {
       }
     }
 
+    function getWorkbenchStorageKey() {
+      const userKey = state.user?.id || state.user?.username || "anonymous";
+      return `ragpro.qaWorkbenchState.${userKey}`;
+    }
+
+    function captureVisibleMessages() {
+      return Array.from(elements.messageList.querySelectorAll(".message"))
+        .map((node) => {
+          const role = node.classList.contains("user")
+            ? "user"
+            : node.classList.contains("assistant")
+              ? "assistant"
+              : "system";
+          return {
+            role,
+            text: node.querySelector(".message-body")?.textContent || "",
+          };
+        })
+        .filter((item) => item.text.trim());
+    }
+
+    function persistWorkbenchState() {
+      if (!state.user || !window.localStorage) {
+        return;
+      }
+      try {
+        const snapshot = {
+          version: QA_WORKBENCH_STATE_VERSION,
+          saved_at: Date.now(),
+          user_key: state.user.id || state.user.username || "anonymous",
+          session_id: pageState.sessionId,
+          history: pageState.history,
+          streaming: pageState.streaming,
+          has_asked: pageState.hasAsked,
+          source_filter: helpers.getSourceSelectValue(elements.sourceFilter),
+          current_question: elements.currentQuestion?.textContent || "",
+          current_stage: elements.currentStage?.textContent || "",
+          messages: captureVisibleMessages(),
+          last_payload: pageState.lastPayload,
+        };
+        localStorage.setItem(getWorkbenchStorageKey(), JSON.stringify(snapshot));
+      } catch (error) {
+        // Local storage is best-effort; failing to persist must not block answering.
+      }
+    }
+
+    function restoreWorkbenchState() {
+      if (!state.user || !window.localStorage) {
+        return false;
+      }
+      let snapshot = null;
+      try {
+        snapshot = JSON.parse(localStorage.getItem(getWorkbenchStorageKey()) || "null");
+      } catch (error) {
+        return false;
+      }
+      if (!snapshot || snapshot.version !== QA_WORKBENCH_STATE_VERSION || !snapshot.session_id) {
+        return false;
+      }
+      if (Date.now() - Number(snapshot.saved_at || 0) > QA_WORKBENCH_STATE_TTL_MS) {
+        return false;
+      }
+
+      pageState.sessionId = snapshot.session_id;
+      pageState.history = Array.isArray(snapshot.history) ? snapshot.history : [];
+      pageState.streaming = snapshot.streaming !== false;
+      pageState.hasAsked = Boolean(snapshot.has_asked);
+      pageState.lastPayload = snapshot.last_payload || null;
+
+      elements.sessionId.textContent = pageState.sessionId || "尚未创建";
+      elements.copySessionBtn.disabled = !pageState.sessionId;
+      if (elements.streamMode) {
+        elements.streamMode.checked = pageState.streaming;
+      }
+      if (snapshot.source_filter) {
+        helpers.setSourceSelectValue(elements.sourceFilter, snapshot.source_filter);
+      }
+
+      renderStoredMessages(snapshot.messages);
+      if (pageState.lastPayload) {
+        applyMeta(pageState.lastPayload);
+      } else {
+        resetConversation();
+      }
+      updateCurrentTurn(snapshot.current_question || "", snapshot.current_stage || "等待输入");
+      renderHistory();
+      renderHistoryCount();
+      renderSummary(pageState.lastPayload?.retrieval_backend);
+      updateComposerTelemetry();
+      return true;
+    }
+
+    function renderStoredMessages(messages) {
+      elements.messageList.innerHTML = "";
+      const safeMessages = Array.isArray(messages) ? messages : [];
+      if (!safeMessages.length) {
+        addMessage("system", "可以直接提问。我会在这里给出回答，右侧保留路由、引用和最近记录。");
+        return;
+      }
+      for (const item of safeMessages) {
+        const role = ["user", "assistant", "system"].includes(item.role) ? item.role : "system";
+        addMessage(role, item.text || "");
+      }
+    }
+
     function resetConversation() {
       setText(elements.route, "-");
       setText(elements.intent, "-");
@@ -656,6 +774,7 @@ window.RagProPage = {
         );
       }
       pageState.hasAsked = false;
+      pageState.lastPayload = null;
       updateCurrentTurn("", "等待输入");
       renderSummary();
     }

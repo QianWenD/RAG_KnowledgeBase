@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -771,6 +772,112 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "succeeded")
         self.assertEqual(response.json()["result"]["document_chunks"], 3)
+
+    def test_admin_batch_upload_documents_returns_batch_job(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "java", "med"),
+            is_active=True,
+        )
+        captured: list[dict[str, object]] = []
+
+        def fake_submit_upload_job(*, source, files, replace_source):
+            captured.append(
+                {
+                    "source": source,
+                    "file_count": len(files),
+                    "replace_source": replace_source,
+                }
+            )
+            job_id = f"upload_job_{len(captured)}"
+            return {
+                "job_id": job_id,
+                "status": "queued",
+                "stage": "queued",
+                "progress": 5,
+                "source": source,
+                "file_count": len(files),
+                "replace_source": replace_source,
+                "message": "文件已接收，等待入库。",
+                "poll_url": f"/documents/upload-jobs/{job_id}",
+            }
+
+        items = [
+            {"source": "ai", "replace_source": False, "file_count": 1},
+            {"source": "med", "replace_source": True, "file_count": 2},
+        ]
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch(
+                "apps.api.main._stage_uploaded_files",
+                new=AsyncMock(
+                    side_effect=[
+                        [Mock(path=None)],
+                        [Mock(path=None), Mock(path=None)],
+                    ]
+                ),
+            ),
+            patch("apps.api.main._submit_upload_job", side_effect=fake_submit_upload_job),
+        ):
+            response = self.client.post(
+                "/documents/batch-upload",
+                data={"items_json": json.dumps(items)},
+                files=[
+                    ("files", ("ai.txt", b"AI notes", "text/plain")),
+                    ("files", ("med-1.txt", b"Med notes 1", "text/plain")),
+                    ("files", ("med-2.txt", b"Med notes 2", "text/plain")),
+                ],
+            )
+
+        payload = response.json()
+        self.assertEqual(response.status_code, 202)
+        self.assertIn("batch_id", payload)
+        self.assertEqual(payload["status"], "queued")
+        self.assertEqual(payload["job_count"], 2)
+        self.assertEqual(payload["file_count"], 3)
+        self.assertIn("3 个文件", payload["message"])
+        self.assertEqual(payload["poll_url"], f"/documents/batch-upload-jobs/{payload['batch_id']}")
+        self.assertEqual([item["source"] for item in captured], ["ai", "med"])
+        self.assertEqual([item["file_count"] for item in captured], [1, 2])
+        self.assertEqual(captured[1]["replace_source"], True)
+
+    def test_admin_can_read_batch_upload_job_status(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "med"),
+            is_active=True,
+        )
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch(
+                "apps.api.main._get_batch_upload_job",
+                return_value={
+                    "batch_id": "batch_1",
+                    "status": "succeeded",
+                    "progress": 100,
+                    "message": "批量入库完成：2 个任务全部成功。",
+                    "job_count": 2,
+                    "completed_count": 2,
+                    "failed_count": 0,
+                    "jobs": [
+                        {"job_id": "upload_job_1", "source": "ai", "status": "succeeded"},
+                        {"job_id": "upload_job_2", "source": "med", "status": "succeeded"},
+                    ],
+                    "poll_url": "/documents/batch-upload-jobs/batch_1",
+                },
+            ),
+        ):
+            response = self.client.get("/documents/batch-upload-jobs/batch_1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "succeeded")
+        self.assertEqual(response.json()["completed_count"], 2)
 
     def test_query_rejects_source_outside_user_scope(self) -> None:
         user = AuthenticatedUser(

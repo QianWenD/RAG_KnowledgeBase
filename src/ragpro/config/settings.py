@@ -35,6 +35,8 @@ class AppSettings:
     upload_dir_name: str = "runtime/uploads"
     max_upload_file_size_bytes: int = 25 * 1024 * 1024
     upload_job_workers: int = 1
+    batch_upload_max_items: int = 8
+    batch_upload_max_files: int = 40
     vector_backend: str = "auto"
     local_vector_store_file: str = "local_vector_store.pkl"
     log_file: str = "logs/app.log"
@@ -111,6 +113,8 @@ def get_settings() -> AppSettings:
             os.getenv("RAGPRO_MAX_UPLOAD_FILE_SIZE_BYTES", str(25 * 1024 * 1024))
         ),
         upload_job_workers=int(os.getenv("RAGPRO_UPLOAD_JOB_WORKERS", "1")),
+        batch_upload_max_items=int(os.getenv("RAGPRO_BATCH_UPLOAD_MAX_ITEMS", "8")),
+        batch_upload_max_files=int(os.getenv("RAGPRO_BATCH_UPLOAD_MAX_FILES", "40")),
         vector_backend=os.getenv("RAGPRO_VECTOR_BACKEND", "auto"),
         local_vector_store_file=os.getenv("RAGPRO_LOCAL_VECTOR_STORE_FILE", "local_vector_store.pkl"),
         log_file=os.getenv("RAGPRO_LOG_FILE", "logs/app.log"),

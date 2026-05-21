@@ -24,7 +24,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from ragpro.auth import QueryAccessError, filter_sources_for_user, resolve_query_source_scope
 from ragpro.config import get_logger, get_settings
-from ragpro.ingestion.upload_jobs import UploadJobRegistry
+from ragpro.ingestion.upload_jobs import UploadBatchRegistry, UploadJobRegistry
 from ragpro.runtime import run_healthcheck, run_preflight
 from ragpro.routing import UnifiedQueryRouter
 
@@ -45,6 +45,7 @@ app = FastAPI(title="RAGPro API", description="Formalized API entrypoint for the
 if WEB_ROOT.exists():
     app.mount("/static", StaticFiles(directory=str(WEB_ROOT)), name="static")
 _upload_job_registry = UploadJobRegistry()
+_upload_batch_registry = UploadBatchRegistry()
 _upload_job_executor = ThreadPoolExecutor(
     max_workers=max(1, settings.upload_job_workers),
     thread_name_prefix="ragpro-upload",
@@ -1725,6 +1726,181 @@ def _get_upload_job(job_id: str) -> dict | None:
     return _upload_job_payload(_upload_job_registry.get(job_id))
 
 
+def _batch_upload_message(
+    status: str,
+    *,
+    job_count: int,
+    completed_count: int,
+    failed_count: int,
+    file_count: int,
+) -> str:
+    file_label = f"{file_count} 个文件" if file_count else "文件"
+    if status == "succeeded":
+        return f"入库完成：{file_label}已写入检索链路。"
+    if status == "failed":
+        return f"入库有失败项：{file_label}中有 {failed_count}/{job_count} 个任务失败。"
+    if status == "running":
+        return f"入库正在处理：{file_label}，{completed_count}/{job_count} 个任务已完成。"
+    return f"已接收 {file_label}，等待入库。"
+
+
+def _build_batch_upload_payload(batch: dict, jobs: list[dict]) -> dict:
+    job_count = len(jobs)
+    completed_count = sum(1 for job in jobs if job.get("status") == "succeeded")
+    failed_count = sum(1 for job in jobs if job.get("status") == "failed")
+    running_count = sum(1 for job in jobs if job.get("status") == "running")
+    file_count = sum(
+        int((job.get("result") or {}).get("file_count") or job.get("file_count") or 0)
+        for job in jobs
+    )
+    if failed_count:
+        status = "failed"
+    elif job_count and completed_count == job_count:
+        status = "succeeded"
+    elif running_count or completed_count:
+        status = "running"
+    else:
+        status = "queued"
+    progress = 0
+    if job_count:
+        progress = round(
+            sum(max(0, min(100, int(job.get("progress") or 0))) for job in jobs) / job_count
+        )
+    batch_id = batch["batch_id"]
+    return {
+        "batch_id": batch_id,
+        "status": status,
+        "progress": progress,
+        "message": _batch_upload_message(
+            status,
+            job_count=job_count,
+            completed_count=completed_count,
+            failed_count=failed_count,
+            file_count=file_count,
+        ),
+        "job_count": job_count,
+        "file_count": file_count,
+        "completed_count": completed_count,
+        "failed_count": failed_count,
+        "jobs": jobs,
+        "created_at": batch.get("created_at"),
+        "updated_at": batch.get("updated_at"),
+        "poll_url": f"/documents/batch-upload-jobs/{batch_id}",
+    }
+
+
+def _batch_upload_payload(batch: dict | None, jobs: list[dict] | None = None) -> dict | None:
+    if batch is None:
+        return None
+    resolved_jobs = jobs
+    if resolved_jobs is None:
+        resolved_jobs = []
+        for item in batch.get("items", []):
+            job = _get_upload_job(str(item.get("job_id", "")))
+            if job is None:
+                job = {
+                    **item,
+                    "status": "unknown",
+                    "stage": "unknown",
+                    "progress": 0,
+                    "message": "入库任务状态暂不可用。",
+                }
+            else:
+                job = {**item, **job}
+            resolved_jobs.append(job)
+    return _build_batch_upload_payload(batch, resolved_jobs)
+
+
+def _create_batch_upload_job(jobs: list[dict]) -> dict:
+    items = [
+        {
+            "job_id": job["job_id"],
+            "source": job.get("source"),
+            "replace_source": bool(job.get("replace_source", False)),
+            "file_count": int(job.get("file_count") or 0),
+        }
+        for job in jobs
+    ]
+    batch = _upload_batch_registry.create(items=items)
+    return _batch_upload_payload(batch, jobs)
+
+
+def _get_batch_upload_job(batch_id: str) -> dict | None:
+    return _batch_upload_payload(_upload_batch_registry.get(batch_id))
+
+
+def _parse_batch_upload_bool(value, *, item_index: int) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off", ""}:
+            return False
+    raise HTTPException(status_code=400, detail=f"第 {item_index} 个批量项 replace_source 格式不正确。")
+
+
+def _parse_batch_upload_items(items_json: str, *, uploaded_file_count: int) -> list[dict]:
+    try:
+        raw_items = json.loads(items_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="items_json 必须是合法的 JSON 数组。") from exc
+
+    if not isinstance(raw_items, list) or not raw_items:
+        raise HTTPException(status_code=400, detail="请至少配置一个批量入库项。")
+    if len(raw_items) > settings.batch_upload_max_items:
+        raise HTTPException(
+            status_code=400,
+            detail=f"单次最多配置 {settings.batch_upload_max_items} 个批量入库项。",
+        )
+
+    parsed: list[dict] = []
+    total_file_count = 0
+    for index, item in enumerate(raw_items, start=1):
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=400, detail=f"第 {index} 个批量项格式不正确。")
+        source = _validate_source_filter(str(item.get("source") or ""))
+        if source is None:
+            raise HTTPException(status_code=400, detail=f"第 {index} 个批量项缺少目标来源。")
+        file_count = item.get("file_count")
+        if type(file_count) is not int or file_count <= 0:
+            raise HTTPException(status_code=400, detail=f"第 {index} 个批量项文件数量不正确。")
+        replace_source = _parse_batch_upload_bool(item.get("replace_source", False), item_index=index)
+        total_file_count += file_count
+        parsed.append(
+            {
+                "source": source,
+                "replace_source": replace_source,
+                "file_count": file_count,
+            }
+        )
+
+    if total_file_count > settings.batch_upload_max_files:
+        raise HTTPException(
+            status_code=400,
+            detail=f"单次批量入库最多上传 {settings.batch_upload_max_files} 个文件。",
+        )
+    if total_file_count != uploaded_file_count:
+        raise HTTPException(status_code=400, detail="批量入库文件数量与配置不一致。")
+    return parsed
+
+
+def _cleanup_staged_upload_groups(staged_groups: list[list]) -> None:
+    cleaned: set[Path] = set()
+    for group in staged_groups:
+        if not group:
+            continue
+        staged_path = getattr(group[0], "path", None)
+        if staged_path is None:
+            continue
+        directory = Path(staged_path).parent
+        if directory in cleaned:
+            continue
+        _cleanup_directory(directory)
+        cleaned.add(directory)
+
+
 @app.post("/documents/upload")
 async def upload_documents(
     request: Request,
@@ -1764,6 +1940,60 @@ async def upload_documents(
             await item.close()
 
 
+@app.post("/documents/batch-upload")
+async def batch_upload_documents(
+    request: Request,
+    response: Response,
+    items_json: str = Form(...),
+    files: list[UploadFile] = File(...),
+) -> dict:
+    _require_admin_user(request)
+    if not files:
+        raise HTTPException(status_code=400, detail="No files were uploaded.")
+
+    from ragpro.ingestion import DocumentUploadError, IncomingDocument
+
+    staged_groups: list[list[IncomingDocument]] = []
+    submitted_group_count = 0
+    try:
+        items = _parse_batch_upload_items(items_json, uploaded_file_count=len(files))
+        file_offset = 0
+        for item in items:
+            file_count = item["file_count"]
+            staged_groups.append(await _stage_uploaded_files(files[file_offset : file_offset + file_count]))
+            file_offset += file_count
+
+        jobs = []
+        for item, staged_files in zip(items, staged_groups):
+            jobs.append(
+                _submit_upload_job(
+                    source=item["source"],
+                    files=staged_files,
+                    replace_source=item["replace_source"],
+                )
+            )
+            submitted_group_count += 1
+
+        response.status_code = 202
+        return _create_batch_upload_job(jobs)
+    except DocumentUploadError as exc:
+        _cleanup_staged_upload_groups(staged_groups[submitted_group_count:])
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        _cleanup_staged_upload_groups(staged_groups[submitted_group_count:])
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        _cleanup_staged_upload_groups(staged_groups[submitted_group_count:])
+        raise
+    except Exception as exc:
+        _cleanup_staged_upload_groups(staged_groups[submitted_group_count:])
+        logger.exception("Batch document upload endpoint failed.")
+        raise HTTPException(status_code=503, detail=f"Batch document upload unavailable: {exc}") from exc
+    finally:
+        for item in files:
+            await item.close()
+
+
 @app.get("/documents/upload-jobs/{job_id}")
 def get_upload_job(job_id: str, request: Request) -> dict:
     _require_admin_user(request)
@@ -1771,6 +2001,15 @@ def get_upload_job(job_id: str, request: Request) -> dict:
     if job is None:
         raise HTTPException(status_code=404, detail="Upload job not found.")
     return job
+
+
+@app.get("/documents/batch-upload-jobs/{batch_id}")
+def get_batch_upload_job(batch_id: str, request: Request) -> dict:
+    _require_admin_user(request)
+    batch = _get_batch_upload_job(batch_id)
+    if batch is None:
+        raise HTTPException(status_code=404, detail="Batch upload job not found.")
+    return batch
 
 
 @app.post("/reindex")

@@ -102,3 +102,39 @@ class UploadJobRegistry:
                 setattr(job, key, value)
             job.updated_at = datetime.now()
             return job.to_dict()
+
+
+@dataclass
+class UploadBatch:
+    batch_id: str
+    items: list[dict]
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+
+    def to_dict(self) -> dict:
+        return {
+            "batch_id": self.batch_id,
+            "items": [dict(item) for item in self.items],
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+
+class UploadBatchRegistry:
+    def __init__(self) -> None:
+        self._batches: dict[str, UploadBatch] = {}
+        self._lock = Lock()
+
+    def create(self, *, items: list[dict]) -> dict:
+        batch = UploadBatch(
+            batch_id=uuid4().hex,
+            items=[dict(item) for item in items],
+        )
+        with self._lock:
+            self._batches[batch.batch_id] = batch
+        return batch.to_dict()
+
+    def get(self, batch_id: str) -> dict | None:
+        with self._lock:
+            batch = self._batches.get(batch_id)
+            return batch.to_dict() if batch else None

@@ -28,8 +28,17 @@ function Get-KeepaliveProcess {
         return $null
     }
     try {
+        $process = Get-CimInstance Win32_Process -Filter "ProcessId = $rawPid" -ErrorAction Stop
+        $isExpectedProcess = $process.Name -ieq "wsl.exe" -and
+            $process.CommandLine -match [regex]::Escape("-d $Distro") -and
+            $process.CommandLine -match "tail -f /dev/null"
+        if (-not $isExpectedProcess) {
+            Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
+            return $null
+        }
         return Get-Process -Id ([int]$rawPid) -ErrorAction Stop
     } catch {
+        Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
         return $null
     }
 }

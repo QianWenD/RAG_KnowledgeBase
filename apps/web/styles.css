@@ -4435,6 +4435,145 @@ body.console-page[data-page-view="knowledge-upload"] .upload-result {
   background: #f8fbfa;
 }
 
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-card {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #dce9e5;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-title-row,
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-toolbar,
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-item-head,
+body.console-page[data-page-view="knowledge-upload"] .batch-job-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-title-row h3 {
+  margin: 2px 0 0;
+  color: #173c38;
+  font-family: "Noto Serif SC", "STSong", serif;
+  font-size: 18px;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-copy {
+  margin: 8px 0 12px;
+  color: #60756f;
+  line-height: 1.65;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-form,
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-items,
+body.console-page[data-page-view="knowledge-upload"] .batch-file-list,
+body.console-page[data-page-view="knowledge-upload"] .batch-job-list {
+  display: grid;
+  gap: 10px;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-item,
+body.console-page[data-page-view="knowledge-upload"] .batch-job-item {
+  padding: 12px;
+  border: 1px solid #dce9e5;
+  border-radius: 12px;
+  background: #fbfdfc;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-item {
+  display: grid;
+  gap: 10px;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-item-head strong,
+body.console-page[data-page-view="knowledge-upload"] .batch-job-head strong {
+  color: #173c38;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, auto);
+  gap: 10px;
+  align-items: end;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-toggle {
+  width: auto;
+  min-height: 42px;
+  padding: 0 12px;
+  border-color: #d9e7e3;
+  border-radius: 999px;
+  background: #f8fbfa;
+  white-space: nowrap;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-file-drop {
+  min-height: 92px;
+  padding: 14px;
+  border-radius: 12px;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-file-drop strong {
+  font-size: 16px;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-toolbar {
+  margin-top: 2px;
+  align-items: center;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-progress {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #dbe8e4;
+  border-radius: 12px;
+  background: #f8fbfa;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-job-list {
+  margin-top: 10px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-job-item {
+  box-shadow: none;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-job-item.is-succeeded {
+  border-color: rgba(47, 143, 132, 0.28);
+  background: #f2faf8;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-job-item.is-failed {
+  border-color: rgba(179, 72, 60, 0.28);
+  background: #fff5f2;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-job-meter {
+  height: 8px;
+  margin: 8px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5eeeb;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-job-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #17645b, #55b8a7);
+}
+
+body.console-page[data-page-view="knowledge-upload"] .batch-job-item p {
+  margin: 0;
+  color: #60756f;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 body.console-page[data-page-view="knowledge-upload"] .knowledge-side {
   position: sticky;
   top: 58px;
@@ -4501,7 +4640,8 @@ body.console-page[data-page-view="knowledge-upload"] .upload-history-item {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  body.console-page[data-page-view="knowledge-upload"] .upload-grid {
+  body.console-page[data-page-view="knowledge-upload"] .upload-grid,
+  body.console-page[data-page-view="knowledge-upload"] .batch-upload-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -4513,13 +4653,16 @@ body.console-page[data-page-view="knowledge-upload"] .upload-history-item {
 
   body.console-page[data-page-view="knowledge-upload"] .module-nav-bar,
   body.console-page[data-page-view="knowledge-upload"] .upload-pipeline,
-  body.console-page[data-page-view="knowledge-upload"] .upload-actions {
+  body.console-page[data-page-view="knowledge-upload"] .upload-actions,
+  body.console-page[data-page-view="knowledge-upload"] .batch-upload-toolbar {
     grid-template-columns: 1fr;
     border-radius: 14px;
   }
 
   body.console-page[data-page-view="knowledge-upload"] .module-nav-link,
-  body.console-page[data-page-view="knowledge-upload"] .upload-step {
+  body.console-page[data-page-view="knowledge-upload"] .upload-step,
+  body.console-page[data-page-view="knowledge-upload"] .batch-upload-toolbar .ghost-btn,
+  body.console-page[data-page-view="knowledge-upload"] .batch-upload-toolbar .send-btn {
     justify-content: center;
   }
 }
