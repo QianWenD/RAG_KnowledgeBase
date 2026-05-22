@@ -1,0 +1,210 @@
+# RAGPro 项目文件整理清单
+
+更新时间：2026-05-22
+
+这份文档只做文件整理和阅读导航，不移动任何文件。当前建议是先把目录分清楚，再决定是否做物理搬迁。项目已经接近上线，随意移动目录很容易破坏启动脚本、测试路径和静态资源引用。
+
+## 一句话结论
+
+当前仓库可以分成七类：
+
+- 主线产品代码：`apps/`、`src/ragpro/`。
+- 测试和验证：`tests/`、`playwright.config.js`、`package.json`。
+- 本地运维脚本：`scripts/`。
+- 项目文档：`docs/`、`PROJECT_MAP.md`、`README.md`。
+- 数据资产：`packages/data/`。
+- 历史原型和参考代码：`packages/a_tools_intro`、`packages/b_traditional_qa`、`packages/c_modular_rag`、`packages/d_multi_layer_rag`、`packages/kbms-web`、`基于RAG的问答系统/`。
+- 本地运行产物：`runtime/`、`logs/`、`tmp/`、`test-results/`、`node_modules/`、`.venv/`、`__pycache__/`。
+
+## 顶层目录表
+
+| 路径 | 类型 | 说明 | 当前建议 |
+| --- | --- | --- | --- |
+| `.agents/` | 工具配置 | 项目本地 skills 元数据 | 保留 |
+| `.codex/` | 工具配置 | Codex MCP、agent 配置 | 保留 |
+| `.git/` | Git 内部目录 | 版本库元数据 | 不手动改 |
+| `.idea/` | IDE 配置 | JetBrains 本地配置 | 不作为产品代码 |
+| `.venv/` | 本地环境 | Python 虚拟环境 | 不提交、不整理进源码 |
+| `apps/` | 主线代码 | API、前端、worker | 重点维护 |
+| `docs/` | 文档 | 设计、状态、运行、交接 | 逐步中文化和去重 |
+| `logs/` | 运行产物 | 应用日志 | 不提交 |
+| `node_modules/` | 本地环境 | Node 依赖 | 不提交 |
+| `packages/` | 数据和历史代码 | 数据资产、旧原型、旧前端、模型目录 | 分区管理 |
+| `runtime/` | 运行产物 | 上传文件、本地向量库、评测结果 | 不提交，谨慎处理 |
+| `scripts/` | 运维脚本 | 本地启动、Milvus 启停 | 保留并维护 |
+| `src/` | 主线代码 | 正式 Python 包 | 重点维护 |
+| `test-results/` | 测试产物 | Playwright 输出 | 不提交，可定期清理 |
+| `tests/` | 测试 | 单测、API 测试、E2E | 重点维护 |
+| `tmp/` | 临时材料 | 性能测试和临时图 | 不提交，后续可清理 |
+| `基于RAG的问答系统/` | 参考资料 | 流程图、界面图、设计图 | 保留为参考 |
+
+## 根目录文件
+
+| 文件 | 说明 | 当前建议 |
+| --- | --- | --- |
+| `.gitignore` | 忽略本地环境、日志、运行产物、模型权重 | 保留并继续维护 |
+| `1.3.3` | 空文件，来源不明 | 暂不删除，后续确认后清理 |
+| `README.md` | 项目主说明 | 已整理为中文入口 |
+| `PROJECT_MAP.md` | 当前项目总览 | 已改成中文，作为接管入口 |
+| `package.json` | Playwright 测试脚本 | 保留 |
+| `package-lock.json` | Node 依赖锁定 | 保留 |
+| `playwright.config.js` | E2E 测试配置 | 保留 |
+| `requirements.txt` | 基础 Python 依赖 | 保留 |
+| `requirements-rag.txt` | RAG 和文档处理依赖 | 保留 |
+
+## `apps/` 主线应用
+
+| 路径 | 说明 |
+| --- | --- |
+| `apps/api/main.py` | FastAPI 主入口，接口和页面路由都在这里 |
+| `apps/web/` | 当前产品前端，原生 HTML/CSS/JS |
+| `apps/worker/` | 离线导入、索引、评测脚本 |
+
+### `apps/web/` 页面整理
+
+| 文件 | 说明 |
+| --- | --- |
+| `index.html`、`dashboard.js`、`app.js` | 首页和仪表盘相关 |
+| `login.html`、`register.html`、`auth.js` | 登录、注册、认证前端逻辑 |
+| `qa.html`、`qa.js` | 问答页面 |
+| `knowledge.html`、`knowledge.js` | 知识上传和管理 |
+| `knowledge_reindex.html`、`knowledge_reindex.js` | 重建索引页面 |
+| `knowledge_sources.html`、`knowledge_sources.js` | 知识源管理页面 |
+| `users*.html`、`users*.js` | 用户、权限、组织、安全、审计页面 |
+| `common.js` | 公共导航、认证态、页面通用逻辑 |
+| `styles.css` | 全局样式 |
+| `assets/login-bg.png` | 登录页背景图 |
+
+当前 `apps/web` 里有用户正在改的登录页和侧边栏动效，整理时不能覆盖。
+
+## `src/ragpro/` 正式 Python 包
+
+| 路径 | 说明 |
+| --- | --- |
+| `auth/` | 用户、登录、会话、权限、角色、审计 |
+| `config/` | 配置、日志 |
+| `conversation/` | 对话历史 |
+| `evaluation/` | 评测数据和评测执行 |
+| `faq_match/` | FAQ 查询、缓存、预处理 |
+| `generation/` | Prompt、LLM 调用、答案生成 |
+| `ingestion/` | 文档解析、上传、切分、任务管理 |
+| `retrieval/` | Milvus 和本地向量库 |
+| `routing/` | 意图识别、策略选择 |
+| `runtime/` | 健康检查和诊断 |
+| `legacy/` | 遗留兼容占位 |
+
+维护规则：正式业务逻辑尽量写到这里，不要直接回到 `packages/` 里的旧原型继续堆功能。
+
+## `tests/` 测试整理
+
+| 路径 | 说明 |
+| --- | --- |
+| `test_auth_api.py` | 认证和权限 API 测试 |
+| `test_auth_repository.py` | 认证数据层测试 |
+| `test_auth_service.py` | 认证服务测试 |
+| `test_api_surface.py` | API 和页面结构测试 |
+| `test_frontend_smoke.py` | 前端页面静态冒烟测试 |
+| `test_document_upload.py` | 上传和文档处理测试 |
+| `test_ingestion_loaders.py` | 文档 loader 测试 |
+| `test_vector_store.py` | 向量库测试 |
+| `test_routing.py` | 路由策略测试 |
+| `test_generation.py` | 生成逻辑测试 |
+| `test_evaluation.py` | 评测逻辑测试 |
+| `test_conversation.py` | 会话历史测试 |
+| `test_faq_service.py` | FAQ 服务测试 |
+| `test_api_rag_service_cache.py` | RAG 服务缓存相关测试 |
+| `tests/e2e/` | Playwright 浏览器 E2E 测试 |
+| `tests/fixtures/` | 测试上传样例 |
+
+当前全量 Python 测试还有少量静态页面断言失败，E2E 通过。后续修测试前，要先判断是页面应补链接，还是测试应适配新结构。
+
+## `packages/` 数据和历史代码
+
+| 路径 | 类型 | 说明 | 当前建议 |
+| --- | --- | --- | --- |
+| `packages/data/` | 数据资产 | FAQ、知识文档、评测集、OCR 样例 | 保留，谨慎编辑 |
+| `packages/models/` | 本地模型 | BERT、BGE、reranker 等权重 | 不提交 |
+| `packages/a_tools_intro/` | 早期实验 | MySQL、Redis、Milvus、FastAPI 等连通性测试 | 参考 |
+| `packages/b_traditional_qa/` | 旧原型 | 传统 FAQ 检索 | 参考 |
+| `packages/c_modular_rag/` | 旧原型 | 模块化 RAG | 参考 |
+| `packages/d_multi_layer_rag/` | 旧原型 | 多层 FAQ + RAG 整合 | 参考 |
+| `packages/kbms-web/` | 旧前端 | Vue2 KBMS 管理端 | 参考，不建议继续扩展 |
+
+整理规则：`packages/data` 是资产，其他大部分是历史参考。后续新功能不要再写进旧原型。
+
+## `docs/` 文档整理
+
+当前文档大致分几类：
+
+- 项目分析和设计：`rag-project-analysis.md`、`planning-design.md`。
+- 结构和正式化：`current-code-structure-summary.md`、`formalization-progress.md`。
+- 前端状态：`frontend-page-architecture.md`、`frontend-status-summary.md`、`frontend-e2e-verification.md`。
+- 启动和运行：`local-startup-runbook.md`、`milvus-lite-wsl-setup.md`、`milvus-feasibility-report.md`。
+- 交接：`main-thread-handoff-summary.md`、`new-thread-kickoff-brief.md`。
+- 文档入口和管理草案：`README.md`、`project-owner-handbook.md`、`project-roadmap.md`、`project-file-inventory.md`。
+
+后续建议：先保留全部文档，不急着删。等主线稳定后，再做一次文档去重，把过时内容归档。
+
+## 可以清理但暂时不动的内容
+
+这些通常可以清理，但现在先不执行，避免误删用户还要看的东西：
+
+- `__pycache__/`
+- `test-results/`
+- `tmp/`
+- `logs/`
+- `runtime/evaluation/*.report.json`
+- `runtime/local_vector_store.pkl`
+- 空文件 `1.3.3`
+
+如果之后要做物理清理，建议先单独开一次清理任务，只处理 `.gitignore` 已覆盖的运行产物。
+
+## 不建议随便移动的内容
+
+这些路径一动就可能影响启动、测试或业务行为：
+
+- `apps/api/main.py`
+- `apps/web/`
+- `src/ragpro/`
+- `tests/`
+- `scripts/`
+- `packages/data/`
+- `runtime/uploads/`
+
+尤其是 `runtime/uploads/`，里面可能是本地真实上传数据。即使不提交，也不要随便删除。
+
+## 建议的逻辑分层
+
+目前先不移动文件，但以后可以按这个逻辑理解项目：
+
+```text
+RAGPro
+├─ 产品入口：apps/
+├─ 核心能力：src/ragpro/
+├─ 测试验证：tests/
+├─ 本地运维：scripts/
+├─ 文档知识：docs/、PROJECT_MAP.md、README.md
+├─ 数据资产：packages/data/
+├─ 历史参考：packages/a_*、b_*、c_*、d_*、kbms-web、基于RAG的问答系统/
+└─ 本地运行：runtime/、logs/、tmp/、test-results/
+```
+
+## 后续整理建议
+
+短期只做文档整理：
+
+- 保留现有物理目录。
+- 中文化关键文档。
+- 在文档里明确主线、参考区、运行产物。
+
+中期可以做安全清理：
+
+- 清理缓存和测试产物。
+- 确认空文件 `1.3.3` 来源。
+- 把过时文档移到归档区。
+
+长期如果要重构目录：
+
+- 先确保全量测试和 E2E 通过。
+- 先列迁移清单，再分批移动。
+- 每移动一类目录，就同步更新启动脚本、测试路径和文档。

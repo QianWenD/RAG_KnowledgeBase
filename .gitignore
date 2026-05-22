@@ -29,6 +29,7 @@ packages/models/
 
 # Runtime caches
 .cache/
+tmp/
 runtime/*.pid
 runtime/*.log
 runtime/local_vector_store.pkl

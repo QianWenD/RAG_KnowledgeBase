@@ -2317,6 +2317,7 @@ body.console-page .side-nav {
 body.console-page .side-nav-group {
   display: grid;
   gap: 2px;
+  overflow: hidden;
 }
 
 body.console-page .side-nav-group summary {
@@ -2336,9 +2337,10 @@ body.console-page .side-nav-group summary {
     width 320ms var(--sidebar-ease),
     min-height 320ms var(--sidebar-ease),
     padding 320ms var(--sidebar-ease),
-    color 180ms ease,
-    background 180ms ease,
-    border-radius 180ms ease;
+    color 220ms ease,
+    background 260ms ease,
+    border-radius 220ms ease,
+    box-shadow 260ms ease;
 }
 
 body.console-page .side-nav-icon,
@@ -2396,11 +2398,15 @@ body.console-page .side-nav-group summary::after {
   border-right: 1px solid currentColor;
   border-bottom: 1px solid currentColor;
   transform: rotate(45deg);
-  transition: transform 160ms ease;
+  opacity: 0.78;
+  transition:
+    opacity 220ms ease,
+    transform 420ms cubic-bezier(0.33, 0, 0.2, 1);
 }
 
 body.console-page .side-nav-group[open] summary::after {
-  transform: rotate(225deg);
+  opacity: 1;
+  transform: rotate(225deg) translate(-1px, -1px);
 }
 
 body.console-page .side-nav-group summary:hover {
@@ -2417,6 +2423,7 @@ body.console-page .side-nav-group[open] summary,
 body.console-page .side-nav-group.is-active-section summary {
   color: #ffffff;
   background: rgba(66, 165, 245, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(120, 190, 245, 0.08);
 }
 
 body.console-page .side-nav-group:not([open]) .side-nav-list {
@@ -2424,13 +2431,99 @@ body.console-page .side-nav-group:not([open]) .side-nav-list {
 }
 
 body.console-page .side-nav-list {
+  position: relative;
   display: grid;
-  gap: 2px;
-  padding: 0 0 4px 24px;
+  gap: 3px;
+  padding: 3px 0 7px 24px;
   overflow: hidden;
+  opacity: 1;
+  transform: translateY(0);
+  transform-origin: top center;
+  will-change: height, opacity, transform, clip-path, filter;
   transition:
-    opacity 180ms ease,
+    height var(--sidebar-menu-duration, 420ms) cubic-bezier(0.33, 0, 0.2, 1),
+    opacity 320ms ease,
+    transform var(--sidebar-menu-duration, 420ms) cubic-bezier(0.33, 0, 0.2, 1),
+    clip-path var(--sidebar-menu-duration, 420ms) cubic-bezier(0.33, 0, 0.2, 1),
+    filter 300ms ease,
     padding 260ms var(--sidebar-ease);
+}
+
+body.console-page .side-nav-list::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  bottom: 10px;
+  width: 1px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(66, 165, 245, 0.42), rgba(66, 165, 245, 0));
+  opacity: 0;
+  transform: scaleY(0.64);
+  transform-origin: top;
+  transition:
+    opacity 260ms ease,
+    transform 460ms cubic-bezier(0.33, 0, 0.2, 1);
+}
+
+body.console-page .side-nav-group[open] .side-nav-list::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+body.console-page .side-nav-group.is-menu-opening summary,
+body.console-page .side-nav-group.is-menu-closing summary {
+  pointer-events: none;
+}
+
+body.console-page .side-nav-group.is-menu-opening .side-nav-icon {
+  transform: scale(1.06);
+}
+
+body.console-page .side-nav-group.is-menu-opening .side-nav-list .nav-link {
+  animation: sidebar-child-fade-in 440ms cubic-bezier(0.33, 0, 0.2, 1) both;
+}
+
+body.console-page .side-nav-group.is-menu-opening .side-nav-list .nav-link:nth-child(2) {
+  animation-delay: 42ms;
+}
+
+body.console-page .side-nav-group.is-menu-opening .side-nav-list .nav-link:nth-child(3) {
+  animation-delay: 84ms;
+}
+
+body.console-page .side-nav-group.is-menu-opening .side-nav-list .nav-link:nth-child(4) {
+  animation-delay: 126ms;
+}
+
+body.console-page .side-nav-group.is-menu-opening .side-nav-list .nav-link:nth-child(5) {
+  animation-delay: 168ms;
+}
+
+body.console-page .side-nav-group.is-menu-closing .side-nav-list .nav-link {
+  animation: sidebar-child-fade-out 180ms ease both;
+}
+
+@keyframes sidebar-child-fade-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-6px, -8px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes sidebar-child-fade-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-4px, -5px, 0) scale(0.99);
+  }
 }
 
 body.console-page .rail .nav-link {
@@ -7624,4 +7717,354 @@ body.console-page[data-page="users"] .permission-form-fieldset.is-focus-target {
   body.console-page[data-page="users"] .permission-step-panel-grid {
     grid-template-columns: 1fr;
   }
+}
+
+body.login-page {
+  --page-accent: #8a623e;
+  --page-accent-rgb: 138, 98, 62;
+  --page-accent-strong: #5d4028;
+  --page-support: #567868;
+  min-height: 100dvh;
+  background: #eef2f6 url("/static/assets/login-bg.png") center center / cover no-repeat fixed;
+  color: #24313a;
+}
+
+body.login-page .scene-grid,
+body.login-page .scene-glow {
+  display: none;
+}
+
+body.login-page .auth-shell {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 100%);
+  padding: 24px;
+}
+
+body.login-page .auth-stage {
+  width: min(460px, 100%);
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+body.login-page .auth-card-panel {
+  padding: 34px;
+  color: #273744;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(131, 103, 70, 0.22);
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(71, 49, 31, 0.18);
+  backdrop-filter: blur(18px);
+}
+
+body.login-page .auth-card-panel::before {
+  height: 3px;
+  background: linear-gradient(90deg, #8a623e, rgba(138, 98, 62, 0.08));
+}
+
+body.login-page .panel-head {
+  margin-bottom: 18px;
+}
+
+body.login-page .auth-login-title {
+  margin: 2px 0 0;
+  color: #24313a;
+  font-family: "Noto Serif SC", "STSong", serif;
+  font-size: clamp(2rem, 7vw, 2.7rem);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+}
+
+body.login-page .panel-kicker {
+  color: #8a623e;
+}
+
+body.login-page .auth-notice {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  color: #52616d;
+  background: rgba(250, 246, 238, 0.92);
+  border-color: rgba(138, 98, 62, 0.18);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+body.login-page .auth-form-solo {
+  display: grid;
+  gap: 16px;
+}
+
+body.login-page .auth-form-actions,
+body.login-page .field-block,
+body.login-page .field-block input {
+  width: 100%;
+}
+
+body.login-page .field-block span {
+  color: #334554;
+  font-weight: 700;
+}
+
+body.login-page .field-block input {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-color: rgba(128, 107, 82, 0.3);
+  border-radius: 10px;
+}
+
+body.login-page .send-btn {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 10px;
+  background: #7e5838;
+  border-color: #7e5838;
+}
+
+body.login-page .auth-link-row {
+  justify-content: center;
+  margin-top: 18px;
+}
+
+@media (max-width: 720px) {
+  body.login-page .auth-shell {
+    padding: 18px;
+  }
+
+  body.login-page .auth-card-panel {
+    padding: 26px 22px;
+  }
+}
+
+/* Unified tech-blue component accent. Page backgrounds stay untouched. */
+:root {
+  --component-accent: #2585d9;
+  --component-accent-rgb: 37, 133, 217;
+  --component-accent-strong: #1167b0;
+  --component-accent-deep: #0a4f91;
+  --component-accent-soft: #edf6ff;
+  --component-accent-line: #b7d6f3;
+}
+
+body.console-page,
+body.auth-page,
+body.login-page {
+  --page-accent: var(--component-accent);
+  --page-accent-rgb: var(--component-accent-rgb);
+  --page-accent-strong: var(--component-accent-strong);
+  --page-support: var(--component-accent);
+}
+
+body.console-page .panel::before,
+body.console-page .topbar::before,
+body.console-page .summary-card::before,
+body.console-page .overview-card::before,
+body.console-page .source-card::before,
+body.console-page .access-user-card::before,
+body.console-page .state-banner::before,
+body.console-page .section-banner::before,
+body.console-page .guide-item::before,
+body.console-page .upload-result::before,
+body.console-page .upload-history-item::before,
+body.console-page .status-line::before,
+body.console-page .session-row::before,
+body.console-page .empty-state::before,
+body.auth-page .auth-card-panel::before,
+body.auth-page .auth-intro::before {
+  background: linear-gradient(90deg, var(--component-accent), rgba(var(--component-accent-rgb), 0.08));
+}
+
+body.console-page .brand-kicker,
+body.console-page .hero-kicker,
+body.console-page .panel-kicker,
+body.console-page .label,
+body.console-page .message-tag,
+body.console-page .state-banner-label,
+body.console-page .summary-card span,
+body.console-page .meta-card span,
+body.console-page .overview-card span,
+body.console-page .breadcrumb-link,
+body.console-page .composer-telemetry span:first-child,
+body.login-page .panel-kicker,
+body.auth-page .ghost-link {
+  color: var(--component-accent-strong);
+}
+
+body.console-page .status-chip:not(.is-warn),
+body.console-page .tag:not(.muted),
+body.console-page .group-badge,
+body.console-page .empty-state-icon,
+body.console-page .message-tag,
+body.auth-page .status-chip:not(.is-warn),
+body.auth-page .tag:not(.muted) {
+  border-color: rgba(var(--component-accent-rgb), 0.2);
+  background: rgba(var(--component-accent-rgb), 0.1);
+  color: var(--component-accent-strong);
+}
+
+body.console-page input[type="checkbox"],
+body.auth-page input[type="checkbox"] {
+  accent-color: var(--component-accent);
+}
+
+body.console-page input:focus,
+body.console-page select:focus,
+body.console-page textarea:focus,
+body.auth-page input:focus,
+body.auth-page select:focus,
+body.auth-page textarea:focus,
+body.console-page .file-drop:focus-within,
+body.auth-page .file-drop:focus-within {
+  border-color: var(--component-accent);
+  outline-color: rgba(var(--component-accent-rgb), 0.16);
+  box-shadow: 0 0 0 3px rgba(var(--component-accent-rgb), 0.14);
+}
+
+body.console-page[data-page] .topbar-link:hover,
+body.console-page[data-page] .module-nav-link:hover,
+body.console-page[data-page] .section-link:hover,
+body.console-page[data-page] .nav-link:hover,
+body.console-page[data-page] .ghost-btn:hover,
+body.console-page[data-page] .panel-link-btn.tertiary:hover {
+  border-color: var(--component-accent-line);
+  background: var(--component-accent-soft);
+  color: var(--component-accent-strong);
+}
+
+body.console-page[data-page] .topbar-link.is-active,
+body.console-page[data-page] .module-nav-link.is-active,
+body.console-page[data-page] .module-nav-link[aria-current="page"],
+body.console-page[data-page] .section-link.is-active,
+body.console-page[data-page] .nav-link.is-active,
+body.console-page[data-page] .send-btn,
+body.console-page[data-page] .panel-link-btn:not(.tertiary),
+body.console-page[data-page] .legacy-primary-btn,
+body.console-page[data-page] .compact-save-btn,
+body.auth-page .send-btn,
+body.login-page .send-btn {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--component-accent-strong), var(--component-accent));
+  border-color: var(--component-accent);
+  box-shadow: 0 10px 22px rgba(var(--component-accent-rgb), 0.18);
+}
+
+body.console-page[data-page] .legacy-text-action,
+body.console-page[data-page] .table-icon-btn:not(.danger),
+body.console-page[data-page] .table-icon-btn.is-save {
+  color: var(--component-accent);
+}
+
+body.console-page[data-page] .legacy-text-action:hover,
+body.console-page[data-page] .table-icon-btn:not(.danger):hover,
+body.console-page[data-page] .table-icon-btn.is-save:hover {
+  color: var(--component-accent-strong);
+  background: var(--component-accent-soft);
+}
+
+body.console-page .progress-fill {
+  background: linear-gradient(90deg, var(--component-accent-strong), var(--component-accent), #7cc4ff);
+}
+
+body.console-page[data-page="qa"] .message.user .message-body,
+body.console-page[data-page="qa"] .qa-context-tab.is-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--component-accent-strong), var(--component-accent));
+  box-shadow: 0 12px 26px rgba(var(--component-accent-rgb), 0.22);
+}
+
+body.console-page[data-page="qa"] .send-btn {
+  background:
+    radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.34), transparent 32%),
+    linear-gradient(135deg, var(--component-accent-strong), var(--component-accent));
+  box-shadow: 0 14px 26px rgba(var(--component-accent-rgb), 0.24);
+}
+
+body.console-page[data-page="qa"] .send-btn:hover {
+  box-shadow: 0 18px 30px rgba(var(--component-accent-rgb), 0.28);
+}
+
+body.console-page[data-page="qa"] .suggestion-chip,
+body.console-page[data-page="qa"] .composer-stream-toggle,
+body.console-page[data-page="qa"] .qa-context-tabs,
+body.console-page[data-page="qa"] .qa-meta-pill,
+body.console-page[data-page="qa"] .qa-detail-row,
+body.console-page[data-page="qa"] .session-history-item {
+  border-color: rgba(var(--component-accent-rgb), 0.18);
+  background: #f7fbff;
+}
+
+body.console-page[data-page="qa"] .suggestion-chip:hover,
+body.console-page[data-page="qa"] .qa-context-tab:hover,
+body.console-page[data-page="qa"] .session-history-item:hover,
+body.console-page[data-page="qa"] .session-history-item.is-active {
+  color: var(--component-accent-strong);
+  border-color: rgba(var(--component-accent-rgb), 0.44);
+  background:
+    linear-gradient(135deg, rgba(var(--component-accent-rgb), 0.1), transparent 44%),
+    #f7fbff;
+  box-shadow: 0 8px 18px rgba(var(--component-accent-rgb), 0.12);
+}
+
+body.console-page[data-page="qa"] .qa-context-tab:focus-visible {
+  outline-color: rgba(var(--component-accent-rgb), 0.18);
+}
+
+body.console-page[data-page="qa"] .qa-current-turn {
+  border-color: rgba(var(--component-accent-rgb), 0.18);
+  background:
+    linear-gradient(135deg, rgba(var(--component-accent-rgb), 0.08), transparent 42%),
+    #f8fbff;
+}
+
+body.console-page[data-page="qa"] .qa-history-index,
+body.console-page[data-page="qa"] .session-history-meta code,
+body.console-page[data-page="qa"] .composer-meter {
+  color: var(--component-accent-strong);
+}
+
+body.console-page[data-page="knowledge"] .module-nav-link.is-active,
+body.console-page[data-page="knowledge"] .module-nav-link[aria-current="page"],
+body.console-page[data-page-view="knowledge-upload"] .module-nav-link.is-active,
+body.console-page[data-page-view="knowledge-upload"] .module-nav-link[aria-current="page"],
+body.console-page[data-page-view="knowledge-reindex"] .module-nav-link.is-active,
+body.console-page[data-page-view="knowledge-reindex"] .module-nav-link[aria-current="page"] {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--component-accent-strong), var(--component-accent));
+  border-color: var(--component-accent);
+  box-shadow: 0 8px 18px rgba(var(--component-accent-rgb), 0.2);
+}
+
+body.console-page[data-page="knowledge"] .file-drop,
+body.console-page[data-page-view="knowledge-upload"] .file-drop,
+body.console-page[data-page-view="knowledge-upload"] .batch-file-drop {
+  border-color: rgba(var(--component-accent-rgb), 0.42);
+  background:
+    radial-gradient(circle at 18% 10%, rgba(var(--component-accent-rgb), 0.12), transparent 34%),
+    linear-gradient(135deg, #f7fbff, #eef7ff);
+}
+
+body.console-page[data-page="knowledge"] .file-drop strong,
+body.console-page[data-page-view="knowledge-upload"] .file-drop strong,
+body.console-page[data-page-view="knowledge-upload"] .batch-file-drop strong,
+body.console-page[data-page-view="knowledge-upload"] .batch-upload-title-row h3,
+body.console-page[data-page="knowledge"] .knowledge-workbench .panel-head h2 {
+  color: #173d63;
+}
+
+body.console-page[data-page-view="knowledge-upload"] .upload-step.is-active,
+body.console-page[data-page-view="knowledge-upload"] .upload-step.is-done {
+  color: var(--component-accent-strong);
+  border-color: rgba(var(--component-accent-rgb), 0.28);
+  background: rgba(var(--component-accent-rgb), 0.1);
+}
+
+body.login-page .auth-card-panel::before {
+  background: linear-gradient(90deg, var(--component-accent), rgba(var(--component-accent-rgb), 0.08));
+}
+
+body.login-page .auth-notice {
+  border-color: rgba(var(--component-accent-rgb), 0.18);
+}
+
+body.login-page .field-block input {
+  border-color: rgba(var(--component-accent-rgb), 0.26);
 }

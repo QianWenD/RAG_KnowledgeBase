@@ -9,51 +9,25 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body class="auth-page" data-auth-mode="login">
+<body class="auth-page login-page" data-auth-mode="login">
   <div class="scene-grid" aria-hidden="true"></div>
   <div class="scene-glow" aria-hidden="true"></div>
 
   <main class="auth-shell">
     <section class="auth-stage">
-      <article class="auth-intro">
-        <p class="brand-kicker">账号入口</p>
-        <h1 class="auth-display-title">登录知识问答工作台</h1>
-        <p class="auth-display-copy">使用已分配的账号进入系统。登录后会自动加载你的来源权限、上传权限和管理权限，避免越权查看不属于自己的知识内容。</p>
-        <div class="auth-stats">
-          <div class="stat-tile">
-            <span>页面</span>
-            <strong>/login</strong>
-          </div>
-          <div class="stat-tile">
-            <span>权限</span>
-            <strong>来源可控</strong>
-          </div>
-          <div class="stat-tile">
-            <span>能力</span>
-            <strong>FAQ + RAG</strong>
-          </div>
-          <div class="stat-tile">
-            <span>方式</span>
-            <strong>标准登录</strong>
-          </div>
-        </div>
-      </article>
-
       <section class="auth-card-panel">
         <div class="panel-head">
           <div>
-            <p class="panel-kicker">身份认证</p>
-            <h2>账号登录</h2>
+            <p class="panel-kicker">RAGPro</p>
+            <h1 class="auth-login-title">账号登录</h1>
           </div>
-          <span class="status-chip">/login</span>
         </div>
-        <p class="auth-lead">请输入用户名和密码进入系统。如果你还没有账号，可以先前往注册页创建。</p>
-        <div id="auth-status" class="upload-result auth-notice" role="status" aria-live="polite">请输入用户名和密码继续。</div>
+        <div id="auth-status" class="upload-result auth-notice" role="status" aria-live="polite">请输入账号和密码。</div>
 
         <form id="login-form" class="auth-form auth-form-solo">
           <label class="field-block" for="login-username">
-            <span>用户名</span>
-            <input id="login-username" type="text" autocomplete="username" placeholder="例如 admin">
+            <span>登录账号</span>
+            <input id="login-username" type="text" autocomplete="username" placeholder="请输入登录账号">
           </label>
           <label class="field-block" for="login-password">
             <span>密码</span>

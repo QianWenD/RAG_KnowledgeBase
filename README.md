@@ -1,362 +1,124 @@
 # RAGPro
 
-RAGPro is a staged Chinese RAG question-answering project that is being formalized into a production-oriented structure.
+RAGPro 是一个中文 RAG 问答和知识库运维系统。当前项目已经从早期实验阶段进入接近上线的整理和加固阶段，主线能力包括登录认证、用户和权限管理、知识上传、批量上传、索引重建、FAQ 优先匹配、RAG 检索增强问答、运行诊断和前端 E2E 测试。
 
-## Current Direction
+## 先看哪几份文档
 
-- FAQ exact match first
-- RAG retrieval on FAQ miss
-- Milvus + BGE-M3 + reranker
-- Formal source layout under `src/ragpro/`
+如果你是第一次接手这个项目，建议按下面顺序看：
 
-## Important Docs
+1. `PROJECT_MAP.md`：项目总览，说明主线代码、运行依赖、启动方式和维护规则。
+2. `docs/project-file-inventory.md`：项目文件整理清单，说明每个目录该怎么看、哪些是主线、哪些是历史参考。
+3. `docs/local-startup-runbook.md`：本地启动手册。
+4. `docs/project-owner-handbook.md`：项目负责人管理规则草案。
+5. `docs/project-roadmap.md`：路线图和风险清单。
+6. `docs/README.md`：文档索引。
 
-- `docs/rag-project-analysis.md`
-- `docs/planning-design.md`
-- `docs/current-code-structure-summary.md`
-- `docs/formalization-progress.md`
-- `docs/frontend-page-architecture.md`
-- `docs/frontend-e2e-verification.md`
-- `docs/local-startup-runbook.md`
-- `docs/milvus-feasibility-report.md`
-- `docs/milvus-lite-wsl-setup.md`
+## 当前主线目录
 
-## Current Formal Entrypoint
+| 路径 | 作用 |
+| --- | --- |
+| `apps/api/main.py` | FastAPI 主入口，页面路由、API 路由、认证守卫、问答编排 |
+| `apps/web/` | 当前产品前端，原生 HTML/CSS/JS |
+| `apps/worker/` | FAQ 导入、文档索引、离线评测脚本 |
+| `src/ragpro/` | 正式 Python 包，承载认证、检索、生成、上传、评测等核心模块 |
+| `tests/` | Python 单测、API 测试、Playwright E2E 测试 |
+| `scripts/` | 本地启动、Milvus 启停、环境检查脚本 |
+| `packages/data/` | FAQ、知识文档、评测集和 OCR 样例 |
 
-- API: `apps/api/main.py`
-- Frontend: `apps/web/index.html`
+`packages/a_tools_intro`、`packages/b_traditional_qa`、`packages/c_modular_rag`、`packages/d_multi_layer_rag`、`packages/kbms-web` 主要是历史原型或参考代码，后续新功能不要继续写进去。
 
-## Quick Start
+## 本地启动
 
-### 1. Create local venv and install base dependencies
+推荐启动：
 
 ```powershell
-python -m venv .venv
-.venv\Scripts\python -m pip install --upgrade pip
-.venv\Scripts\python -m pip install -r requirements.txt
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -SkipBrowser -HealthTimeoutSeconds 90
 ```
 
-### 2. Start the API and frontend in one process
-
-Recommended launcher:
+完整启动 Milvus 和 RAG 依赖：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -StartMilvus -UseMilvus -InstallRag -SkipBrowser -HealthTimeoutSeconds 90
 ```
 
-For full local RAG startup with Milvus in WSL:
+手动启动 API：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -StartMilvus -UseMilvus -InstallRag
+.\.venv\Scripts\python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Manual command:
+启动后访问：
+
+- `http://127.0.0.1:8000/`
+- `http://127.0.0.1:8000/login`
+- `http://127.0.0.1:8000/qa`
+- `http://127.0.0.1:8000/knowledge`
+
+健康检查：
 
 ```powershell
-.venv\Scripts\python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8000 --reload
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/health
 ```
 
-Then open `http://127.0.0.1:8000/`.
+## 常用验证
 
-### 2.1 Frontend browser smoke tests
-
-The native frontend can be checked with Playwright:
+Python 全量测试：
 
 ```powershell
-npm install
-npm run test:e2e:install
+.\.venv\Scripts\python.exe -m unittest discover tests
+```
+
+前端 E2E：
+
+```powershell
 npm run test:e2e
 ```
 
-For an opt-in live permission and audit-chain check against the configured MySQL database:
+RAG 离线评测：
 
 ```powershell
-$env:RAGPRO_E2E_LIVE = "1"
-$env:RAGPRO_E2E_CREATE_ADMIN = "1"
-npm run test:e2e:live
+.\.venv\Scripts\python.exe apps\worker\run_evaluation.py --dataset packages\data\evaluation\phase_one_smoke.json --mode app
 ```
 
-The live suite self-provisions temporary `e2e_*` accounts and cleans up matching users and audit logs after the run. More details are in `docs/frontend-e2e-verification.md`.
+当前接管审计时的状态：
 
-For a consolidated local startup guide covering API/frontend, MySQL, Milvus, workers, and test commands, see `docs/local-startup-runbook.md`.
+- 本地 `/health` 正常。
+- 前端 E2E 通过。
+- 核心后端和 RAG 相关定向测试通过。
+- 全量 Python 测试仍有少量前端静态断言需要整理。
+- RAG 离线评测脚本需要适配 `/query` 的登录认证要求。
 
-### 3. Optional RAG runtime dependencies
+## 本地依赖
 
-```powershell
-.venv\Scripts\python -m pip install -r requirements-rag.txt
-```
+本项目本地运行通常需要：
 
-If `Milvus` is not running, the project falls back to a local lightweight retrieval store in `runtime/local_vector_store.pkl` for development.
+- Python 3.10 虚拟环境。
+- MySQL。
+- Redis。
+- Milvus，当前本地通过 WSL Ubuntu 运行。
+- Ollama。
+- Node.js，仅用于 Playwright 测试。
 
-`requirements-rag.txt` now also installs the document-ingestion runtime used by the worker path:
+依赖文件：
 
-- `pypdf` for text-based PDF extraction
-- `PyMuPDF + rapidocr-onnxruntime` for optional OCR fallback on scanned PDFs
-- `docx2txt` for `.docx` loading
+- `requirements.txt`：基础后端依赖。
+- `requirements-rag.txt`：RAG、向量、文档解析相关依赖。
+- `package.json`：Playwright 测试脚本和依赖。
 
-The current ingestion layer supports:
+## 文件管理规则
 
-- `.txt`
-- `.md` / `.markdown`
-- `.html` / `.htm`
-- `.pdf`
-- `.docx`
-- `.ppt` / `.pptx` when the optional unstructured PowerPoint loader is available
+- 新后端功能优先放到 `src/ragpro/` 和 `apps/api/main.py`。
+- 新前端功能优先放到 `apps/web/`。
+- 不要把新功能继续写进旧的 `packages/b_*`、`packages/c_*`、`packages/d_*` 原型目录。
+- 不要提交 `runtime/uploads/`、`runtime/local_vector_store.pkl`、`logs/`、`tmp/`、`test-results/`、`packages/models/`。
+- 修改认证、权限、上传、索引重建、检索、生成逻辑时，需要同步补测试或写清楚验证方式。
 
-PDF ingestion now uses a two-step strategy:
+## 上线前重点风险
 
-- prefer text extraction when the extracted text quality is acceptable
-- automatically switch to OCR when the extracted PDF text looks suspicious
+上线前至少要处理：
 
-### 4. Start Milvus Standalone in WSL
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start-milvus-wsl.ps1
-```
-
-This starts `Milvus Standalone` inside `WSL Ubuntu`, keeps the distro alive through a managed background `wsl.exe` process, and exposes:
-
-- `127.0.0.1:19530`
-- `127.0.0.1:9091`
-
-To stop it:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\stop-milvus-wsl.ps1
-```
-
-If you want the API to prefer Milvus explicitly in the current shell:
-
-```powershell
-$env:RAGPRO_VECTOR_BACKEND = "milvus"
-```
-
-For local Milvus verification on this machine, there are currently two practical paths:
-
-- `WSL Ubuntu + Milvus Lite` for lightweight local validation
-- `Docker Desktop + WSL2 + Milvus Standalone` for a setup closer to the official server runtime
-
-When the fallback backend is used, `/query` responses include:
-
-- `retrieval_backend`: current backend, such as `local` or `milvus`
-- `citations`: deduplicated source references with `excerpt`
-- `context_count`: number of retrieved parent documents
-- `confidence`: structured confidence with `score` and `label`
-- `debug_info`: structured FAQ, routing, retrieval, and fallback metadata
-
-The current `/query` flow also supports:
-
-- multi-turn session history persistence
-- history-aware retrieval query rewriting for short follow-up questions
-- concept-oriented retrieval expansion for terms such as `澶ц瑷€妯″瀷 / LLM / 澶фā鍨媊
-- compressed conversation context passed into the answer-generation prompt
-- guarded fallback answers when retrieval returns no reliable context
-- citation ordering that prioritizes stronger retrieval evidence
-- HTML and OCR noise cleanup before context assembly and citation excerpt generation
-- structured `confidence` for `faq_match / general_llm / rag / rag_unavailable`
-- structured `debug_info` including:
-  - source filter
-  - FAQ score and matched question
-  - routing reasons
-  - retrieval strategy, query, backend, citation count, and context count
-  - fallback detection
-- SSE `start` and `end` events now include the same `confidence` and `debug_info` metadata as the non-stream response
-
-Operational endpoints are now split by purpose:
-
-- `GET /health`: lightweight liveness and readiness summary
-- `GET /diagnostics`: detailed runtime diagnostics, dependency checks, and environment metadata
-
-The API layer now also supports document upload and source rebuild operations:
-
-Upload endpoint:
-
-- `POST /documents/upload`
-- accepts `multipart/form-data`
-- fields:
-  - `source`: one of the configured sources such as `ai` or `test`
-  - `replace_source`: optional boolean, default `false`
-  - `files`: one or more uploaded files
-- supported upload types:
-  - `.txt`
-  - `.md` / `.markdown`
-  - `.html` / `.htm`
-  - `.pdf`
-  - `.docx`
-  - `.ppt` / `.pptx`
-- the upload path uses extension allow-list validation, filename sanitization, and a per-file size limit
-- uploaded files are persisted under `runtime/uploads/<source>/...` and indexed immediately into the active retrieval backend
-
-Rebuild endpoint:
-
-- `POST /reindex`
-- accepts `application/json`
-- fields:
-  - `source`: required source key such as `ai`
-  - `directory`: optional directory override
-  - `append`: optional boolean, default `false`
-- allowed rebuild roots:
-  - `packages/data/<source>_data`
-  - `runtime/uploads/<source>`
-- if `append=false`, the endpoint deletes the existing vectors for that source before re-indexing
-- if `directory` is omitted, the API prefers `packages/data/<source>_data` and falls back to `runtime/uploads/<source>`
-
-Example:
-
-```powershell
-curl -X POST http://127.0.0.1:8000/documents/upload `
-  -F "source=ai" `
-  -F "replace_source=false" `
-  -F "files=@packages/data/ai_data/浜哄伐鏅鸿兘灏变笟璇捐绋嬪ぇ绾?md"
-```
-
-Rebuild example:
-
-```powershell
-curl -X POST http://127.0.0.1:8000/reindex `
-  -H "Content-Type: application/json" `
-  -d "{\"source\":\"ai\",\"append\":false}"
-```
-
-The web console now includes a built-in upload panel in the left rail:
-
-- choose a `source`
-- toggle whether to replace the existing source index
-- select one or more files
-- upload and index them directly from the browser
-- see the latest upload summary without leaving the page
-- drag files into the upload zone
-- watch a real upload progress bar during transfer
-- keep a recent upload record list in browser local storage
-
-The current ingestion verification on this machine has already confirmed that:
-
-- `packages/data/ai_data/LLM鍩虹鐭ヨ瘑.pdf` can be loaded
-- low-quality PDF extraction will auto-switch to OCR
-- the `ai_data` directory is processed into `105` child chunks
-- the indexed collection can be queried from the API with `retrieval_backend: milvus`
-- concept queries such as `浠€涔堟槸澶ц瑷€妯″瀷` now expand into a retrieval query like `浠€涔堟槸澶ц瑷€妯″瀷 澶ц瑷€妯″瀷 LLM 澶фā鍨?瀹氫箟 鑳屾櫙`
-- `/query` now returns cleaner excerpts without raw HTML tags or OCR bullet noise in citations
-
-### 6. Run offline evaluation
-
-You can now run both a smoke set and a broader regression set directly against the in-process app:
-
-```powershell
-.venv\Scripts\python apps\worker\run_evaluation.py --dataset packages\data\evaluation\phase_one_smoke.json --mode app
-.venv\Scripts\python apps\worker\run_evaluation.py --dataset packages\data\evaluation\phase_one_regression.json --mode app
-.venv\Scripts\python apps\worker\run_evaluation.py --dataset packages\data\evaluation\current_domain_regression.json --mode app
-```
-
-These write JSON reports into:
-
-- `runtime/evaluation/phase-one-smoke.report.json`
-- `runtime/evaluation/phase-one-regression.report.json`
-- `runtime/evaluation/current-domain-regression.report.json`
-
-The current evaluation module now supports:
-
-- loading structured datasets with categories such as `general`, `faq`, `rag`, `source_filter`, `conversation`, and `fallback`
-- tagging cases so reports can be reused across different business domains
-- checking route accuracy
-- checking FAQ hit rate
-- checking FAQ exact-question accuracy
-- checking FAQ score thresholds
-- checking retrieval-strategy accuracy
-- checking keyword hit coverage
-- checking citation coverage
-- checking expected retrieval backend
-- checking expected citation sources
-- checking the expected top citation source
-- checking whether relevant evidence appears within the top-k citations
-- checking whether rerank keeps the expected evidence at top-1
-- checking minimum retrieved context count
-- checking answer fidelity through expected answer snippets
-- checking answer safety through forbidden answer snippets
-- checking fallback behavior when no reliable context is found
-- exporting machine-readable reports with:
-  - overall pass rate
-  - per-check pass rates
-  - category breakdown
-  - tag breakdown
-  - failure breakdown
-  - per-case citation excerpts and top citation excerpt for retrieval debugging
-
-For future business-domain swaps, you can reuse the same evaluator and only replace the dataset content. A reusable starter template is available at:
-
-- `packages/data/evaluation/domain_regression_template.json`
-
-The repo now also includes a larger current-domain regression set for the data already present in this project:
-
-- `packages/data/evaluation/current_domain_regression.json`
-
-This dataset currently covers `10` cases across:
-
-- `general`
-- `faq`
-- `rag`
-- `source_filter`
-- `conversation`
-- `fallback`
-
-When rebuilding a source index with the worker, the default behavior is now:
-
-- delete existing vectors for the same `source`
-- then upsert the new chunk set
-
-If you explicitly want to append instead of replace:
-
-```powershell
-.venv\Scripts\python apps\worker\index_documents.py --directory packages\data\ai_data --append
-```
-
-If you prefer one command on Windows:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start-api.ps1 -InstallBase
-```
-
-## Notes
-
-- Legacy stage-based code still exists under `packages/`
-- New formalized modules are being extracted into `src/ragpro/`
-## Authentication And Authorization
-
-The project now includes a built-in authentication and access-control layer.
-
-Implemented endpoints:
-
-- `POST /auth/register`
-- `POST /auth/login`
-- `POST /auth/logout`
-- `GET /auth/me`
-- `POST /auth/change-password`
-- `POST /auth/users`
-- `GET /auth/users`
-- `PATCH /auth/users/{user_id}/access`
-- `POST /auth/users/{user_id}/reset-password`
-- `DELETE /auth/users/{user_id}`
-
-Implemented rules:
-
-- `HttpOnly` cookie session for authenticated access
-- the first registered account becomes `admin`
-- later accounts default to `user`
-- `/sources`, `/sessions/*`, and `/query` require login
-- users can change their own password; changing it invalidates existing sessions and clears the current cookie
-- `/documents/upload`, `/reindex`, `/diagnostics`, and `/faq/query` are admin-only
-- admins can create users, reset passwords, update source access, disable accounts, and delete users
-- normal users only see their assigned `source` values
-- professional queries are constrained by assigned sources
-- conversation history is isolated by `user_id + session_id`
-
-The web console now also includes:
-
-- login and register panel
-- current user identity and allowed source tags
-- admin-only create-user form
-- admin-only permission management panel
-- admin-only password reset action
-- self-service password change action
-- admin-only user deletion action
-- admin-only upload panel integrated into the same left rail
+- 修复当前全量 Python 测试里的静态页面断言失败。
+- 让离线评测脚本支持认证后的 `/query`。
+- 确认生产部署目标和生产环境变量。
+- 确认 MySQL、Redis、Milvus、Ollama、上传目录、日志和模型权重的部署和备份方案。
+- 确认生产 cookie、安全头、CSRF、限流等安全策略。
