@@ -13,6 +13,7 @@
 | `repository-cleanup-plan.md` | 文件清理和历史目录归档计划 |
 | `local-startup-runbook.md` | 本地启动和依赖说明 |
 | `project-owner-handbook.md` | 项目负责人管理规则草案 |
+| `documentation-delivery-checklist.md` | 文档交付检查清单，判断客户文档和内部交接文档是否齐全 |
 | `project-roadmap.md` | 路线图和风险清单 |
 
 ## 客户交付材料
