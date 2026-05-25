@@ -14,6 +14,16 @@
 | `project-owner-handbook.md` | 项目负责人管理规则草案 |
 | `project-roadmap.md` | 路线图和风险清单 |
 
+## 目录入口
+
+| 文档 | 用途 |
+| --- | --- |
+| `../apps/README.md` | 应用入口层说明 |
+| `../src/ragpro/README.md` | 正式 Python 包说明 |
+| `../packages/README.md` | 数据资产和历史原型说明 |
+| `../tests/README.md` | 测试目录说明 |
+| `../scripts/README.md` | 运维脚本说明 |
+
 ## 当前实现相关
 
 | 文档 | 用途 |

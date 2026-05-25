@@ -13,6 +13,14 @@ RAGPro 是一个中文 RAG 问答和知识库运维系统。当前项目已经�
 5. `docs/project-roadmap.md`：路线图和风险清单。
 6. `docs/README.md`：文档索引。
 
+几个常用目录也有自己的中文说明：
+
+- `apps/README.md`
+- `src/ragpro/README.md`
+- `packages/README.md`
+- `tests/README.md`
+- `scripts/README.md`
+
 ## 当前主线目录
 
 | 路径 | 作用 |
