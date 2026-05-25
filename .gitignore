@@ -23,6 +23,7 @@ node_modules/
 .vscode/
 .DS_Store
 Thumbs.db
+~$*
 
 # Local model weights and large artifacts
 packages/models/
