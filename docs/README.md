@@ -10,6 +10,7 @@
 | --- | --- |
 | `../PROJECT_MAP.md` | 项目总览，先看这份 |
 | `project-file-inventory.md` | 文件整理清单，解释每个目录该怎么看 |
+| `repository-cleanup-plan.md` | 文件清理和历史目录归档计划 |
 | `local-startup-runbook.md` | 本地启动和依赖说明 |
 | `project-owner-handbook.md` | 项目负责人管理规则草案 |
 | `project-roadmap.md` | 路线图和风险清单 |
