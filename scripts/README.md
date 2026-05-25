@@ -11,6 +11,7 @@
 | `start-milvus-wsl.ps1` | 在 WSL Ubuntu 中启动 Milvus |
 | `stop-milvus-wsl.ps1` | 停止 WSL 中的 Milvus |
 | `check-milvus-prereqs.ps1` | 检查 Milvus 启动前置条件 |
+| `release-check.ps1` | 发布前检查入口，串起健康检查、测试、E2E 和评测 |
 
 ## 推荐启动
 
@@ -22,6 +23,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -SkipBr
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -StartMilvus -UseMilvus -InstallRag -SkipBrowser -HealthTimeoutSeconds 90
+```
+
+## 发布检查
+
+完整检查：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\release-check.ps1
+```
+
+如果当前只想验证脚本本身或跳过已知阻塞项：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\release-check.ps1 -SkipHealth -SkipPython -SkipE2E -SkipEvaluation
 ```
 
 ## 维护规则
