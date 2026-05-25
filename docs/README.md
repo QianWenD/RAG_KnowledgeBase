@@ -14,6 +14,14 @@
 | `project-owner-handbook.md` | 项目负责人管理规则草案 |
 | `project-roadmap.md` | 路线图和风险清单 |
 
+## 客户交付材料
+
+| 文档 | 用途 |
+| --- | --- |
+| `customer-presentation.md` | 客户讲解 PPT 文稿，可复制到 PPT 工具 |
+| `customer-presentation.pptx` | 已生成的客户讲解 PowerPoint 草稿 |
+| `customer-user-guide.md` | 客户使用说明，适合交付给管理员和使用者 |
+
 ## 目录入口
 
 | 文档 | 用途 |
