@@ -7820,11 +7820,6 @@ body.login-page .send-btn {
   border-color: #7e5838;
 }
 
-body.login-page .auth-link-row {
-  justify-content: center;
-  margin-top: 18px;
-}
-
 @media (max-width: 720px) {
   body.login-page .auth-shell {
     padding: 18px;
