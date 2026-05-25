@@ -33,6 +33,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-local-stack.ps1 -StartM
 powershell -ExecutionPolicy Bypass -File .\scripts\release-check.ps1
 ```
 
+完整检查会要求默认评测集通过率达到 `1.0`；如果只想生成评测报告而不作为发布门禁，可以单独运行 `apps\worker\run_evaluation.py` 且不传 `--fail-under`。
+
 如果当前只想验证脚本本身或跳过已知阻塞项：
 
 ```powershell

@@ -75,7 +75,9 @@ if (-not $SkipEvaluation) {
     "--dataset",
     $EvaluationDataset,
     "--mode",
-    "app"
+    "app",
+    "--fail-under",
+    "1.0"
   )
 }
 

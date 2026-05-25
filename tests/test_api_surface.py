@@ -163,7 +163,7 @@ class APISurfaceTests(unittest.TestCase):
         self.assertIn('data-auth-mode="login"', response.text)
         self.assertIn('id="login-form"', response.text)
         self.assertIn('id="login-submit-btn"', response.text)
-        self.assertIn('href="/register"', response.text)
+        self.assertNotIn('id="register-form"', response.text)
         self.assertNotIn('id="upload-form"', response.text)
         self.assertNotIn('id="access-create-form"', response.text)
 

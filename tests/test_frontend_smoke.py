@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -43,6 +44,9 @@ class FrontendSmokeTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.client = TestClient(app)
 
+    def assert_static_asset(self, html: str, attr: str, path: str) -> None:
+        self.assertRegex(html, rf'{attr}="{re.escape(path)}(?:\?[^"]*)?"')
+
     def test_frontend_pages_render_with_expected_shell_assets(self) -> None:
         for route, filename, page_marker, page_script, needs_common_script in PAGE_ROUTES:
             with self.subTest(route=route):
@@ -50,10 +54,10 @@ class FrontendSmokeTests(unittest.TestCase):
 
                 self.assertEqual(response.status_code, 200)
                 self.assertIn(page_marker, response.text)
-                self.assertIn('href="/static/styles.css"', response.text)
+                self.assert_static_asset(response.text, "href", "/static/styles.css")
                 if needs_common_script:
-                    self.assertIn('src="/static/common.js"', response.text)
-                self.assertIn(page_script, response.text)
+                    self.assert_static_asset(response.text, "src", "/static/common.js")
+                self.assert_static_asset(response.text, "src", page_script)
                 self.assertTrue((WEB_ROOT / filename).exists())
 
     def test_static_assets_are_served_for_frontend_pages(self) -> None:

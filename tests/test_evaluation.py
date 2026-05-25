@@ -5,13 +5,42 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from ragpro.evaluation import DatasetLoadError, EvaluationCase, EvaluationRunner, load_dataset
+from apps.worker import run_evaluation as worker_evaluation
+
+
+class _FakeHeaders(dict):
+    def get_all(self, name: str, default=None):
+        value = self.get(name)
+        if value is None:
+            return default or []
+        if isinstance(value, list):
+            return value
+        return [value]
+
+
+class _FakeHTTPResponse:
+    def __init__(self, body: bytes, headers: dict | None = None) -> None:
+        self._body = body
+        self.headers = _FakeHeaders(headers or {})
+
+    def read(self) -> bytes:
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> bool:
+        return False
 
 
 class EvaluationDatasetTests(unittest.TestCase):
@@ -284,6 +313,97 @@ class EvaluationRunnerTests(unittest.TestCase):
         self.assertAlmostEqual(report.summary["context_coverage_rate"], 1.0)
         self.assertAlmostEqual(report.summary["answer_fidelity_rate"], 1.0)
         self.assertEqual(report.summary["tag_breakdown"], {})
+
+
+class EvaluationScriptAuthTests(unittest.TestCase):
+    def test_run_evaluation_uses_app_admin_auth_by_default(self) -> None:
+        events: list[str] = []
+
+        class FakeDataset:
+            name = "auth-smoke"
+            cases: list[EvaluationCase] = []
+
+        class FakeReport:
+            def to_dict(self) -> dict:
+                return {"dataset_name": "auth-smoke", "summary": {"total_cases": 0}}
+
+        class FakeRunner:
+            def __init__(self, executor) -> None:
+                self.executor = executor
+
+            def run(self, cases, *, dataset_name: str):
+                events.append(f"run:{dataset_name}")
+                return FakeReport()
+
+        class FakeContext:
+            def __enter__(self):
+                events.append("auth-enter")
+
+            def __exit__(self, exc_type, exc, traceback) -> bool:
+                events.append("auth-exit")
+                return False
+
+        with patch.object(worker_evaluation, "load_dataset", return_value=FakeDataset()), patch.object(
+            worker_evaluation,
+            "build_app_query_executor",
+            return_value=lambda case: {},
+        ), patch.object(worker_evaluation, "EvaluationRunner", FakeRunner), patch.object(
+            worker_evaluation,
+            "_app_admin_auth_context",
+            return_value=FakeContext(),
+        ):
+            report = worker_evaluation.run_evaluation("dataset.json")
+
+        self.assertEqual(report["dataset_name"], "auth-smoke")
+        self.assertEqual(events, ["auth-enter", "run:auth-smoke", "auth-exit"])
+
+    def test_http_query_executor_logs_in_and_reuses_cookie(self) -> None:
+        requests = []
+
+        def fake_urlopen(request, timeout):
+            requests.append(request)
+            if request.full_url == "http://ragpro.test/auth/login":
+                return _FakeHTTPResponse(
+                    b'{"ok": true}',
+                    {"Set-Cookie": ["ragpro_session=abc123; Path=/; HttpOnly"]},
+                )
+            return _FakeHTTPResponse(b'{"answer": "ok"}')
+
+        with patch.object(worker_evaluation, "urlopen", fake_urlopen):
+            executor = worker_evaluation.build_http_query_executor(
+                "http://ragpro.test",
+                username="admin",
+                password="secret",
+                use_login=True,
+            )
+            result = executor(EvaluationCase(case_id="case-1", query="hello"))
+
+        self.assertEqual(result["answer"], "ok")
+        self.assertEqual(requests[0].full_url, "http://ragpro.test/auth/login")
+        self.assertEqual(requests[1].full_url, "http://ragpro.test/query")
+        self.assertEqual(requests[1].get_header("Cookie"), "ragpro_session=abc123")
+
+    def test_http_query_executor_requires_credentials_when_login_enabled(self) -> None:
+        with self.assertRaises(ValueError):
+            worker_evaluation.build_http_query_executor(
+                "http://ragpro.test",
+                username="",
+                password="",
+                use_login=True,
+            )
+
+    def test_enforce_fail_under_accepts_report_at_threshold(self) -> None:
+        worker_evaluation._enforce_fail_under(
+            {"summary": {"pass_rate": 0.95}},
+            fail_under=0.95,
+        )
+
+    def test_enforce_fail_under_exits_when_report_is_below_threshold(self) -> None:
+        with self.assertRaises(SystemExit):
+            worker_evaluation._enforce_fail_under(
+                {"summary": {"pass_rate": 0.94}},
+                fail_under=0.95,
+            )
 
 
 if __name__ == "__main__":
