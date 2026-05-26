@@ -9,9 +9,10 @@ RAGPro 是一个中文 RAG 问答和知识库运维系统。当前项目已经�
 1. `PROJECT_MAP.md`：项目总览，说明主线代码、运行依赖、启动方式和维护规则。
 2. `docs/project-file-inventory.md`：项目文件整理清单，说明每个目录该怎么看、哪些是主线、哪些是历史参考。
 3. `docs/local-startup-runbook.md`：本地启动手册。
-4. `docs/project-owner-handbook.md`：项目负责人管理规则草案。
-5. `docs/project-roadmap.md`：路线图和风险清单。
-6. `docs/README.md`：文档索引。
+4. `docs/production-deployment-guide.md`：新服务器上线部署说明。
+5. `docs/project-owner-handbook.md`：项目负责人管理规则草案。
+6. `docs/project-roadmap.md`：路线图和风险清单。
+7. `docs/README.md`：文档索引。
 
 几个常用目录也有自己的中文说明：
 
@@ -92,9 +93,9 @@ RAG 离线评测：
 
 - 本地 `/health` 正常。
 - 前端 E2E 通过。
-- 核心后端和 RAG 相关定向测试通过。
-- 全量 Python 测试仍有少量前端静态断言需要整理。
-- RAG 离线评测脚本需要适配 `/query` 的登录认证要求。
+- Python 全量测试通过。
+- 默认业务评测 `current_domain_regression.json` 通过率为 `1.0`。
+- 完整发布检查可使用 `scripts/release-check.ps1` 执行。
 
 ## 本地依赖
 

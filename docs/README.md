@@ -12,6 +12,7 @@
 | `project-file-inventory.md` | 文件整理清单，解释每个目录该怎么看 |
 | `repository-cleanup-plan.md` | 文件清理和历史目录归档计划 |
 | `local-startup-runbook.md` | 本地启动和依赖说明 |
+| `production-deployment-guide.md` | 新服务器上线部署说明，列出软件安装、配置、数据迁移和上线注意事项 |
 | `project-owner-handbook.md` | 项目负责人管理规则草案 |
 | `documentation-delivery-checklist.md` | 文档交付检查清单，判断客户文档和内部交接文档是否齐全 |
 | `project-roadmap.md` | 路线图和风险清单 |

@@ -18,6 +18,7 @@
 | 后续计划 | `docs/project-roadmap.md` | 已完成 |
 | 仓库清理 | `docs/repository-cleanup-plan.md` | 已完成 |
 | 启动运维 | `docs/local-startup-runbook.md` | 已完成 |
+| 上线部署 | `docs/production-deployment-guide.md` | 已完成 |
 | 发布检查 | `scripts/release-check.ps1`、`scripts/README.md` | 已完成 |
 | 客户说明 | `docs/customer-user-guide.md` | 已完成 |
 | 客户讲解 | `docs/customer-presentation.md`、`docs/customer-presentation.pptx` | 已完成 |
@@ -31,7 +32,7 @@
 
 ## 交付前还要补
 
-1. 生产环境访问地址、部署机器和端口。
+1. 生产环境访问地址、部署机器和最终端口。
 2. 正式管理员账号的交接方式，不要写明文密码。
 3. 客户真实资料上传后的验收记录。
 4. 客户侧截图或 Logo，如果需要更正式的演示材料。
