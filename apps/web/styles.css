@@ -9876,3 +9876,36 @@ body.register-page .ghost-link {
     animation: none;
   }
 }
+
+/* Feedback pass: keep login and sidebar focused on action, not explanation. */
+body.login-page .login-brief {
+  align-content: center;
+  gap: 16px;
+}
+
+body.login-page .login-hero-title {
+  max-width: 11.5ch;
+}
+
+body.login-page .auth-notice:empty {
+  display: none;
+}
+
+body.login-page .panel-head {
+  margin-bottom: 20px;
+}
+
+body.console-page .brand {
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 20px;
+}
+
+body.console-page .brand h1 {
+  font-size: 20px;
+}
+
+body.console-page .brand-copy,
+body.console-page .brand-strip {
+  display: none;
+}
