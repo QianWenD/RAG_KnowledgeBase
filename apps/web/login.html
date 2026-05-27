@@ -15,13 +15,35 @@
 
   <main class="auth-shell">
     <section class="auth-stage">
+      <article class="login-brief" aria-label="系统说明">
+        <p class="login-eyebrow">Enterprise Knowledge Ops</p>
+        <h1 class="login-hero-title">把企业知识库变成可以追问的工作台</h1>
+        <p class="login-hero-copy">
+          RAGPro 将资料上传、知识源权限、检索增强问答和审计追踪放在同一个控制台里，帮助团队把分散文档沉淀成可验证的业务答案。
+        </p>
+        <div class="login-radar-card" aria-hidden="true">
+          <div class="login-radar-orbit"></div>
+          <div class="login-radar-node node-a"></div>
+          <div class="login-radar-node node-b"></div>
+          <div class="login-radar-node node-c"></div>
+          <span class="login-radar-label">Knowledge Signal</span>
+        </div>
+        <div class="login-capability-grid" aria-label="系统能力">
+          <span>知识上传</span>
+          <span>权限隔离</span>
+          <span>RAG 问答</span>
+          <span>审计追踪</span>
+        </div>
+      </article>
+
       <section class="auth-card-panel">
         <div class="panel-head">
           <div>
-            <p class="panel-kicker">RAGPro</p>
-            <h1 class="auth-login-title">账号登录</h1>
+            <p class="panel-kicker">RAGPro Secure Console</p>
+            <h1 class="auth-login-title">进入知识中枢</h1>
           </div>
         </div>
+        <p class="login-card-copy">请使用已授权账号登录。系统会根据账号权限自动加载可访问的知识源、菜单和审计范围。</p>
         <div id="auth-status" class="upload-result auth-notice" role="status" aria-live="polite">请输入账号和密码。</div>
 
         <form id="login-form" class="auth-form auth-form-solo">
