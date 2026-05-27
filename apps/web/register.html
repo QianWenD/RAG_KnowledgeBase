@@ -9,45 +9,42 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body class="auth-page" data-auth-mode="register">
+<body class="auth-page register-page" data-auth-mode="register">
   <div class="scene-grid" aria-hidden="true"></div>
   <div class="scene-glow" aria-hidden="true"></div>
 
   <main class="auth-shell">
     <section class="auth-stage">
-      <article class="auth-intro">
-        <p class="brand-kicker">账号创建</p>
-        <h1 class="auth-display-title">注册新的系统账号</h1>
-        <p class="auth-display-copy">系统中的第一个注册账号会自动成为管理员。后续可以由管理员按来源分配可见范围，让不同人员只看到自己应该接触的知识内容。</p>
-        <div class="auth-stats">
-          <div class="stat-tile">
-            <span>页面</span>
-            <strong>/register</strong>
-          </div>
-          <div class="stat-tile">
-            <span>首个角色</span>
-            <strong>管理员</strong>
-          </div>
-          <div class="stat-tile">
-            <span>授权</span>
-            <strong>来源级控制</strong>
-          </div>
-          <div class="stat-tile">
-            <span>进入方式</span>
-            <strong>注册后直接可用</strong>
-          </div>
+      <article class="login-brief" aria-label="账号创建说明">
+        <p class="login-eyebrow">Identity Bootstrap</p>
+        <h1 class="login-hero-title">先建立身份，再打开知识权限</h1>
+        <p class="login-hero-copy">
+          RAGPro 会把账号、组织、菜单角色和知识来源权限串成一条治理链路。首个注册账号将成为管理员，用来完成后续用户授权和上线初始化。
+        </p>
+        <div class="login-radar-card" aria-hidden="true">
+          <div class="login-radar-orbit"></div>
+          <div class="login-radar-node node-a"></div>
+          <div class="login-radar-node node-b"></div>
+          <div class="login-radar-node node-c"></div>
+          <span class="login-radar-label">Access Signal</span>
+        </div>
+        <div class="login-capability-grid" aria-label="注册能力">
+          <span>首个管理员</span>
+          <span>来源授权</span>
+          <span>菜单角色</span>
+          <span>自动登录</span>
         </div>
       </article>
 
       <section class="auth-card-panel">
         <div class="panel-head">
           <div>
-            <p class="panel-kicker">身份认证</p>
-            <h2>创建账号</h2>
+            <p class="panel-kicker">RAGPro Identity Console</p>
+            <h2 class="auth-login-title">创建系统账号</h2>
           </div>
           <span class="status-chip">/register</span>
         </div>
-        <p class="auth-lead">请设置用户名和密码。注册成功后会自动登录，并跳转到主工作台。</p>
+        <p class="login-card-copy">请设置用户名和密码。注册成功后会自动登录，并跳转到主工作台继续完成权限初始化。</p>
         <div id="auth-status" class="upload-result auth-notice" role="status" aria-live="polite">请输入用户名和密码创建账号。</div>
 
         <form id="register-form" class="auth-form auth-form-solo">
