@@ -44,6 +44,7 @@
 | `frontend-page-architecture.md` | 前端页面拆分规划 |
 | `frontend-status-summary.md` | 前端当前状态总结 |
 | `frontend-e2e-verification.md` | Playwright E2E 验证说明 |
+| `frontend-redesign-gemini-pilot.md` | Gemini 外援前端 redesign 试点提示词和验收规则 |
 
 部分旧文档在 Windows 终端里可能显示乱码，优先参考新写的中文入口文档和当前代码。
 
