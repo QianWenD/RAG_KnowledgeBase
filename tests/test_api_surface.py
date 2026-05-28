@@ -94,6 +94,8 @@ class APISurfaceTests(unittest.TestCase):
         self.assertIn('class="panel source-management-workbench document-file-panel"', response.text)
         self.assertNotIn('id="source-table"', response.text)
         self.assertNotIn('来源清单', response.text)
+        self.assertNotIn('登记新来源', response.text)
+        self.assertIn('id="document-file-filter-form"', response.text)
         self.assertIn('id="document-file-table"', response.text)
         self.assertIn('href="/knowledge/reindex"', response.text)
         self.assertNotIn('id="query-input"', response.text)
@@ -213,9 +215,11 @@ class APISurfaceTests(unittest.TestCase):
         response = self.client.get("/static/knowledge_sources.js")
         self.assertEqual(response.status_code, 200)
         self.assertIn("document-file-table-body", response.text)
+        self.assertIn("document-file-filter-form", response.text)
         self.assertIn("data-document-file-download", response.text)
         self.assertIn("data-document-file-view", response.text)
         self.assertIn("/documents/files/", response.text)
+        self.assertIn("URLSearchParams", response.text)
         self.assertNotIn("renderSourceTable", response.text)
 
     def test_static_users_script_includes_overview_logic(self) -> None:

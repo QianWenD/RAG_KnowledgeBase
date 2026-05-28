@@ -1073,40 +1073,54 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator('[data-batch-source="0"] option[value="policy_2026"]')).toHaveCount(1);
   });
 
-  test("knowledge sources page registers custom source", async ({ page }) => {
-    let latestSourceBody = "";
-    await page.route("**/sources", async (route) => {
-      if (new URL(route.request().url()).pathname !== "/sources") {
+  test("knowledge sources page filters uploaded files by file, source, uploader and time", async ({ page }) => {
+    let latestFilesUrl = "";
+    await page.unroute("**/documents/files**");
+    await page.route("**/documents/files**", async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname !== "/documents/files") {
         await route.continue();
         return;
       }
-      if (route.request().method() === "POST") {
-        latestSourceBody = route.request().postData() || "";
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            source: "policy_2026",
-            sources: ["ai", "java", "policy_2026"],
-            user: { ...adminUser, allowed_sources: ["ai", "java", "policy_2026"] },
-          }),
-        });
-        return;
-      }
+      latestFilesUrl = route.request().url();
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ sources: ["ai", "java"] }),
+        body: JSON.stringify({
+          files: [
+            {
+              file_id: "file_ai_1",
+              source: "ai",
+              filename: "产品手册.txt",
+              stored_name: "manual.txt",
+              content_type: "text/plain",
+              size_bytes: 2048,
+              document_chunks: 7,
+              uploader_user_id: 1,
+              uploader_username: "root",
+              uploader_display_name: "管理员",
+              created_at: "2026-05-28T10:00:00",
+            },
+          ],
+          count: 1,
+        }),
       });
     });
 
     await page.goto(`${baseURL}/knowledge/sources`);
-    await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-sources"]')).toHaveCount(0);
-    await expect(page.locator("#source-table")).toHaveCount(0);
-    await page.locator("#source-register-input").fill("policy_2026");
-    await page.locator("#source-register-submit").click();
-    await expect.poll(() => latestSourceBody).toContain("policy_2026");
-    await expect(page.locator("#source-register-feedback")).toContainText("policy_2026");
+    await expect(page.locator("#source-register-input")).toHaveCount(0);
+    await expect(page.locator("#document-file-filter-form")).toBeVisible();
+    await page.locator("#document-file-filter-filename").fill("产品");
+    await page.locator("#document-file-filter-source").fill("ai");
+    await page.locator("#document-file-filter-uploader").fill("管理员");
+    await page.locator("#document-file-filter-created-from").fill("2026-05-01T00:00");
+    await page.locator("#document-file-filter-created-to").fill("2026-05-31T23:59");
+    await page.locator("#document-file-filter-submit").click();
+
+    await expect.poll(() => latestFilesUrl).toContain("filename=%E4%BA%A7%E5%93%81");
+    await expect.poll(() => latestFilesUrl).toContain("source=ai");
+    await expect.poll(() => latestFilesUrl).toContain("uploader=%E7%AE%A1%E7%90%86%E5%91%98");
+    await expect(page.locator("#document-file-table")).toContainText("产品手册.txt");
   });
 
   test("knowledge sources page lists, downloads, views and deletes uploaded files", async ({ page }) => {

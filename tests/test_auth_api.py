@@ -895,10 +895,10 @@ class AuthAPITests(unittest.TestCase):
 
         class FakeDocumentFileService:
             def __init__(self) -> None:
-                self.requested_source = None
+                self.requested_filters = None
 
-            def list_files(self, source=None):
-                self.requested_source = source
+            def list_files(self, **filters):
+                self.requested_filters = filters
                 return [
                     {
                         "file_id": "file_ai_1",
@@ -921,15 +921,49 @@ class AuthAPITests(unittest.TestCase):
             patch("apps.api.main._require_admin_user", return_value=admin),
             patch("apps.api.main._build_document_file_service", return_value=file_service),
         ):
-            response = self.client.get("/documents/files?source=ai")
+            response = self.client.get(
+                "/documents/files"
+                "?filename=notes"
+                "&source=ai"
+                "&uploader=root"
+                "&created_from=2026-05-01T00:00"
+                "&created_to=2026-05-31T23:59"
+            )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(file_service.requested_source, "ai")
+        self.assertEqual(
+            file_service.requested_filters,
+            {
+                "filename": "notes",
+                "source": "ai",
+                "uploader": "root",
+                "created_from": "2026-05-01T00:00",
+                "created_to": "2026-05-31T23:59",
+            },
+        )
         payload = response.json()
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["files"][0]["file_id"], "file_ai_1")
         self.assertEqual(payload["files"][0]["uploader_username"], "root")
         self.assertEqual(payload["files"][0]["uploader_display_name"], "管理员")
+        self.assertEqual(payload["filters"]["filename"], "notes")
+        self.assertEqual(payload["filters"]["uploader"], "root")
+
+    def test_document_file_list_rejects_invalid_time_range(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="root",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        with patch("apps.api.main._require_admin_user", return_value=admin):
+            response = self.client.get(
+                "/documents/files?created_from=2026-06-01T00:00&created_to=2026-05-01T00:00"
+            )
+
+        self.assertEqual(response.status_code, 400)
 
     def test_admin_can_download_uploaded_document_file(self) -> None:
         admin = AuthenticatedUser(

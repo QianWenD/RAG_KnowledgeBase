@@ -127,6 +127,42 @@ class DocumentUploadServiceTests(unittest.TestCase):
         self.assertFalse(stored_path.exists())
         self.assertEqual(registry.list_files(), [])
 
+    def test_document_file_registry_filters_records_by_query_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            registry = DocumentFileRegistry(Path(tmpdir) / "_files.json", upload_root=Path(tmpdir))
+            registry.add_files(
+                [
+                    {
+                        "file_id": "file_ai_001",
+                        "source": "ai",
+                        "filename": "产品手册.txt",
+                        "stored_path": str(Path(tmpdir) / "ai" / "manual.txt"),
+                        "uploader_username": "root",
+                        "uploader_display_name": "管理员",
+                        "created_at": "2026-05-20T10:00:00",
+                    },
+                    {
+                        "file_id": "file_java_001",
+                        "source": "java",
+                        "filename": "接口说明.txt",
+                        "stored_path": str(Path(tmpdir) / "java" / "api.txt"),
+                        "uploader_username": "ops",
+                        "uploader_display_name": "运维",
+                        "created_at": "2026-04-01T09:00:00",
+                    },
+                ]
+            )
+
+            records = registry.list_files(
+                filename="产品",
+                source="ai",
+                uploader="管理",
+                created_from="2026-05-01T00:00:00",
+                created_to="2026-05-31T23:59:59",
+            )
+
+        self.assertEqual([record["file_id"] for record in records], ["file_ai_001"])
+
     def test_replace_source_removes_previous_file_records_and_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             upload_root = Path(tmpdir)
