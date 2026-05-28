@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=20260528-topbar-cleanup">
+  <link rel="stylesheet" href="/static/styles.css?v=20260528-file-filter-range">
 </head>
 <body class="console-page" data-page="knowledge" data-page-view="knowledge-sources" data-page-label="数据源管理">
   <div class="scene-grid" aria-hidden="true"></div>
@@ -92,10 +92,20 @@
               </label>
               <div class="document-file-time-range">
                 <span class="document-file-time-label">上传时间</span>
-                <div class="document-file-time-inputs">
-                  <input id="document-file-filter-created-from" type="datetime-local" aria-label="上传开始时间">
-                  <span class="document-file-time-separator">至</span>
-                  <input id="document-file-filter-created-to" type="datetime-local" aria-label="上传结束时间">
+                <div class="document-file-time-controls">
+                  <div id="document-file-time-presets" class="document-file-time-presets" aria-label="上传时间快捷筛选">
+                    <button class="document-file-range-chip is-active" type="button" data-document-file-range="all" aria-pressed="true">全部</button>
+                    <button class="document-file-range-chip" type="button" data-document-file-range="today" aria-pressed="false">今天</button>
+                    <button class="document-file-range-chip" type="button" data-document-file-range="7" aria-pressed="false">近7天</button>
+                    <button class="document-file-range-chip" type="button" data-document-file-range="30" aria-pressed="false">近30天</button>
+                    <button class="document-file-range-chip" type="button" data-document-file-range="month" aria-pressed="false">本月</button>
+                    <button class="document-file-range-chip" type="button" data-document-file-range="custom" aria-pressed="false">自定义</button>
+                  </div>
+                  <div id="document-file-custom-range" class="document-file-custom-range" hidden>
+                    <input id="document-file-filter-created-from" type="date" aria-label="上传开始日期">
+                    <span class="document-file-time-separator">至</span>
+                    <input id="document-file-filter-created-to" type="date" aria-label="上传结束日期">
+                  </div>
                 </div>
               </div>
               <div class="document-file-filter-actions">
@@ -132,6 +142,6 @@
   </div>
 
   <script src="/static/common.js?v=20260528-topbar-cleanup"></script>
-  <script src="/static/knowledge_sources.js?v=20260528-file-actions"></script>
+  <script src="/static/knowledge_sources.js?v=20260528-file-filter-range"></script>
 </body>
 </html>

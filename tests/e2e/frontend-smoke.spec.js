@@ -1122,25 +1122,22 @@ test.describe("RAGPro frontend smoke", () => {
       const timeGroup = document.querySelector(".document-file-time-range").getBoundingClientRect();
       const from = document.querySelector("#document-file-filter-created-from").getBoundingClientRect();
       const to = document.querySelector("#document-file-filter-created-to").getBoundingClientRect();
-      const actions = document.querySelector(".document-file-filter-actions").getBoundingClientRect();
       const inputHeights = [file.height, source.height, uploader.height, from.height, to.height];
       return {
-        sameRow: Math.abs(file.top - timeGroup.top) <= 4,
+        startsAtFilterEdge: Math.abs(file.left - timeGroup.left) <= 2 || Math.abs(file.top - timeGroup.top) <= 4,
         sameTimeLine: Math.abs(from.top - to.top) <= 4,
         unifiedInputs: inputHeights.every((height) => Math.abs(height - inputHeights[0]) <= 2),
         customRangeFits: to.right <= timeGroup.right + 1,
         timeGroupWidth: timeGroup.width,
         dateGap: to.left - from.right,
-        actionGap: actions.left - timeGroup.right,
       };
     });
-    expect(filterLayout.sameRow).toBeTruthy();
+    expect(filterLayout.startsAtFilterEdge).toBeTruthy();
     expect(filterLayout.sameTimeLine).toBeTruthy();
     expect(filterLayout.unifiedInputs).toBeTruthy();
     expect(filterLayout.customRangeFits).toBeTruthy();
-    expect(filterLayout.timeGroupWidth).toBeGreaterThanOrEqual(520);
+    expect(filterLayout.timeGroupWidth).toBeGreaterThanOrEqual(640);
     expect(filterLayout.dateGap).toBeGreaterThanOrEqual(8);
-    expect(filterLayout.actionGap).toBeGreaterThanOrEqual(14);
     await page.locator("#document-file-filter-filename").fill("产品");
     await page.locator("#document-file-filter-source").fill("ai");
     await page.locator("#document-file-filter-uploader").fill("管理员");

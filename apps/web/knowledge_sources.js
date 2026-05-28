@@ -8,6 +8,8 @@ window.RagProPage = {
       filterCreatedFrom: document.getElementById("document-file-filter-created-from"),
       filterCreatedTo: document.getElementById("document-file-filter-created-to"),
       filterReset: document.getElementById("document-file-filter-reset"),
+      customRange: document.getElementById("document-file-custom-range"),
+      timePresetButtons: Array.from(document.querySelectorAll("[data-document-file-range]")),
       documentFilePanel: document.getElementById("document-file-panel"),
       documentFileTableBody: document.getElementById("document-file-table-body"),
       documentFilePager: document.getElementById("document-file-pager"),
@@ -26,13 +28,23 @@ window.RagProPage = {
         elements.documentFilePanel.classList.add("hidden");
         return;
       }
+      setDocumentFileRange("all");
       elements.documentFileRefresh?.addEventListener("click", () => loadDocumentFiles());
+      elements.timePresetButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          setDocumentFileRange(button.dataset.documentFileRange || "all");
+        });
+      });
+      [elements.filterCreatedFrom, elements.filterCreatedTo].forEach((input) => {
+        input?.addEventListener("input", () => setDocumentFileRange("custom", { keepDates: true }));
+      });
       elements.filterForm?.addEventListener("submit", (event) => {
         event.preventDefault();
         loadDocumentFiles();
       });
       elements.filterReset?.addEventListener("click", () => {
         elements.filterForm?.reset();
+        setDocumentFileRange("all");
         loadDocumentFiles();
       });
       elements.documentFileTableBody?.addEventListener("click", handleDocumentFileAction);
@@ -63,8 +75,8 @@ window.RagProPage = {
       appendFilter(params, "filename", elements.filterFilename?.value);
       appendFilter(params, "source", elements.filterSource?.value);
       appendFilter(params, "uploader", elements.filterUploader?.value);
-      appendFilter(params, "created_from", elements.filterCreatedFrom?.value);
-      appendFilter(params, "created_to", elements.filterCreatedTo?.value);
+      appendFilter(params, "created_from", normalizeDateBoundary(elements.filterCreatedFrom?.value, "start"));
+      appendFilter(params, "created_to", normalizeDateBoundary(elements.filterCreatedTo?.value, "end"));
       return params.toString();
     }
 
@@ -73,6 +85,72 @@ window.RagProPage = {
       if (normalized) {
         params.set(key, normalized);
       }
+    }
+
+    function setDocumentFileRange(range, options = {}) {
+      const normalizedRange = range || "all";
+      elements.timePresetButtons.forEach((button) => {
+        const isActive = button.dataset.documentFileRange === normalizedRange;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+      if (elements.customRange) {
+        elements.customRange.hidden = normalizedRange !== "custom";
+      }
+      if (!options.keepDates) {
+        applyDocumentFileRange(normalizedRange);
+      }
+    }
+
+    function applyDocumentFileRange(range) {
+      if (range === "custom") {
+        return;
+      }
+      if (range === "all") {
+        setDocumentFileDateRange("", "");
+        return;
+      }
+      const today = startOfLocalDay(new Date());
+      let start = new Date(today);
+      if (range === "7") {
+        start.setDate(today.getDate() - 6);
+      } else if (range === "30") {
+        start.setDate(today.getDate() - 29);
+      } else if (range === "month") {
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+      }
+      setDocumentFileDateRange(formatDateInput(start), formatDateInput(today));
+    }
+
+    function setDocumentFileDateRange(start, end) {
+      if (elements.filterCreatedFrom) {
+        elements.filterCreatedFrom.value = start;
+      }
+      if (elements.filterCreatedTo) {
+        elements.filterCreatedTo.value = end;
+      }
+    }
+
+    function startOfLocalDay(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function formatDateInput(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function normalizeDateBoundary(value, boundary) {
+      const normalized = String(value || "").trim();
+      if (!normalized) {
+        return "";
+      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+        return `${normalized}T${boundary === "start" ? "00:00:00" : "23:59:59"}`;
+      }
+      return normalized;
     }
 
     async function handleDocumentFileAction(event) {
