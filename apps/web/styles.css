@@ -9900,8 +9900,10 @@ body.login-page .panel-head {
   margin-bottom: 20px;
 }
 
+body.console-page .rail > .brand,
+body.console-page .brand.dossier,
 body.console-page .brand {
-  display: none;
+  display: none !important;
   gap: 8px;
   padding: 14px 16px;
   border-radius: 20px;

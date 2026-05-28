@@ -60,6 +60,7 @@
   const sidebarMenuTimers = new WeakMap();
 
   ensureAppChrome();
+  removeLegacySidebarBrand();
   ensureSidebarNavigation();
 
   const elements = {
@@ -363,6 +364,13 @@
     `;
     const shell = document.querySelector(".shell");
     document.body.insertBefore(header, shell || document.body.firstChild);
+  }
+
+  function removeLegacySidebarBrand() {
+    if (!document.body.classList.contains("console-page")) {
+      return;
+    }
+    document.querySelectorAll(".rail > .brand, .brand.dossier").forEach((brand) => brand.remove());
   }
 
   function ensureSidebarNavigation() {
