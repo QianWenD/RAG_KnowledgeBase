@@ -9887,6 +9887,11 @@ body.login-page .login-hero-title {
   max-width: 11.5ch;
 }
 
+body.login-page .auth-login-title {
+  font-size: clamp(1.65rem, 2.7vw, 2.25rem);
+  letter-spacing: -0.06em;
+}
+
 body.login-page .auth-notice:empty {
   display: none;
 }
@@ -9896,6 +9901,7 @@ body.login-page .panel-head {
 }
 
 body.console-page .brand {
+  display: none;
   gap: 8px;
   padding: 14px 16px;
   border-radius: 20px;
