@@ -9937,3 +9937,25 @@ body.console-page .page-status-sr {
   border: 0;
   clip: rect(0 0 0 0);
 }
+
+body.console-page .document-file-panel {
+  grid-column: 1 / -1;
+}
+
+body.console-page .document-file-table th:first-child,
+body.console-page .document-file-table td:first-child {
+  min-width: 220px;
+}
+
+body.console-page .document-file-table .ghost-btn.danger {
+  min-height: 32px;
+  padding: 0 12px;
+  color: #8f2f25;
+  border-color: rgba(179, 72, 60, 0.28);
+  background: rgba(179, 72, 60, 0.08);
+}
+
+body.console-page .document-file-table .ghost-btn.danger:hover {
+  color: #fffaf0;
+  background: linear-gradient(135deg, #9f3b30, #bf7d34);
+}

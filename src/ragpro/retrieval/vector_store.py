@@ -148,6 +148,13 @@ class VectorStore:
             return self._delete_source_local(source)
         return self._delete_source_milvus(source)
 
+    def delete_file(self, file_id: str) -> int:
+        if not file_id:
+            return 0
+        if self.backend == "local":
+            return self._delete_file_local(file_id)
+        return self._delete_file_milvus(file_id)
+
     def _add_documents_local(self, documents: list[Document]) -> None:
         existing = {row["id"]: row for row in self.local_records}
         for doc in documents:
@@ -157,6 +164,10 @@ class VectorStore:
                 "parent_id": doc.metadata["parent_id"],
                 "parent_content": doc.metadata["parent_content"],
                 "source": doc.metadata.get("source", "unknown"),
+                "file_id": doc.metadata.get("file_id", ""),
+                "file_path": doc.metadata.get("file_path", ""),
+                "filename": doc.metadata.get("filename", ""),
+                "stored_name": doc.metadata.get("stored_name", ""),
                 "timestamp": doc.metadata.get("timestamp", "unknown"),
                 "search_text": self._build_search_text(
                     doc.page_content,
@@ -188,6 +199,10 @@ class VectorStore:
                     "parent_id": doc.metadata["parent_id"],
                     "parent_content": doc.metadata["parent_content"],
                     "source": doc.metadata.get("source", "unknown"),
+                    "file_id": doc.metadata.get("file_id", ""),
+                    "file_path": doc.metadata.get("file_path", ""),
+                    "filename": doc.metadata.get("filename", ""),
+                    "stored_name": doc.metadata.get("stored_name", ""),
                     "timestamp": doc.metadata.get("timestamp", "unknown"),
                 }
             )
@@ -219,6 +234,18 @@ class VectorStore:
             logger.info("Deleted %s local vector records for source=%s.", deleted, source)
         return deleted
 
+    def _delete_file_local(self, file_id: str) -> int:
+        before = len(self.local_records)
+        self.local_records = [
+            record for record in self.local_records if record.get("file_id") != file_id
+        ]
+        deleted = before - len(self.local_records)
+        if deleted:
+            self._save_local_records()
+            self._rebuild_local_index()
+            logger.info("Deleted %s local vector records for file_id=%s.", deleted, file_id)
+        return deleted
+
     def _delete_source_milvus(self, source: str) -> int:
         if self.client is None:
             raise RuntimeError("Milvus backend is not fully initialized.")
@@ -246,6 +273,41 @@ class VectorStore:
         self.client.load_collection(self.collection_name)
         if deleted:
             logger.info("Deleted %s Milvus vector records for source=%s.", deleted, source)
+        return deleted
+
+    def _delete_file_milvus(self, file_id: str) -> int:
+        return self._delete_milvus_by_filter(
+            filter_expr=f"file_id == '{file_id}'",
+            log_label=f"file_id={file_id}",
+        )
+
+    def _delete_milvus_by_filter(self, *, filter_expr: str, log_label: str) -> int:
+        if self.client is None:
+            raise RuntimeError("Milvus backend is not fully initialized.")
+        rows = self.client.query(
+            collection_name=self.collection_name,
+            filter=filter_expr,
+            output_fields=["id"],
+            limit=16384,
+        )
+        ids = [str(row["id"]) for row in rows if row.get("id")]
+        if not ids:
+            return 0
+
+        deleted = 0
+        batch_size = 500
+        for start in range(0, len(ids), batch_size):
+            batch_ids = ids[start : start + batch_size]
+            result = self.client.delete(
+                collection_name=self.collection_name,
+                ids=batch_ids,
+            )
+            deleted += int(result.get("delete_count", 0))
+
+        self.client.flush(collection_name=self.collection_name)
+        self.client.load_collection(self.collection_name)
+        if deleted:
+            logger.info("Deleted %s Milvus vector records for %s.", deleted, log_label)
         return deleted
 
     def hybrid_search_with_rerank(

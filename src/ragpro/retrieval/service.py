@@ -15,6 +15,9 @@ class RetrievalService:
     def delete_source(self, source: str) -> int:
         return self.vector_store.delete_source(source)
 
+    def delete_file(self, file_id: str) -> int:
+        return self.vector_store.delete_file(file_id)
+
     def retrieve(
         self,
         query: str,

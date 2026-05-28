@@ -6,11 +6,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
+from uuid import uuid4
 
 from ragpro.config import get_logger, get_settings
 from ragpro.retrieval import RetrievalService, VectorStore
 
 from .document_processor import process_loaded_documents
+from .file_registry import DocumentFileRegistry, DocumentFileService
 from .loaders import load_file
 
 logger = get_logger("ragpro.ingestion.upload")
@@ -40,12 +42,14 @@ class DocumentUploadService:
         *,
         upload_root: Path | None = None,
         retrieval_service_factory: Callable[[], RetrievalService] | None = None,
+        file_registry: DocumentFileRegistry | None = None,
         max_file_size_bytes: int | None = None,
     ) -> None:
         settings = get_settings()
         self.upload_root = Path(upload_root or settings.upload_dir)
         self.max_file_size_bytes = max_file_size_bytes or settings.max_upload_file_size_bytes
         self.retrieval_service_factory = retrieval_service_factory or self._default_retrieval_service_factory
+        self.file_registry = file_registry or DocumentFileRegistry(upload_root=self.upload_root)
 
     def upload_documents(
         self,
@@ -73,6 +77,10 @@ class DocumentUploadService:
                 if not loaded_documents:
                     unreadable_files.append(item["filename"])
                     continue
+                for document in loaded_documents:
+                    document.metadata["file_id"] = item["file_id"]
+                    document.metadata["filename"] = item["filename"]
+                    document.metadata["stored_name"] = item["stored_name"]
                 raw_documents.extend(loaded_documents)
 
             if unreadable_files:
@@ -88,9 +96,19 @@ class DocumentUploadService:
 
         retrieval_service = self.retrieval_service_factory()
         deleted = 0
+        deleted_file_records = 0
         if replace_source:
             deleted = retrieval_service.delete_source(normalized_source)
+            deleted_file_records = self._delete_registered_source_files(normalized_source)
         retrieval_service.add_documents(child_chunks)
+        self.file_registry.add_files(
+            self._build_file_records(
+                source=normalized_source,
+                request_dir=request_dir,
+                saved_files=saved_files,
+                child_chunks=child_chunks,
+            )
+        )
 
         logger.info(
             "Uploaded and indexed %s files for source=%s into backend=%s.",
@@ -105,12 +123,15 @@ class DocumentUploadService:
             "raw_document_count": len(raw_documents),
             "document_chunks": len(child_chunks),
             "deleted_before_index": deleted,
+            "deleted_file_records_before_index": deleted_file_records,
             "retrieval_backend": getattr(retrieval_service.vector_store, "backend", "unknown"),
             "upload_directory": str(request_dir),
             "files": [
                 {
+                    "file_id": item["file_id"],
                     "filename": item["filename"],
                     "stored_name": item["stored_name"],
+                    "stored_path": str(item["path"]),
                     "size_bytes": item["size_bytes"],
                     "content_type": item["content_type"],
                 }
@@ -146,12 +167,52 @@ class DocumentUploadService:
         else:
             target_path.write_bytes(item.content or b"")
         return {
+            "file_id": uuid4().hex,
             "filename": original_name,
             "stored_name": target_path.name,
             "path": target_path,
             "size_bytes": size_bytes,
             "content_type": item.content_type or "application/octet-stream",
         }
+
+    def _build_file_records(
+        self,
+        *,
+        source: str,
+        request_dir: Path,
+        saved_files: list[dict],
+        child_chunks: list,
+    ) -> list[dict]:
+        chunk_counts: dict[str, int] = {}
+        for chunk in child_chunks:
+            file_id = str(chunk.metadata.get("file_id") or "")
+            if file_id:
+                chunk_counts[file_id] = chunk_counts.get(file_id, 0) + 1
+
+        created_at = datetime.now().isoformat()
+        return [
+            {
+                "file_id": item["file_id"],
+                "source": source,
+                "filename": item["filename"],
+                "stored_name": item["stored_name"],
+                "stored_path": str(item["path"]),
+                "upload_directory": str(request_dir),
+                "size_bytes": item["size_bytes"],
+                "content_type": item["content_type"],
+                "document_chunks": chunk_counts.get(item["file_id"], 0),
+                "created_at": created_at,
+            }
+            for item in saved_files
+        ]
+
+    def _delete_registered_source_files(self, source: str) -> int:
+        service = DocumentFileService(
+            upload_root=self.upload_root,
+            file_registry=self.file_registry,
+            retrieval_service_factory=self.retrieval_service_factory,
+        )
+        return int(service.delete_source_files(source)["file_records"])
 
     @staticmethod
     def _sanitize_source(source: str) -> str:

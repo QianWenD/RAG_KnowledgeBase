@@ -72,6 +72,7 @@ AUDIT_ACTIONS = (
     "create_menu_item",
     "update_menu_item",
     "delete_menu_item",
+    "delete_document_file",
 )
 SENSITIVE_AUDIT_ACTIONS = (
     "reset_password",
@@ -82,6 +83,7 @@ SENSITIVE_AUDIT_ACTIONS = (
     "delete_org_unit",
     "delete_menu_role",
     "delete_menu_item",
+    "delete_document_file",
 )
 SOURCE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$")
 
@@ -127,6 +129,12 @@ def _build_document_upload_service():
     from ragpro.ingestion import DocumentUploadService
 
     return DocumentUploadService()
+
+
+def _build_document_file_service():
+    from ragpro.ingestion import DocumentFileService
+
+    return DocumentFileService()
 
 
 def _run_reindex_job(directory: Path, *, append: bool) -> dict:
@@ -463,6 +471,20 @@ def _record_auth_audit(
         target_role=target.role if target is not None else None,
         metadata=metadata or {},
     )
+
+
+def _serialize_document_file(record: dict) -> dict:
+    return {
+        "file_id": record.get("file_id"),
+        "source": record.get("source"),
+        "filename": record.get("filename"),
+        "stored_name": record.get("stored_name"),
+        "content_type": record.get("content_type"),
+        "size_bytes": int(record.get("size_bytes") or 0),
+        "document_chunks": int(record.get("document_chunks") or 0),
+        "created_at": record.get("created_at"),
+    }
+
 
 def _set_auth_cookie(response: Response, session_token: str) -> None:
     response.set_cookie(
@@ -2010,6 +2032,64 @@ def get_batch_upload_job(batch_id: str, request: Request) -> dict:
     if batch is None:
         raise HTTPException(status_code=404, detail="Batch upload job not found.")
     return batch
+
+
+@app.get("/documents/files")
+def list_document_files(request: Request, source: str | None = None) -> dict:
+    _require_admin_user(request)
+    try:
+        normalized_source = _validate_source_filter(source) if source else None
+        service = _build_document_file_service()
+        files = [_serialize_document_file(record) for record in service.list_files(source=normalized_source)]
+        return {
+            "files": files,
+            "count": len(files),
+            "source": normalized_source,
+        }
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Document file list endpoint failed.")
+        raise HTTPException(status_code=503, detail=f"Document file list unavailable: {exc}") from exc
+
+
+@app.delete("/documents/files/{file_id}")
+def delete_document_file(file_id: str, request: Request) -> dict:
+    admin_user = _require_admin_user(request)
+    auth_repository = None
+    try:
+        from ragpro.ingestion import DocumentFileNotFound
+
+        service = _build_document_file_service()
+        deleted = service.delete_file(file_id)
+        auth_repository = _create_auth_repository()
+        _record_auth_audit(
+            auth_repository,
+            action="delete_document_file",
+            actor=admin_user,
+            metadata={
+                "file_id": deleted.get("file_id"),
+                "source": deleted.get("source"),
+                "filename": deleted.get("filename"),
+                "deleted_vectors": deleted.get("deleted_vectors"),
+                "deleted_file": deleted.get("deleted_file"),
+            },
+        )
+        return {"deleted": True, "file": deleted}
+    except DocumentFileNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Document file delete endpoint failed.")
+        raise HTTPException(status_code=503, detail=f"Document file delete unavailable: {exc}") from exc
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
 
 
 @app.post("/reindex")

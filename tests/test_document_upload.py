@@ -61,6 +61,8 @@ class DocumentUploadServiceTests(unittest.TestCase):
                     )
                 ],
             )
+            records = registry.list_files()
+            stored_path_exists = Path(records[0]["stored_path"]).exists()
 
         self.assertEqual(result["source"], "ai")
         self.assertEqual(result["file_count"], 1)
@@ -73,13 +75,12 @@ class DocumentUploadServiceTests(unittest.TestCase):
         self.assertTrue(result["files"][0]["file_id"])
         self.assertTrue(all(doc.metadata.get("file_id") == result["files"][0]["file_id"] for doc in retrieval.added_documents))
 
-        records = registry.list_files()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["file_id"], result["files"][0]["file_id"])
         self.assertEqual(records[0]["source"], "ai")
         self.assertEqual(records[0]["filename"], "notes.txt")
         self.assertEqual(records[0]["document_chunks"], result["document_chunks"])
-        self.assertTrue(Path(records[0]["stored_path"]).exists())
+        self.assertTrue(stored_path_exists)
 
     def test_document_file_service_deletes_vectors_file_and_registry_record(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -153,10 +154,11 @@ class DocumentUploadServiceTests(unittest.TestCase):
                     )
                 ],
             )
+            records = registry.list_files()
+            old_path_exists = old_path.exists()
 
-        records = registry.list_files()
         self.assertEqual(retrieval.deleted_sources, ["ai"])
-        self.assertFalse(old_path.exists())
+        self.assertFalse(old_path_exists)
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["file_id"], new_result["files"][0]["file_id"])
         self.assertEqual(records[0]["filename"], "new.txt")
