@@ -1110,6 +1110,21 @@ test.describe("RAGPro frontend smoke", () => {
     await page.goto(`${baseURL}/knowledge/sources`);
     await expect(page.locator("#source-register-input")).toHaveCount(0);
     await expect(page.locator("#document-file-filter-form")).toBeVisible();
+    const filterLayout = await page.evaluate(() => {
+      const from = document.querySelector("#document-file-filter-created-from").getBoundingClientRect();
+      const to = document.querySelector("#document-file-filter-created-to").getBoundingClientRect();
+      const actions = document.querySelector(".document-file-filter-actions").getBoundingClientRect();
+      return {
+        fromWidth: from.width,
+        toWidth: to.width,
+        dateGap: to.left - from.right,
+        actionGap: actions.left - to.right,
+      };
+    });
+    expect(filterLayout.fromWidth).toBeGreaterThanOrEqual(220);
+    expect(filterLayout.toWidth).toBeGreaterThanOrEqual(220);
+    expect(filterLayout.dateGap).toBeGreaterThanOrEqual(20);
+    expect(filterLayout.actionGap).toBeGreaterThanOrEqual(24);
     await page.locator("#document-file-filter-filename").fill("产品");
     await page.locator("#document-file-filter-source").fill("ai");
     await page.locator("#document-file-filter-uploader").fill("管理员");
