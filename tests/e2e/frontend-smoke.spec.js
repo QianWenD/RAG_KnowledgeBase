@@ -1110,39 +1110,49 @@ test.describe("RAGPro frontend smoke", () => {
     await page.goto(`${baseURL}/knowledge/sources`);
     await expect(page.locator("#source-register-input")).toHaveCount(0);
     await expect(page.locator("#document-file-filter-form")).toBeVisible();
+    await expect(page.locator("#document-file-time-presets")).toBeVisible();
+    await expect(page.locator('[data-document-file-range="7"]')).toHaveText("近7天");
+    await page.locator('[data-document-file-range="custom"]').click();
+    await expect(page.locator("#document-file-filter-created-from")).toHaveAttribute("type", "date");
+    await expect(page.locator("#document-file-filter-created-to")).toHaveAttribute("type", "date");
     const filterLayout = await page.evaluate(() => {
       const file = document.querySelector("#document-file-filter-filename").getBoundingClientRect();
+      const source = document.querySelector("#document-file-filter-source").getBoundingClientRect();
+      const uploader = document.querySelector("#document-file-filter-uploader").getBoundingClientRect();
       const timeGroup = document.querySelector(".document-file-time-range").getBoundingClientRect();
       const from = document.querySelector("#document-file-filter-created-from").getBoundingClientRect();
       const to = document.querySelector("#document-file-filter-created-to").getBoundingClientRect();
       const actions = document.querySelector(".document-file-filter-actions").getBoundingClientRect();
+      const inputHeights = [file.height, source.height, uploader.height, from.height, to.height];
       return {
         sameRow: Math.abs(file.top - timeGroup.top) <= 4,
         sameTimeLine: Math.abs(from.top - to.top) <= 4,
+        unifiedInputs: inputHeights.every((height) => Math.abs(height - inputHeights[0]) <= 2),
+        customRangeFits: to.right <= timeGroup.right + 1,
         timeGroupWidth: timeGroup.width,
-        fromWidth: from.width,
-        toWidth: to.width,
         dateGap: to.left - from.right,
-        actionGap: actions.left - to.right,
+        actionGap: actions.left - timeGroup.right,
       };
     });
     expect(filterLayout.sameRow).toBeTruthy();
     expect(filterLayout.sameTimeLine).toBeTruthy();
-    expect(filterLayout.timeGroupWidth).toBeGreaterThanOrEqual(430);
-    expect(filterLayout.fromWidth).toBeGreaterThanOrEqual(185);
-    expect(filterLayout.toWidth).toBeGreaterThanOrEqual(185);
-    expect(filterLayout.dateGap).toBeGreaterThanOrEqual(10);
-    expect(filterLayout.actionGap).toBeGreaterThanOrEqual(20);
+    expect(filterLayout.unifiedInputs).toBeTruthy();
+    expect(filterLayout.customRangeFits).toBeTruthy();
+    expect(filterLayout.timeGroupWidth).toBeGreaterThanOrEqual(520);
+    expect(filterLayout.dateGap).toBeGreaterThanOrEqual(8);
+    expect(filterLayout.actionGap).toBeGreaterThanOrEqual(14);
     await page.locator("#document-file-filter-filename").fill("产品");
     await page.locator("#document-file-filter-source").fill("ai");
     await page.locator("#document-file-filter-uploader").fill("管理员");
-    await page.locator("#document-file-filter-created-from").fill("2026-05-01T00:00");
-    await page.locator("#document-file-filter-created-to").fill("2026-05-31T23:59");
+    await page.locator("#document-file-filter-created-from").fill("2026-05-01");
+    await page.locator("#document-file-filter-created-to").fill("2026-05-31");
     await page.locator("#document-file-filter-submit").click();
 
     await expect.poll(() => latestFilesUrl).toContain("filename=%E4%BA%A7%E5%93%81");
     await expect.poll(() => latestFilesUrl).toContain("source=ai");
     await expect.poll(() => latestFilesUrl).toContain("uploader=%E7%AE%A1%E7%90%86%E5%91%98");
+    await expect.poll(() => decodeURIComponent(latestFilesUrl)).toContain("created_from=2026-05-01T00:00:00");
+    await expect.poll(() => decodeURIComponent(latestFilesUrl)).toContain("created_to=2026-05-31T23:59:59");
     await expect(page.locator("#document-file-table")).toContainText("产品手册.txt");
   });
 
