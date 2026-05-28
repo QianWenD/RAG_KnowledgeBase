@@ -1111,20 +1111,28 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator("#source-register-input")).toHaveCount(0);
     await expect(page.locator("#document-file-filter-form")).toBeVisible();
     const filterLayout = await page.evaluate(() => {
+      const file = document.querySelector("#document-file-filter-filename").getBoundingClientRect();
+      const timeGroup = document.querySelector(".document-file-time-range").getBoundingClientRect();
       const from = document.querySelector("#document-file-filter-created-from").getBoundingClientRect();
       const to = document.querySelector("#document-file-filter-created-to").getBoundingClientRect();
       const actions = document.querySelector(".document-file-filter-actions").getBoundingClientRect();
       return {
+        sameRow: Math.abs(file.top - timeGroup.top) <= 4,
+        sameTimeLine: Math.abs(from.top - to.top) <= 4,
+        timeGroupWidth: timeGroup.width,
         fromWidth: from.width,
         toWidth: to.width,
         dateGap: to.left - from.right,
         actionGap: actions.left - to.right,
       };
     });
-    expect(filterLayout.fromWidth).toBeGreaterThanOrEqual(220);
-    expect(filterLayout.toWidth).toBeGreaterThanOrEqual(220);
-    expect(filterLayout.dateGap).toBeGreaterThanOrEqual(20);
-    expect(filterLayout.actionGap).toBeGreaterThanOrEqual(24);
+    expect(filterLayout.sameRow).toBeTruthy();
+    expect(filterLayout.sameTimeLine).toBeTruthy();
+    expect(filterLayout.timeGroupWidth).toBeGreaterThanOrEqual(430);
+    expect(filterLayout.fromWidth).toBeGreaterThanOrEqual(185);
+    expect(filterLayout.toWidth).toBeGreaterThanOrEqual(185);
+    expect(filterLayout.dateGap).toBeGreaterThanOrEqual(10);
+    expect(filterLayout.actionGap).toBeGreaterThanOrEqual(20);
     await page.locator("#document-file-filter-filename").fill("产品");
     await page.locator("#document-file-filter-source").fill("ai");
     await page.locator("#document-file-filter-uploader").fill("管理员");
