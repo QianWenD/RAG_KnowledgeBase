@@ -879,6 +879,89 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(response.json()["status"], "succeeded")
         self.assertEqual(response.json()["completed_count"], 2)
 
+    def test_admin_can_list_uploaded_document_files(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="root",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        class FakeDocumentFileService:
+            def __init__(self) -> None:
+                self.requested_source = None
+
+            def list_files(self, source=None):
+                self.requested_source = source
+                return [
+                    {
+                        "file_id": "file_ai_1",
+                        "source": "ai",
+                        "filename": "notes.txt",
+                        "stored_name": "notes.txt",
+                        "content_type": "text/plain",
+                        "size_bytes": 12,
+                        "document_chunks": 3,
+                        "created_at": "2026-05-28T10:00:00",
+                    }
+                ]
+
+        file_service = FakeDocumentFileService()
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch("apps.api.main._build_document_file_service", return_value=file_service),
+        ):
+            response = self.client.get("/documents/files?source=ai")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(file_service.requested_source, "ai")
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["files"][0]["file_id"], "file_ai_1")
+
+    def test_admin_can_delete_uploaded_document_file_and_records_audit(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="root",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+        repository = FakeAuditRepository()
+
+        class FakeDocumentFileService:
+            def __init__(self) -> None:
+                self.deleted_file_id = None
+
+            def delete_file(self, file_id: str):
+                self.deleted_file_id = file_id
+                return {
+                    "file_id": file_id,
+                    "source": "ai",
+                    "filename": "retire-me.txt",
+                    "deleted_vectors": 4,
+                    "deleted_file": True,
+                }
+
+        file_service = FakeDocumentFileService()
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch("apps.api.main._build_document_file_service", return_value=file_service),
+            patch("apps.api.main._create_auth_repository", return_value=repository),
+        ):
+            response = self.client.delete("/documents/files/file_ai_1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(file_service.deleted_file_id, "file_ai_1")
+        payload = response.json()
+        self.assertTrue(payload["deleted"])
+        self.assertEqual(payload["file"]["deleted_vectors"], 4)
+        self.assertEqual(repository.audit_logs[-1]["action"], "delete_document_file")
+        self.assertEqual(repository.audit_logs[-1]["metadata"]["file_id"], "file_ai_1")
+
     def test_query_rejects_source_outside_user_scope(self) -> None:
         user = AuthenticatedUser(
             id=10,

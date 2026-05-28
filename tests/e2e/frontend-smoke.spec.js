@@ -151,6 +151,13 @@ async function mockAuthenticatedShell(page, { user = adminUser, sources = ["ai",
       body: JSON.stringify({ sources }),
     });
   });
+  await page.route("**/documents/files**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ files: [], count: 0 }),
+    });
+  });
   await page.route("**/auth/permission-bootstrap", async (route) => {
     await route.fulfill({
       status: 200,
@@ -1100,6 +1107,61 @@ test.describe("RAGPro frontend smoke", () => {
     await page.locator("#source-register-submit").click();
     await expect.poll(() => latestSourceBody).toContain("policy_2026");
     await expect(page.locator("#source-table")).toContainText("policy_2026");
+  });
+
+  test("knowledge sources page lists and deletes uploaded files", async ({ page }) => {
+    let deletedFileId = "";
+    let files = [
+      {
+        file_id: "file_ai_1",
+        source: "ai",
+        filename: "notes.txt",
+        stored_name: "notes.txt",
+        content_type: "text/plain",
+        size_bytes: 2048,
+        document_chunks: 7,
+        created_at: "2026-05-28T10:00:00",
+      },
+    ];
+
+    await page.unroute("**/documents/files**");
+    await page.route("**/documents/files**", async (route) => {
+      const url = new URL(route.request().url());
+      if (route.request().method() === "DELETE") {
+        deletedFileId = url.pathname.split("/").pop() || "";
+        files = files.filter((item) => item.file_id !== deletedFileId);
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            deleted: true,
+            file: {
+              file_id: deletedFileId,
+              source: "ai",
+              filename: "notes.txt",
+              deleted_vectors: 7,
+              deleted_file: true,
+            },
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ files, count: files.length }),
+      });
+    });
+    page.on("dialog", async (dialog) => {
+      await dialog.accept();
+    });
+
+    await page.goto(`${baseURL}/knowledge/sources`);
+    await expect(page.locator("#document-file-table")).toContainText("notes.txt");
+    await expect(page.locator("#document-file-table")).toContainText("7");
+    await page.locator('[data-document-file-delete="file_ai_1"]').click();
+    await expect.poll(() => deletedFileId).toBe("file_ai_1");
+    await expect(page.locator("#document-file-table")).not.toContainText("notes.txt");
   });
 
   test("dashboard overview keeps compact entry cards", async ({ page }) => {

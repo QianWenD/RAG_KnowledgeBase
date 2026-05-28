@@ -11,6 +11,7 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+from ragpro.ingestion.file_registry import DocumentFileRegistry, DocumentFileService
 from ragpro.ingestion.upload_service import DocumentUploadError, DocumentUploadService, IncomingDocument
 
 
@@ -23,11 +24,16 @@ class FakeRetrievalService:
     def __init__(self) -> None:
         self.vector_store = FakeVectorStore()
         self.deleted_sources: list[str] = []
+        self.deleted_files: list[str] = []
         self.added_documents = []
 
     def delete_source(self, source: str) -> int:
         self.deleted_sources.append(source)
         return 3
+
+    def delete_file(self, file_id: str) -> int:
+        self.deleted_files.append(file_id)
+        return 2
 
     def add_documents(self, documents) -> None:
         self.added_documents.extend(documents)
@@ -37,9 +43,11 @@ class DocumentUploadServiceTests(unittest.TestCase):
     def test_upload_service_saves_and_indexes_text_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             retrieval = FakeRetrievalService()
+            registry = DocumentFileRegistry(Path(tmpdir) / "_files.json", upload_root=Path(tmpdir))
             service = DocumentUploadService(
                 upload_root=Path(tmpdir),
                 retrieval_service_factory=lambda: retrieval,
+                file_registry=registry,
                 max_file_size_bytes=1024 * 1024,
             )
 
@@ -62,6 +70,96 @@ class DocumentUploadServiceTests(unittest.TestCase):
         self.assertEqual(retrieval.deleted_sources, [])
         self.assertTrue(retrieval.added_documents)
         self.assertEqual(result["files"][0]["filename"], "notes.txt")
+        self.assertTrue(result["files"][0]["file_id"])
+        self.assertTrue(all(doc.metadata.get("file_id") == result["files"][0]["file_id"] for doc in retrieval.added_documents))
+
+        records = registry.list_files()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["file_id"], result["files"][0]["file_id"])
+        self.assertEqual(records[0]["source"], "ai")
+        self.assertEqual(records[0]["filename"], "notes.txt")
+        self.assertEqual(records[0]["document_chunks"], result["document_chunks"])
+        self.assertTrue(Path(records[0]["stored_path"]).exists())
+
+    def test_document_file_service_deletes_vectors_file_and_registry_record(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            upload_root = Path(tmpdir)
+            retrieval = FakeRetrievalService()
+            registry = DocumentFileRegistry(upload_root / "_files.json", upload_root=upload_root)
+            service = DocumentUploadService(
+                upload_root=upload_root,
+                retrieval_service_factory=lambda: retrieval,
+                file_registry=registry,
+                max_file_size_bytes=1024 * 1024,
+            )
+            result = service.upload_documents(
+                source="ai",
+                files=[
+                    IncomingDocument(
+                        filename="retire-me.txt",
+                        content=b"This file should be removable.",
+                        content_type="text/plain",
+                    )
+                ],
+            )
+            file_id = result["files"][0]["file_id"]
+            stored_path = Path(result["files"][0]["stored_path"])
+
+            delete_service = DocumentFileService(
+                upload_root=upload_root,
+                file_registry=registry,
+                retrieval_service_factory=lambda: retrieval,
+            )
+            deleted = delete_service.delete_file(file_id)
+
+        self.assertEqual(deleted["file_id"], file_id)
+        self.assertEqual(deleted["deleted_vectors"], 2)
+        self.assertTrue(deleted["deleted_file"])
+        self.assertEqual(retrieval.deleted_files, [file_id])
+        self.assertFalse(stored_path.exists())
+        self.assertEqual(registry.list_files(), [])
+
+    def test_replace_source_removes_previous_file_records_and_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            upload_root = Path(tmpdir)
+            retrieval = FakeRetrievalService()
+            registry = DocumentFileRegistry(upload_root / "_files.json", upload_root=upload_root)
+            service = DocumentUploadService(
+                upload_root=upload_root,
+                retrieval_service_factory=lambda: retrieval,
+                file_registry=registry,
+                max_file_size_bytes=1024 * 1024,
+            )
+            old_result = service.upload_documents(
+                source="ai",
+                files=[
+                    IncomingDocument(
+                        filename="old.txt",
+                        content=b"Old source content.",
+                        content_type="text/plain",
+                    )
+                ],
+            )
+            old_path = Path(old_result["files"][0]["stored_path"])
+
+            new_result = service.upload_documents(
+                source="ai",
+                replace_source=True,
+                files=[
+                    IncomingDocument(
+                        filename="new.txt",
+                        content=b"New source content.",
+                        content_type="text/plain",
+                    )
+                ],
+            )
+
+        records = registry.list_files()
+        self.assertEqual(retrieval.deleted_sources, ["ai"])
+        self.assertFalse(old_path.exists())
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["file_id"], new_result["files"][0]["file_id"])
+        self.assertEqual(records[0]["filename"], "new.txt")
 
     def test_upload_service_extracts_text_from_pptx_without_optional_loader(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
