@@ -1,17 +1,11 @@
 window.RagProPage = {
   async init({ state, helpers }) {
     const elements = {
-      sourceTableBody: document.getElementById("source-table-body"),
-      sourceTablePager: document.getElementById("source-table-pager"),
       registerPanel: document.querySelector("[data-source-register-panel]"),
       registerForm: document.getElementById("source-register-form"),
       registerInput: document.getElementById("source-register-input"),
       registerSubmit: document.getElementById("source-register-submit"),
       registerFeedback: document.getElementById("source-register-feedback"),
-      summaryRole: document.getElementById("sources-summary-role"),
-      summaryCount: document.getElementById("sources-summary-count"),
-      summaryDefault: document.getElementById("sources-summary-default"),
-      summaryRecommendation: document.getElementById("sources-summary-recommendation"),
       documentFilePanel: document.getElementById("document-file-panel"),
       documentFileTableBody: document.getElementById("document-file-table-body"),
       documentFilePager: document.getElementById("document-file-pager"),
@@ -20,10 +14,8 @@ window.RagProPage = {
 
     bindRegistrationForm();
     bindDocumentFiles();
-    renderSummary();
-    renderSourceTable();
     await loadDocumentFiles();
-    helpers.setStatus("数据源管理页已就绪，可以按来源决定下一步是上传还是重建。");
+    helpers.setStatus("数据源管理页已就绪，可以查看、下载或删除已入库文件。");
 
     function bindRegistrationForm() {
       if (!elements.registerPanel || !elements.registerForm) {
@@ -59,7 +51,7 @@ window.RagProPage = {
       } catch (error) {
         elements.documentFileTableBody.innerHTML = `
           <tr>
-            <td colspan="6">文件清单加载失败：${helpers.escapeHtml(error.message)}</td>
+            <td colspan="7">文件清单加载失败：${helpers.escapeHtml(error.message)}</td>
           </tr>
         `;
         setDocumentFilePager(0);
@@ -97,7 +89,7 @@ window.RagProPage = {
       if (files === null) {
         elements.documentFileTableBody.innerHTML = `
           <tr>
-            <td colspan="6">正在加载已入库文件。</td>
+            <td colspan="7">正在加载已入库文件。</td>
           </tr>
         `;
         setDocumentFilePager(0);
@@ -106,7 +98,7 @@ window.RagProPage = {
       if (!files.length) {
         elements.documentFileTableBody.innerHTML = `
           <tr>
-            <td colspan="6">当前还没有可管理的入库文件。新上传的文件会出现在这里。</td>
+            <td colspan="7">当前还没有可管理的入库文件。新上传的文件会出现在这里。</td>
           </tr>
         `;
         setDocumentFilePager(0);
@@ -116,20 +108,52 @@ window.RagProPage = {
         <tr>
           <td><strong>${helpers.escapeHtml(file.filename || "-")}</strong></td>
           <td>${helpers.escapeHtml(file.source || "-")}</td>
+          <td>${helpers.escapeHtml(getDocumentFileUploader(file))}</td>
           <td>${helpers.formatBytes(Number(file.size_bytes || 0))}</td>
           <td>${Number(file.document_chunks || 0)}</td>
           <td>${helpers.escapeHtml(helpers.formatDateTime(file.created_at))}</td>
           <td>
-            <button
-              class="ghost-btn danger"
-              type="button"
-              data-document-file-delete="${helpers.escapeHtml(file.file_id)}"
-              data-document-file-name="${helpers.escapeHtml(file.filename || "")}"
-            >删除</button>
+            <div class="document-file-actions">
+              <a
+                class="ghost-btn"
+                href="${documentFileUrl(file.file_id, "content")}"
+                target="_blank"
+                rel="noopener"
+                data-document-file-view="${helpers.escapeHtml(file.file_id)}"
+              >查看</a>
+              <a
+                class="ghost-btn"
+                href="${documentFileUrl(file.file_id, "download")}"
+                data-document-file-download="${helpers.escapeHtml(file.file_id)}"
+              >下载</a>
+              <button
+                class="ghost-btn danger"
+                type="button"
+                data-document-file-delete="${helpers.escapeHtml(file.file_id)}"
+                data-document-file-name="${helpers.escapeHtml(file.filename || "")}"
+              >删除</button>
+            </div>
           </td>
         </tr>
       `).join("");
       setDocumentFilePager(files.length);
+    }
+
+    function getDocumentFileUploader(file) {
+      if (file.uploader_display_name) {
+        return file.uploader_display_name;
+      }
+      if (file.uploader_username) {
+        return file.uploader_username;
+      }
+      if (file.uploader_user_id) {
+        return `用户 ${file.uploader_user_id}`;
+      }
+      return "-";
+    }
+
+    function documentFileUrl(fileId, action) {
+      return `/documents/files/${encodeURIComponent(fileId || "")}/${action}`;
     }
 
     function setDocumentFilePager(count) {
@@ -169,8 +193,6 @@ window.RagProPage = {
           state.user = payload.user;
         }
         elements.registerInput.value = "";
-        renderSummary();
-        renderSourceTable();
         setRegisterFeedback(`已登记来源 ${source}，可以继续上传、重建或授权给用户。`);
         helpers.setStatus(`已登记来源：${source}`);
       } catch (error) {
@@ -184,7 +206,7 @@ window.RagProPage = {
     function setRegisterBusy(isBusy) {
       if (elements.registerSubmit) {
         elements.registerSubmit.disabled = Boolean(isBusy);
-        elements.registerSubmit.textContent = isBusy ? "登记中..." : "登记来源";
+        elements.registerSubmit.textContent = isBusy ? "登记中..." : "登记";
       }
     }
 
@@ -196,57 +218,5 @@ window.RagProPage = {
       elements.registerFeedback.classList.toggle("is-error", Boolean(isError));
     }
 
-    function renderSourceTable() {
-      if (!elements.sourceTableBody) {
-        return;
-      }
-      if (!(state.sources || []).length) {
-        elements.sourceTableBody.innerHTML = `
-          <tr>
-            <td colspan="5">当前没有可见来源。管理员可以先登记来源，普通用户请确认账号授权。</td>
-          </tr>
-        `;
-        setPagerCount(0);
-        return;
-      }
-
-      elements.sourceTableBody.innerHTML = (state.sources || []).map((source) => `
-        <tr>
-          <td><strong>${helpers.escapeHtml(source)}</strong></td>
-          <td>${source.includes("_") || source.includes("-") ? "自定义来源" : "系统来源"}</td>
-          <td><span class="status-chip ${helpers.isAdmin() ? "is-ok" : ""}">${helpers.isAdmin() ? "可运营" : "可查看"}</span></td>
-          <td>${helpers.isAdmin() ? "先上传，必要时重建" : "进入问答验证"}</td>
-          <td>
-            <div class="source-table-actions">
-              <a class="panel-link-btn secondary" href="/knowledge?source=${encodeURIComponent(source)}">上传</a>
-              <a class="panel-link-btn secondary" href="/knowledge/reindex?source=${encodeURIComponent(source)}">重建</a>
-              <a class="panel-link-btn tertiary" href="/qa">问答</a>
-            </div>
-          </td>
-        </tr>
-      `).join("");
-      setPagerCount(state.sources.length);
-    }
-
-    function setPagerCount(count) {
-      if (elements.sourceTablePager) {
-        elements.sourceTablePager.textContent = `共 ${count} 条`;
-      }
-    }
-
-    function renderSummary() {
-      if (elements.summaryRole) {
-        elements.summaryRole.textContent = helpers.isAdmin() ? "管理员视图" : "业务视图";
-      }
-      if (elements.summaryCount) {
-        elements.summaryCount.textContent = String((state.sources || []).length || 0);
-      }
-      if (elements.summaryDefault) {
-        elements.summaryDefault.textContent = helpers.isAdmin() ? "上传入库" : "问答验证";
-      }
-      if (elements.summaryRecommendation) {
-        elements.summaryRecommendation.textContent = helpers.isAdmin() ? "先看来源再运营" : "先确认权限范围";
-      }
-    }
   },
 };

@@ -91,7 +91,7 @@ class APISurfaceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('data-page="knowledge"', response.text)
         self.assertIn('data-page-view="knowledge-sources"', response.text)
-        self.assertIn('class="panel source-management-workbench"', response.text)
+        self.assertIn('class="panel source-management-workbench document-file-panel"', response.text)
         self.assertNotIn('id="source-table"', response.text)
         self.assertNotIn('来源清单', response.text)
         self.assertIn('id="document-file-table"', response.text)

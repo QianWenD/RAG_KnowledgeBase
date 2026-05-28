@@ -137,6 +137,15 @@ class DocumentFileService:
     def list_files(self, source: str | None = None) -> list[dict]:
         return self.file_registry.list_files(source=source)
 
+    def get_file_for_response(self, file_id: str) -> tuple[dict, Path]:
+        record = self.file_registry.get_file(file_id)
+        if record is None:
+            raise DocumentFileNotFound(f"Uploaded file not found: {file_id}")
+        stored_path = self.file_registry.resolve_stored_path(record)
+        if not stored_path.exists() or not stored_path.is_file():
+            raise DocumentFileNotFound(f"Stored upload file is missing: {file_id}")
+        return record, stored_path
+
     def delete_file(self, file_id: str) -> dict:
         record = self.file_registry.get_file(file_id)
         if record is None:

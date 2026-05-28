@@ -67,47 +67,6 @@
       </nav>
 
       <section class="knowledge-workbench source-management-layout">
-        <section class="panel source-management-workbench" id="source-overview">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">来源清单</p>
-              <h2>管理来源边界</h2>
-            </div>
-            <span class="status-chip is-ok">表格视图</span>
-          </div>
-
-          <div class="source-filter-row" id="source-register" data-source-register-panel>
-            <form id="source-register-form" class="source-register-form">
-              <label class="field-block" for="source-register-input">
-                <span>来源标识</span>
-                <input id="source-register-input" type="text" maxlength="50" placeholder="例如 policy_2026">
-              </label>
-              <button id="source-register-submit" class="send-btn" type="submit">登记来源</button>
-            </form>
-            <p id="source-register-feedback" class="note">来源标识用于权限、上传、重建和问答筛选。</p>
-          </div>
-
-          <div class="source-table-wrap" id="source-cards">
-            <table id="source-table" class="source-table">
-              <thead>
-                <tr>
-                  <th>来源标识</th>
-                  <th>来源类型</th>
-                  <th>当前权限</th>
-                  <th>建议动作</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="source-table-body">
-                <tr>
-                  <td colspan="5">当前来源会显示在这里。</td>
-                </tr>
-              </tbody>
-            </table>
-            <div id="source-table-pager" class="source-table-pager">共 0 条</div>
-          </div>
-        </section>
-
         <section class="panel source-management-workbench document-file-panel" id="document-file-panel">
           <div class="panel-head">
             <div>
@@ -117,12 +76,24 @@
             <button id="document-file-refresh" class="ghost-btn" type="button">刷新</button>
           </div>
 
+          <div class="source-filter-row" id="source-register" data-source-register-panel>
+            <form id="source-register-form" class="source-register-form">
+              <label class="field-block" for="source-register-input">
+                <span>登记新来源</span>
+                <input id="source-register-input" type="text" maxlength="50" placeholder="例如 policy_2026">
+              </label>
+              <button id="source-register-submit" class="send-btn" type="submit">登记</button>
+            </form>
+            <p id="source-register-feedback" class="note">如需新增知识域，可先登记来源，再去上传入库。</p>
+          </div>
+
           <div class="source-table-wrap document-file-table-wrap">
             <table id="document-file-table" class="source-table document-file-table">
               <thead>
                 <tr>
                   <th>文件名</th>
                   <th>来源</th>
+                  <th>入库人员</th>
                   <th>大小</th>
                   <th>切块</th>
                   <th>上传时间</th>
@@ -131,50 +102,18 @@
               </thead>
               <tbody id="document-file-table-body">
                 <tr>
-                  <td colspan="6">正在加载已入库文件。</td>
+                  <td colspan="7">正在加载已入库文件。</td>
                 </tr>
               </tbody>
             </table>
             <div id="document-file-pager" class="source-table-pager">共 0 个文件</div>
           </div>
         </section>
-
-        <aside class="knowledge-side" aria-label="来源辅助信息">
-          <section class="panel guide-panel" id="source-guidelines">
-            <div class="panel-head">
-              <div>
-                <p class="panel-kicker">维护建议</p>
-                <h2>稳定、验证、成组</h2>
-              </div>
-            </div>
-            <div class="guide-list knowledge-ops-list">
-              <div class="guide-item">
-                <strong>来源名尽量稳定</strong>
-                <p>长期使用的知识域不要频繁改名，避免权限和评测一起漂移。</p>
-              </div>
-              <div class="guide-item">
-                <strong>新来源先小范围验证</strong>
-                <p>先上传少量代表文档并问答回测，再继续扩充。</p>
-              </div>
-              <div class="guide-item">
-                <strong>动作成组完成</strong>
-                <p>看来源、上传、重建、授权和回测尽量在同一轮收口。</p>
-              </div>
-            </div>
-          </section>
-
-          <section class="panel guide-panel">
-            <div id="sources-overview-note" class="section-banner source-compact-note">
-              <strong>来源是权限和知识的共同边界</strong>
-              <p>同一个来源尽量在同一轮操作里完成上传、重建、授权和问答回测。</p>
-            </div>
-          </section>
-        </aside>
       </section>
     </main>
   </div>
 
   <script src="/static/common.js?v=20260528-topbar-cleanup"></script>
-  <script src="/static/knowledge_sources.js?v=20260528-file-management"></script>
+  <script src="/static/knowledge_sources.js?v=20260528-file-actions"></script>
 </body>
 </html>

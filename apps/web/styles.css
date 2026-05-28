@@ -9947,6 +9947,18 @@ body.console-page .document-file-table td:first-child {
   min-width: 220px;
 }
 
+body.console-page .document-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.console-page .document-file-actions .ghost-btn {
+  min-height: 32px;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
 body.console-page .document-file-table .ghost-btn.danger {
   min-height: 32px;
   padding: 0 12px;

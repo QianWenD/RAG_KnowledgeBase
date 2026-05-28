@@ -711,10 +711,11 @@ class AuthAPITests(unittest.TestCase):
         )
         captured: dict[str, object] = {}
 
-        def fake_submit_upload_job(*, source, files, replace_source):
+        def fake_submit_upload_job(*, source, files, replace_source, uploaded_by=None):
             captured["source"] = source
             captured["file_count"] = len(files)
             captured["replace_source"] = replace_source
+            captured["uploaded_by"] = uploaded_by
             return {
                 "job_id": "upload_job_1",
                 "status": "queued",
@@ -743,6 +744,7 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(response.json()["poll_url"], "/documents/upload-jobs/upload_job_1")
         self.assertEqual(captured["source"], "policy_2026")
         self.assertEqual(captured["file_count"], 1)
+        self.assertEqual(captured["uploaded_by"]["username"], "admin")
 
     def test_admin_can_read_upload_job_status(self) -> None:
         admin = AuthenticatedUser(
@@ -784,12 +786,13 @@ class AuthAPITests(unittest.TestCase):
         )
         captured: list[dict[str, object]] = []
 
-        def fake_submit_upload_job(*, source, files, replace_source):
+        def fake_submit_upload_job(*, source, files, replace_source, uploaded_by=None):
             captured.append(
                 {
                     "source": source,
                     "file_count": len(files),
                     "replace_source": replace_source,
+                    "uploaded_by": uploaded_by,
                 }
             )
             job_id = f"upload_job_{len(captured)}"
@@ -844,6 +847,7 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual([item["source"] for item in captured], ["ai", "med"])
         self.assertEqual([item["file_count"] for item in captured], [1, 2])
         self.assertEqual(captured[1]["replace_source"], True)
+        self.assertEqual(captured[0]["uploaded_by"]["username"], "admin")
 
     def test_admin_can_read_batch_upload_job_status(self) -> None:
         admin = AuthenticatedUser(
@@ -995,6 +999,40 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.text, "用于在线查看的原文")
         self.assertIn("inline", response.headers["content-disposition"])
+
+    def test_view_uploaded_html_file_is_served_as_plain_text(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="root",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            stored_path = Path(tmpdir) / "unsafe.html"
+            stored_path.write_text("<script>alert('xss')</script>", encoding="utf-8")
+
+            class FakeDocumentFileService:
+                def get_file_for_response(self, file_id: str):
+                    return (
+                        {
+                            "file_id": file_id,
+                            "filename": "unsafe.html",
+                            "content_type": "text/html",
+                        },
+                        stored_path,
+                    )
+
+            with (
+                patch("apps.api.main._require_admin_user", return_value=admin),
+                patch("apps.api.main._build_document_file_service", return_value=FakeDocumentFileService()),
+            ):
+                response = self.client.get("/documents/files/file_ai_1/content")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/plain", response.headers["content-type"])
+        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
 
     def test_admin_can_delete_uploaded_document_file_and_records_audit(self) -> None:
         admin = AuthenticatedUser(

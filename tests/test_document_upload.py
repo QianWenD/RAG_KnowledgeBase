@@ -119,7 +119,7 @@ class DocumentUploadServiceTests(unittest.TestCase):
             deleted = delete_service.delete_file(file_id)
 
         self.assertEqual(record["file_id"], file_id)
-        self.assertEqual(resolved_path, stored_path)
+        self.assertEqual(resolved_path, stored_path.resolve())
         self.assertEqual(deleted["file_id"], file_id)
         self.assertEqual(deleted["deleted_vectors"], 2)
         self.assertTrue(deleted["deleted_file"])

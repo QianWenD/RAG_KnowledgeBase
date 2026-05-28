@@ -86,6 +86,7 @@ SENSITIVE_AUDIT_ACTIONS = (
     "delete_document_file",
 )
 SOURCE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$")
+INLINE_TEXT_FILE_EXTENSIONS = {".txt", ".md", ".markdown", ".html", ".htm"}
 
 
 def _call_local_llm(prompt: str) -> str:
@@ -135,6 +136,14 @@ def _build_document_file_service():
     from ragpro.ingestion import DocumentFileService
 
     return DocumentFileService()
+
+
+def _document_actor_payload(user: "AuthenticatedUser") -> dict:
+    return {
+        "id": user.id,
+        "username": user.username,
+        "display_name": user.display_name or user.username,
+    }
 
 
 def _run_reindex_job(directory: Path, *, append: bool) -> dict:
@@ -482,8 +491,50 @@ def _serialize_document_file(record: dict) -> dict:
         "content_type": record.get("content_type"),
         "size_bytes": int(record.get("size_bytes") or 0),
         "document_chunks": int(record.get("document_chunks") or 0),
+        "uploader_user_id": record.get("uploader_user_id"),
+        "uploader_username": record.get("uploader_username"),
+        "uploader_display_name": record.get("uploader_display_name") or record.get("uploader_username"),
         "created_at": record.get("created_at"),
     }
+
+
+def _document_file_response(file_id: str, *, disposition: str) -> FileResponse:
+    from ragpro.ingestion import DocumentFileNotFound
+
+    try:
+        service = _build_document_file_service()
+        record, stored_path = service.get_file_for_response(file_id)
+        media_type = _document_file_media_type(record, stored_path, disposition=disposition)
+        return FileResponse(
+            stored_path,
+            headers=_document_file_headers(disposition=disposition),
+            media_type=media_type,
+            filename=record.get("filename") or stored_path.name,
+            content_disposition_type=disposition,
+        )
+    except DocumentFileNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _document_file_media_type(record: dict, stored_path: Path, *, disposition: str) -> str:
+    if disposition != "inline":
+        return record.get("content_type") or "application/octet-stream"
+
+    suffix = Path(record.get("filename") or stored_path.name).suffix.lower()
+    if suffix in INLINE_TEXT_FILE_EXTENSIONS:
+        return "text/plain; charset=utf-8"
+    if suffix == ".pdf":
+        return "application/pdf"
+    return "application/octet-stream"
+
+
+def _document_file_headers(*, disposition: str) -> dict[str, str]:
+    headers = {"X-Content-Type-Options": "nosniff"}
+    if disposition == "inline":
+        headers["Content-Security-Policy"] = "sandbox"
+    return headers
 
 
 def _set_auth_cookie(response: Response, session_token: str) -> None:
@@ -1697,7 +1748,7 @@ async def _stage_uploaded_files(files: list[UploadFile]) -> list:
         raise
 
 
-def _submit_upload_job(*, source: str, files: list, replace_source: bool) -> dict:
+def _submit_upload_job(*, source: str, files: list, replace_source: bool, uploaded_by: dict | None = None) -> dict:
     job = _upload_job_registry.create(
         source=source,
         replace_source=replace_source,
@@ -1711,12 +1762,20 @@ def _submit_upload_job(*, source: str, files: list, replace_source: bool) -> dic
         source,
         files,
         replace_source,
+        uploaded_by,
         staging_dir,
     )
     return _upload_job_payload(job)
 
 
-def _run_upload_job(job_id: str, source: str, files: list, replace_source: bool, staging_dir: Path | None) -> None:
+def _run_upload_job(
+    job_id: str,
+    source: str,
+    files: list,
+    replace_source: bool,
+    uploaded_by: dict | None,
+    staging_dir: Path | None,
+) -> None:
     from ragpro.ingestion import DocumentUploadError
 
     try:
@@ -1731,6 +1790,7 @@ def _run_upload_job(job_id: str, source: str, files: list, replace_source: bool,
             source=source,
             files=files,
             replace_source=replace_source,
+            uploaded_by=uploaded_by,
         )
         _upload_job_registry.mark_succeeded(job_id, result)
     except DocumentUploadError as exc:
@@ -1931,7 +1991,7 @@ async def upload_documents(
     replace_source: bool = Form(False),
     files: list[UploadFile] = File(...),
 ) -> dict:
-    _require_admin_user(request)
+    admin_user = _require_admin_user(request)
     source = _validate_source_filter(source)
     if source is None:
         raise HTTPException(status_code=400, detail="source is required.")
@@ -1947,6 +2007,7 @@ async def upload_documents(
             source=source,
             files=staged_files,
             replace_source=replace_source,
+            uploaded_by=_document_actor_payload(admin_user),
         )
     except DocumentUploadError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -1969,7 +2030,7 @@ async def batch_upload_documents(
     items_json: str = Form(...),
     files: list[UploadFile] = File(...),
 ) -> dict:
-    _require_admin_user(request)
+    admin_user = _require_admin_user(request)
     if not files:
         raise HTTPException(status_code=400, detail="No files were uploaded.")
 
@@ -1992,6 +2053,7 @@ async def batch_upload_documents(
                     source=item["source"],
                     files=staged_files,
                     replace_source=item["replace_source"],
+                    uploaded_by=_document_actor_payload(admin_user),
                 )
             )
             submitted_group_count += 1
@@ -2053,6 +2115,30 @@ def list_document_files(request: Request, source: str | None = None) -> dict:
     except Exception as exc:
         logger.exception("Document file list endpoint failed.")
         raise HTTPException(status_code=503, detail=f"Document file list unavailable: {exc}") from exc
+
+
+@app.get("/documents/files/{file_id}/download")
+def download_document_file(file_id: str, request: Request):
+    _require_admin_user(request)
+    try:
+        return _document_file_response(file_id, disposition="attachment")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Document file download endpoint failed.")
+        raise HTTPException(status_code=503, detail=f"Document file download unavailable: {exc}") from exc
+
+
+@app.get("/documents/files/{file_id}/content")
+def view_document_file_content(file_id: str, request: Request):
+    _require_admin_user(request)
+    try:
+        return _document_file_response(file_id, disposition="inline")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Document file view endpoint failed.")
+        raise HTTPException(status_code=503, detail=f"Document file view unavailable: {exc}") from exc
 
 
 @app.delete("/documents/files/{file_id}")

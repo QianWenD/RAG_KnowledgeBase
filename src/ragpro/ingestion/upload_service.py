@@ -57,10 +57,12 @@ class DocumentUploadService:
         source: str,
         files: list[IncomingDocument],
         replace_source: bool = False,
+        uploaded_by: dict | None = None,
     ) -> dict:
         normalized_source = self._sanitize_source(source)
         if not files:
             raise DocumentUploadError("No files were uploaded.")
+        uploader = self._normalize_uploaded_by(uploaded_by)
 
         request_dir = self._build_request_dir(normalized_source)
         request_dir.mkdir(parents=True, exist_ok=True)
@@ -107,6 +109,7 @@ class DocumentUploadService:
                 request_dir=request_dir,
                 saved_files=saved_files,
                 child_chunks=child_chunks,
+                uploaded_by=uploader,
             )
         )
 
@@ -182,6 +185,7 @@ class DocumentUploadService:
         request_dir: Path,
         saved_files: list[dict],
         child_chunks: list,
+        uploaded_by: dict,
     ) -> list[dict]:
         chunk_counts: dict[str, int] = {}
         for chunk in child_chunks:
@@ -201,10 +205,26 @@ class DocumentUploadService:
                 "size_bytes": item["size_bytes"],
                 "content_type": item["content_type"],
                 "document_chunks": chunk_counts.get(item["file_id"], 0),
+                "uploader_user_id": uploaded_by.get("id"),
+                "uploader_username": uploaded_by.get("username"),
+                "uploader_display_name": uploaded_by.get("display_name"),
                 "created_at": created_at,
             }
             for item in saved_files
         ]
+
+    @staticmethod
+    def _normalize_uploaded_by(uploaded_by: dict | None) -> dict:
+        if not isinstance(uploaded_by, dict):
+            return {"id": None, "username": None, "display_name": None}
+        username = str(uploaded_by.get("username") or "").strip() or None
+        display_name = str(uploaded_by.get("display_name") or "").strip() or username
+        raw_id = uploaded_by.get("id")
+        try:
+            user_id = int(raw_id) if raw_id is not None else None
+        except (TypeError, ValueError):
+            user_id = None
+        return {"id": user_id, "username": username, "display_name": display_name}
 
     def _delete_registered_source_files(self, source: str) -> int:
         service = DocumentFileService(
