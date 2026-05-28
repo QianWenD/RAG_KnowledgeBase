@@ -25,10 +25,27 @@ class DocumentFileRegistry:
         self.manifest_path = Path(manifest_path or self.upload_root / "_document_files.json")
         self._lock = Lock()
 
-    def list_files(self, source: str | None = None) -> list[dict]:
+    def list_files(
+        self,
+        source: str | None = None,
+        filename: str | None = None,
+        uploader: str | None = None,
+        created_from: str | None = None,
+        created_to: str | None = None,
+    ) -> list[dict]:
         records = self._read_records()
-        if source:
-            records = [record for record in records if record.get("source") == source]
+        records = [
+            record
+            for record in records
+            if self._record_matches_filters(
+                record,
+                source=source,
+                filename=filename,
+                uploader=uploader,
+                created_from=created_from,
+                created_to=created_to,
+            )
+        ]
         return sorted(
             (dict(record) for record in records),
             key=lambda record: str(record.get("created_at") or ""),
@@ -120,6 +137,72 @@ class DocumentFileRegistry:
         if not _FILE_ID_PATTERN.fullmatch(str(file_id or "")):
             raise ValueError("Invalid uploaded file id.")
 
+    @classmethod
+    def _record_matches_filters(
+        cls,
+        record: dict,
+        *,
+        source: str | None = None,
+        filename: str | None = None,
+        uploader: str | None = None,
+        created_from: str | None = None,
+        created_to: str | None = None,
+    ) -> bool:
+        if source and record.get("source") != source:
+            return False
+        if filename and filename.casefold() not in str(record.get("filename") or "").casefold():
+            return False
+        if uploader and not cls._record_matches_uploader(record, uploader):
+            return False
+        if (created_from or created_to) and not cls._record_matches_created_range(
+            record,
+            created_from=created_from,
+            created_to=created_to,
+        ):
+            return False
+        return True
+
+    @staticmethod
+    def _record_matches_uploader(record: dict, uploader: str) -> bool:
+        needle = uploader.casefold()
+        haystack = " ".join(
+            str(value or "")
+            for value in (
+                record.get("uploader_display_name"),
+                record.get("uploader_username"),
+                record.get("uploader_user_id"),
+            )
+        ).casefold()
+        return needle in haystack
+
+    @classmethod
+    def _record_matches_created_range(
+        cls,
+        record: dict,
+        *,
+        created_from: str | None = None,
+        created_to: str | None = None,
+    ) -> bool:
+        created_at = cls._parse_datetime(record.get("created_at"))
+        if created_at is None:
+            return False
+        from_at = cls._parse_datetime(created_from)
+        to_at = cls._parse_datetime(created_to)
+        if from_at is not None and created_at < from_at:
+            return False
+        if to_at is not None and created_at > to_at:
+            return False
+        return True
+
+    @staticmethod
+    def _parse_datetime(value: object) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(str(value))
+        except ValueError:
+            return None
+
 
 class DocumentFileService:
     def __init__(
@@ -134,8 +217,21 @@ class DocumentFileService:
         self.file_registry = file_registry or DocumentFileRegistry(upload_root=self.upload_root)
         self.retrieval_service_factory = retrieval_service_factory or self._default_retrieval_service_factory
 
-    def list_files(self, source: str | None = None) -> list[dict]:
-        return self.file_registry.list_files(source=source)
+    def list_files(
+        self,
+        source: str | None = None,
+        filename: str | None = None,
+        uploader: str | None = None,
+        created_from: str | None = None,
+        created_to: str | None = None,
+    ) -> list[dict]:
+        return self.file_registry.list_files(
+            source=source,
+            filename=filename,
+            uploader=uploader,
+            created_from=created_from,
+            created_to=created_to,
+        )
 
     def get_file_for_response(self, file_id: str) -> tuple[dict, Path]:
         record = self.file_registry.get_file(file_id)

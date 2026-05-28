@@ -76,15 +76,33 @@
             <button id="document-file-refresh" class="ghost-btn" type="button">刷新</button>
           </div>
 
-          <div class="source-filter-row" id="source-register" data-source-register-panel>
-            <form id="source-register-form" class="source-register-form">
-              <label class="field-block" for="source-register-input">
-                <span>登记新来源</span>
-                <input id="source-register-input" type="text" maxlength="50" placeholder="例如 policy_2026">
+          <div class="source-filter-row document-file-filter-row">
+            <form id="document-file-filter-form" class="document-file-filter-form">
+              <label class="field-block" for="document-file-filter-filename">
+                <span>文件</span>
+                <input id="document-file-filter-filename" type="search" maxlength="180" placeholder="输入文件名">
               </label>
-              <button id="source-register-submit" class="send-btn" type="submit">登记</button>
+              <label class="field-block" for="document-file-filter-source">
+                <span>来源</span>
+                <input id="document-file-filter-source" type="search" maxlength="50" placeholder="例如 ai">
+              </label>
+              <label class="field-block" for="document-file-filter-uploader">
+                <span>入库人员</span>
+                <input id="document-file-filter-uploader" type="search" maxlength="64" placeholder="姓名或账号">
+              </label>
+              <label class="field-block" for="document-file-filter-created-from">
+                <span>上传开始</span>
+                <input id="document-file-filter-created-from" type="datetime-local">
+              </label>
+              <label class="field-block" for="document-file-filter-created-to">
+                <span>上传结束</span>
+                <input id="document-file-filter-created-to" type="datetime-local">
+              </label>
+              <div class="document-file-filter-actions">
+                <button id="document-file-filter-submit" class="send-btn" type="submit">查询</button>
+                <button id="document-file-filter-reset" class="ghost-btn" type="button">重置</button>
+              </div>
             </form>
-            <p id="source-register-feedback" class="note">如需新增知识域，可先登记来源，再去上传入库。</p>
           </div>
 
           <div class="source-table-wrap document-file-table-wrap">

@@ -9942,6 +9942,41 @@ body.console-page .document-file-panel {
   grid-column: 1 / -1;
 }
 
+body.console-page .document-file-filter-row {
+  align-items: stretch;
+}
+
+body.console-page .document-file-filter-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(140px, 0.8fr) minmax(160px, 0.9fr) minmax(170px, 1fr) minmax(170px, 1fr) auto;
+  gap: 12px;
+  width: 100%;
+  align-items: end;
+}
+
+body.console-page .document-file-filter-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+}
+
+@media (max-width: 1180px) {
+  body.console-page .document-file-filter-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.console-page .document-file-filter-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  body.console-page .document-file-filter-form {
+    grid-template-columns: 1fr;
+  }
+}
+
 body.console-page .document-file-table th:first-child,
 body.console-page .document-file-table td:first-child {
   min-width: 220px;

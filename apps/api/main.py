@@ -87,6 +87,10 @@ SENSITIVE_AUDIT_ACTIONS = (
 )
 SOURCE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$")
 INLINE_TEXT_FILE_EXTENSIONS = {".txt", ".md", ".markdown", ".html", ".htm"}
+DOCUMENT_FILE_TEXT_FILTER_LIMITS = {
+    "filename": 180,
+    "uploader": 64,
+}
 
 
 def _call_local_llm(prompt: str) -> str:
@@ -202,6 +206,52 @@ def _normalize_source_name(source: str | None) -> str | None:
 
 def _validate_source_filter(source_filter: str | None) -> str | None:
     return _normalize_source_name(source_filter)
+
+
+def _validate_document_file_text_filter(value: str | None, *, field_name: str) -> str | None:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return None
+    limit = DOCUMENT_FILE_TEXT_FILTER_LIMITS[field_name]
+    if len(normalized) > limit:
+        raise HTTPException(status_code=400, detail=f"{field_name} must be {limit} characters or fewer.")
+    return normalized
+
+
+def _parse_document_file_datetime(value: str | None, *, field_name: str) -> datetime | None:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return None
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"{field_name} must be a valid ISO datetime.") from exc
+
+
+def _validate_document_file_filters(
+    *,
+    filename: str | None = None,
+    source: str | None = None,
+    uploader: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+) -> dict:
+    normalized_filename = _validate_document_file_text_filter(filename, field_name="filename")
+    normalized_source = _validate_source_filter(source) if source else None
+    normalized_uploader = _validate_document_file_text_filter(uploader, field_name="uploader")
+    normalized_created_from = str(created_from or "").strip() or None
+    normalized_created_to = str(created_to or "").strip() or None
+    parsed_created_from = _parse_document_file_datetime(normalized_created_from, field_name="created_from")
+    parsed_created_to = _parse_document_file_datetime(normalized_created_to, field_name="created_to")
+    if parsed_created_from and parsed_created_to and parsed_created_from > parsed_created_to:
+        raise HTTPException(status_code=400, detail="created_from must be earlier than or equal to created_to.")
+    return {
+        "filename": normalized_filename,
+        "source": normalized_source,
+        "uploader": normalized_uploader,
+        "created_from": normalized_created_from,
+        "created_to": normalized_created_to,
+    }
 
 
 def _validate_allowed_sources(values: list[str] | tuple[str, ...] | None) -> list[str] | None:
@@ -2097,16 +2147,30 @@ def get_batch_upload_job(batch_id: str, request: Request) -> dict:
 
 
 @app.get("/documents/files")
-def list_document_files(request: Request, source: str | None = None) -> dict:
+def list_document_files(
+    request: Request,
+    filename: str | None = None,
+    source: str | None = None,
+    uploader: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+) -> dict:
     _require_admin_user(request)
     try:
-        normalized_source = _validate_source_filter(source) if source else None
+        filters = _validate_document_file_filters(
+            filename=filename,
+            source=source,
+            uploader=uploader,
+            created_from=created_from,
+            created_to=created_to,
+        )
         service = _build_document_file_service()
-        files = [_serialize_document_file(record) for record in service.list_files(source=normalized_source)]
+        files = [_serialize_document_file(record) for record in service.list_files(**filters)]
         return {
             "files": files,
             "count": len(files),
-            "source": normalized_source,
+            "source": filters["source"],
+            "filters": filters,
         }
     except HTTPException:
         raise
