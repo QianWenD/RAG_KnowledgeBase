@@ -1113,12 +1113,8 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator("#document-file-time-presets")).toBeVisible();
     await expect(page.locator('[data-document-file-range="7"]')).toHaveText("近7天");
     await page.locator('[data-document-file-range="custom"]').click();
-    await expect(page.locator("#document-file-filter-created-from")).toHaveAttribute("type", "text");
-    await expect(page.locator("#document-file-filter-created-from")).toHaveAttribute("placeholder", "开始日期，例如 2026-05-01");
-    await expect(page.locator("#document-file-filter-created-from")).toHaveAttribute("inputmode", "numeric");
-    await expect(page.locator("#document-file-filter-created-to")).toHaveAttribute("type", "text");
-    await expect(page.locator("#document-file-filter-created-to")).toHaveAttribute("placeholder", "结束日期，例如 2026-05-31");
-    await expect(page.locator("#document-file-filter-created-to")).toHaveAttribute("inputmode", "numeric");
+    await expect(page.locator("#document-file-filter-created-from")).toHaveAttribute("type", "date");
+    await expect(page.locator("#document-file-filter-created-to")).toHaveAttribute("type", "date");
     const filterLayout = await page.evaluate(() => {
       const file = document.querySelector("#document-file-filter-filename").getBoundingClientRect();
       const source = document.querySelector("#document-file-filter-source").getBoundingClientRect();
@@ -1145,8 +1141,8 @@ test.describe("RAGPro frontend smoke", () => {
     await page.locator("#document-file-filter-filename").fill("产品");
     await page.locator("#document-file-filter-source").fill("ai");
     await page.locator("#document-file-filter-uploader").fill("管理员");
-    await page.locator("#document-file-filter-created-from").fill("2026/05/01");
-    await page.locator("#document-file-filter-created-to").fill("2026.05.31");
+    await page.locator("#document-file-filter-created-from").fill("2026-05-01");
+    await page.locator("#document-file-filter-created-to").fill("2026-05-31");
     await page.locator("#document-file-filter-submit").click();
 
     await expect.poll(() => latestFilesUrl).toContain("filename=%E4%BA%A7%E5%93%81");
