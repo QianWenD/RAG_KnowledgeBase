@@ -90,14 +90,14 @@
                 <span>入库人员</span>
                 <input id="document-file-filter-uploader" type="search" maxlength="64" placeholder="姓名或账号">
               </label>
-              <label class="field-block" for="document-file-filter-created-from">
-                <span>上传开始</span>
-                <input id="document-file-filter-created-from" type="datetime-local">
-              </label>
-              <label class="field-block" for="document-file-filter-created-to">
-                <span>上传结束</span>
-                <input id="document-file-filter-created-to" type="datetime-local">
-              </label>
+              <div class="document-file-time-range">
+                <span class="document-file-time-label">上传时间</span>
+                <div class="document-file-time-inputs">
+                  <input id="document-file-filter-created-from" type="datetime-local" aria-label="上传开始时间">
+                  <span class="document-file-time-separator">至</span>
+                  <input id="document-file-filter-created-to" type="datetime-local" aria-label="上传结束时间">
+                </div>
+              </div>
               <div class="document-file-filter-actions">
                 <button id="document-file-filter-submit" class="send-btn" type="submit">查询</button>
                 <button id="document-file-filter-reset" class="ghost-btn" type="button">重置</button>
