@@ -1102,14 +1102,14 @@ test.describe("RAGPro frontend smoke", () => {
 
     await page.goto(`${baseURL}/knowledge/sources`);
     await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-sources"]')).toHaveCount(0);
-    await expect(page.locator("#source-table")).toContainText("ai");
+    await expect(page.locator("#source-table")).toHaveCount(0);
     await page.locator("#source-register-input").fill("policy_2026");
     await page.locator("#source-register-submit").click();
     await expect.poll(() => latestSourceBody).toContain("policy_2026");
-    await expect(page.locator("#source-table")).toContainText("policy_2026");
+    await expect(page.locator("#source-register-feedback")).toContainText("policy_2026");
   });
 
-  test("knowledge sources page lists and deletes uploaded files", async ({ page }) => {
+  test("knowledge sources page lists, downloads, views and deletes uploaded files", async ({ page }) => {
     let deletedFileId = "";
     let files = [
       {
@@ -1120,6 +1120,9 @@ test.describe("RAGPro frontend smoke", () => {
         content_type: "text/plain",
         size_bytes: 2048,
         document_chunks: 7,
+        uploader_user_id: 1,
+        uploader_username: "root",
+        uploader_display_name: "管理员",
         created_at: "2026-05-28T10:00:00",
       },
     ];
@@ -1159,6 +1162,15 @@ test.describe("RAGPro frontend smoke", () => {
     await page.goto(`${baseURL}/knowledge/sources`);
     await expect(page.locator("#document-file-table")).toContainText("notes.txt");
     await expect(page.locator("#document-file-table")).toContainText("7");
+    await expect(page.locator("#document-file-table")).toContainText("管理员");
+    await expect(page.locator('[data-document-file-view="file_ai_1"]')).toHaveAttribute(
+      "href",
+      "/documents/files/file_ai_1/content",
+    );
+    await expect(page.locator('[data-document-file-download="file_ai_1"]')).toHaveAttribute(
+      "href",
+      "/documents/files/file_ai_1/download",
+    );
     await page.locator('[data-document-file-delete="file_ai_1"]').click();
     await expect.poll(() => deletedFileId).toBe("file_ai_1");
     await expect(page.locator("#document-file-table")).not.toContainText("notes.txt");

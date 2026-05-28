@@ -53,6 +53,7 @@ class DocumentUploadServiceTests(unittest.TestCase):
 
             result = service.upload_documents(
                 source="ai",
+                uploaded_by={"id": 7, "username": "operator", "display_name": "运营员"},
                 files=[
                     IncomingDocument(
                         filename="notes.txt",
@@ -79,6 +80,9 @@ class DocumentUploadServiceTests(unittest.TestCase):
         self.assertEqual(records[0]["file_id"], result["files"][0]["file_id"])
         self.assertEqual(records[0]["source"], "ai")
         self.assertEqual(records[0]["filename"], "notes.txt")
+        self.assertEqual(records[0]["uploader_user_id"], 7)
+        self.assertEqual(records[0]["uploader_username"], "operator")
+        self.assertEqual(records[0]["uploader_display_name"], "运营员")
         self.assertEqual(records[0]["document_chunks"], result["document_chunks"])
         self.assertTrue(stored_path_exists)
 
@@ -111,8 +115,11 @@ class DocumentUploadServiceTests(unittest.TestCase):
                 file_registry=registry,
                 retrieval_service_factory=lambda: retrieval,
             )
+            record, resolved_path = delete_service.get_file_for_response(file_id)
             deleted = delete_service.delete_file(file_id)
 
+        self.assertEqual(record["file_id"], file_id)
+        self.assertEqual(resolved_path, stored_path)
         self.assertEqual(deleted["file_id"], file_id)
         self.assertEqual(deleted["deleted_vectors"], 2)
         self.assertTrue(deleted["deleted_file"])

@@ -2,6 +2,7 @@
 
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
@@ -903,6 +904,9 @@ class AuthAPITests(unittest.TestCase):
                         "content_type": "text/plain",
                         "size_bytes": 12,
                         "document_chunks": 3,
+                        "uploader_user_id": 1,
+                        "uploader_username": "root",
+                        "uploader_display_name": "管理员",
                         "created_at": "2026-05-28T10:00:00",
                     }
                 ]
@@ -920,6 +924,77 @@ class AuthAPITests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["files"][0]["file_id"], "file_ai_1")
+        self.assertEqual(payload["files"][0]["uploader_username"], "root")
+        self.assertEqual(payload["files"][0]["uploader_display_name"], "管理员")
+
+    def test_admin_can_download_uploaded_document_file(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="root",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            stored_path = Path(tmpdir) / "notes.txt"
+            stored_path.write_text("原文内容", encoding="utf-8")
+
+            class FakeDocumentFileService:
+                def get_file_for_response(self, file_id: str):
+                    return (
+                        {
+                            "file_id": file_id,
+                            "filename": "notes.txt",
+                            "content_type": "text/plain; charset=utf-8",
+                        },
+                        stored_path,
+                    )
+
+            with (
+                patch("apps.api.main._require_admin_user", return_value=admin),
+                patch("apps.api.main._build_document_file_service", return_value=FakeDocumentFileService()),
+            ):
+                response = self.client.get("/documents/files/file_ai_1/download")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.text, "原文内容")
+        self.assertIn("attachment", response.headers["content-disposition"])
+        self.assertIn("notes.txt", response.headers["content-disposition"])
+
+    def test_admin_can_view_uploaded_document_file_inline(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="root",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            stored_path = Path(tmpdir) / "notes.txt"
+            stored_path.write_text("用于在线查看的原文", encoding="utf-8")
+
+            class FakeDocumentFileService:
+                def get_file_for_response(self, file_id: str):
+                    return (
+                        {
+                            "file_id": file_id,
+                            "filename": "notes.txt",
+                            "content_type": "text/plain; charset=utf-8",
+                        },
+                        stored_path,
+                    )
+
+            with (
+                patch("apps.api.main._require_admin_user", return_value=admin),
+                patch("apps.api.main._build_document_file_service", return_value=FakeDocumentFileService()),
+            ):
+                response = self.client.get("/documents/files/file_ai_1/content")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.text, "用于在线查看的原文")
+        self.assertIn("inline", response.headers["content-disposition"])
 
     def test_admin_can_delete_uploaded_document_file_and_records_audit(self) -> None:
         admin = AuthenticatedUser(
