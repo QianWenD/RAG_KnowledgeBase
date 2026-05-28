@@ -37,6 +37,12 @@ window.RagProPage = {
       });
       [elements.filterCreatedFrom, elements.filterCreatedTo].forEach((input) => {
         input?.addEventListener("input", () => setDocumentFileRange("custom", { keepDates: true }));
+        input?.addEventListener("blur", () => {
+          const normalizedDate = normalizeDateText(input.value);
+          if (normalizedDate) {
+            input.value = normalizedDate;
+          }
+        });
       });
       elements.filterForm?.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -147,10 +153,40 @@ window.RagProPage = {
       if (!normalized) {
         return "";
       }
-      if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-        return `${normalized}T${boundary === "start" ? "00:00:00" : "23:59:59"}`;
+      if (/^\d{4}-\d{2}-\d{2}T/.test(normalized)) {
+        return normalized;
       }
-      return normalized;
+      const dateText = normalizeDateText(normalized);
+      if (!dateText) {
+        throw new Error("上传时间格式请使用 2026-05-01、2026/05/01、2026.05.01 或 2026年5月1日。");
+      }
+      return `${dateText}T${boundary === "start" ? "00:00:00" : "23:59:59"}`;
+    }
+
+    function normalizeDateText(value) {
+      const compact = String(value || "").trim().replace(/\s+/g, "");
+      if (!compact) {
+        return "";
+      }
+      const matchedDate = compact.match(/^(\d{4})(?:[-/.年])(\d{1,2})(?:[-/.月])(\d{1,2})日?$/);
+      const compactDate = compact.match(/^(\d{4})(\d{2})(\d{2})$/);
+      const parts = matchedDate
+        ? matchedDate.slice(1)
+        : compactDate
+          ? compactDate.slice(1)
+          : null;
+      if (!parts) {
+        return "";
+      }
+      const [yearText, monthText, dayText] = parts;
+      const year = Number(yearText);
+      const month = Number(monthText);
+      const day = Number(dayText);
+      const date = new Date(year, month - 1, day);
+      if (date.getFullYear() !== year || date.getMonth() + 1 !== month || date.getDate() !== day) {
+        return "";
+      }
+      return `${yearText}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
 
     async function handleDocumentFileAction(event) {
