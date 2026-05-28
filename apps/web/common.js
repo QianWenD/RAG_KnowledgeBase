@@ -61,6 +61,7 @@
 
   ensureAppChrome();
   removeLegacySidebarBrand();
+  ensurePageStatus();
   ensureSidebarNavigation();
 
   const elements = {
@@ -371,6 +372,17 @@
       return;
     }
     document.querySelectorAll(".rail > .brand, .brand.dossier").forEach((brand) => brand.remove());
+  }
+
+  function ensurePageStatus() {
+    if (!document.body.classList.contains("console-page") || document.getElementById("page-status")) {
+      return;
+    }
+    const status = document.createElement("span");
+    status.id = "page-status";
+    status.className = "status-badge page-status-sr";
+    status.setAttribute("aria-live", "polite");
+    document.body.appendChild(status);
   }
 
   function ensureSidebarNavigation() {
