@@ -734,6 +734,8 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-sources"]')).toHaveCount(0);
     await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-reindex"]')).toHaveCount(0);
     await expect(page.locator('.side-nav [href="/knowledge/sources"]')).toHaveCount(1);
+    await expect(page.locator('.side-nav [data-sidebar-section="knowledge"] [href="/knowledge/reindex"]')).toHaveCount(0);
+    await expect(page.locator('.side-nav [data-sidebar-section="ops"] [href="/knowledge/reindex"]')).toContainText("索引修复");
     await expect(page.locator("#batch-upload-panel")).toContainText("不会替换前面已经选好的文件");
     await expect(page.locator("#upload-form")).toBeHidden();
     await expect(page.locator("#batch-add-item-btn")).toHaveCount(0);
@@ -758,10 +760,13 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator("#batch-upload-count")).toHaveText("1 个文件");
   });
 
-  test("knowledge reindex page avoids upload entry tab", async ({ page }) => {
+  test("knowledge reindex page is presented as advanced index repair", async ({ page }) => {
     await page.goto(`${baseURL}/knowledge/reindex`);
     await expect(page.locator('.module-nav-bar [data-module-nav="knowledge-upload"]')).toHaveCount(0);
     await expect(page.locator("#reindex-panel")).toBeVisible();
+    await expect(page.locator("body")).toHaveAttribute("data-page-label", "索引修复");
+    await expect(page.locator("#reindex-panel")).toContainText("高级运维");
+    await expect(page.locator("#reindex-panel")).toContainText("索引修复");
   });
 
   test("knowledge upload supports custom source entry", async ({ page }) => {
