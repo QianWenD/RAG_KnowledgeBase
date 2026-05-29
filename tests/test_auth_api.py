@@ -37,6 +37,25 @@ class FakeAuditRepository:
         return None
 
 
+class FakeSourceRecord:
+    def __init__(
+        self,
+        *,
+        source_code: str,
+        display_name: str,
+        description: str | None = None,
+        is_active: bool = True,
+        sort_order: int = 100,
+    ) -> None:
+        self.source_code = source_code
+        self.display_name = display_name
+        self.description = description
+        self.is_active = is_active
+        self.sort_order = sort_order
+        self.created_at = "2026-05-29 10:00:00"
+        self.updated_at = "2026-05-29 10:00:00"
+
+
 @unittest.skipIf(TestClient is None, "fastapi is not installed in this environment")
 class AuthAPITests(unittest.TestCase):
     @classmethod
@@ -189,6 +208,57 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["sources"], ["ai", "java", "test", "ops", "bigdata", "med"])
 
+    def test_sources_return_catalog_labels_without_changing_permission_codes(self) -> None:
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai", "java"),
+            is_active=True,
+        )
+
+        class FakeAuthRepository:
+            def list_users(self):
+                return [admin]
+
+            def list_knowledge_sources(self):
+                return [
+                    FakeSourceRecord(source_code="ai", display_name="AI资料库", description="人工智能资料"),
+                    FakeSourceRecord(source_code="java", display_name="Java规范库"),
+                ]
+
+            def close(self) -> None:
+                return None
+
+        with (
+            patch("apps.api.main._require_authenticated_user", return_value=admin),
+            patch("apps.api.main._create_auth_repository", return_value=FakeAuthRepository()),
+        ):
+            response = self.client.get("/sources")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["sources"], ["ai", "java", "test", "ops", "bigdata"])
+        self.assertEqual(
+            payload["source_catalog"][:2],
+            [
+                {
+                    "code": "ai",
+                    "display_name": "AI资料库",
+                    "name": "AI资料库",
+                    "description": "人工智能资料",
+                    "is_active": True,
+                },
+                {
+                    "code": "java",
+                    "display_name": "Java规范库",
+                    "name": "Java规范库",
+                    "description": None,
+                    "is_active": True,
+                },
+            ],
+        )
+
     def test_admin_can_register_custom_source(self) -> None:
         repository = FakeAuditRepository()
         admin = AuthenticatedUser(
@@ -226,6 +296,76 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(captured["target_user_id"], 1)
         self.assertEqual(captured["allowed_sources"], ["ai", "java", "policy_2026"])
         self.assertEqual(repository.audit_logs[-1]["action"], "update_user_access")
+
+    def test_admin_register_source_persists_catalog_label(self) -> None:
+        class FakeSourceRepository(FakeAuditRepository):
+            def __init__(self) -> None:
+                super().__init__()
+                self.upserted_sources: list[dict] = []
+
+            def upsert_knowledge_source(self, **kwargs):
+                self.upserted_sources.append(kwargs)
+                return FakeSourceRecord(
+                    source_code=kwargs["source_code"],
+                    display_name=kwargs["display_name"],
+                    description=kwargs.get("description"),
+                )
+
+            def list_knowledge_sources(self):
+                return [
+                    FakeSourceRecord(source_code="ai", display_name="AI资料库"),
+                    FakeSourceRecord(source_code="policy_2026", display_name="政策资料库"),
+                ]
+
+        repository = FakeSourceRepository()
+        admin = AuthenticatedUser(
+            id=1,
+            username="admin",
+            role="admin",
+            allowed_sources=("ai",),
+            is_active=True,
+        )
+
+        class FakeAuthService:
+            def update_user_access(self, *, target_user_id: int, role=None, allowed_sources=None, is_active=None):
+                return AuthenticatedUser(
+                    id=target_user_id,
+                    username="admin",
+                    role="admin",
+                    allowed_sources=tuple(allowed_sources),
+                    is_active=True,
+                )
+
+        with (
+            patch("apps.api.main._require_admin_user", return_value=admin),
+            patch("apps.api.main._create_auth_repository", return_value=repository),
+            patch("apps.api.main._auth_service_from_repository", return_value=FakeAuthService()),
+        ):
+            response = self.client.post(
+                "/sources",
+                json={
+                    "source": "policy_2026",
+                    "display_name": "政策资料库",
+                    "description": "2026政策资料",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            repository.upserted_sources,
+            [
+                {
+                    "source_code": "policy_2026",
+                    "display_name": "政策资料库",
+                    "description": "2026政策资料",
+                    "created_by": admin.id,
+                }
+            ],
+        )
+        payload = response.json()
+        self.assertEqual(payload["source"], "policy_2026")
+        self.assertEqual(payload["source_catalog"][1]["code"], "policy_2026")
+        self.assertEqual(payload["source_catalog"][1]["display_name"], "政策资料库")
 
     def test_admin_can_create_user(self) -> None:
         repository = FakeAuditRepository()

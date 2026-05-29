@@ -11,6 +11,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from ragpro.database.schema_comments import (
     ColumnCommentSpec,
+    RAGPRO_SCHEMA_COMMENTS,
     TableCommentSpec,
     apply_schema_comments,
     build_column_comment_sql,
@@ -98,6 +99,17 @@ class SchemaCommentTests(unittest.TestCase):
         self.assertTrue(any("COMMENT = '系统用户表'" in sql for sql in alter_calls))
         self.assertTrue(any("MODIFY COLUMN `username`" in sql for sql in alter_calls))
         self.assertFalse(any("MODIFY COLUMN `role`" in sql for sql in alter_calls))
+
+    def test_knowledge_sources_table_has_chinese_comments(self) -> None:
+        specs = {spec.table: spec for spec in RAGPRO_SCHEMA_COMMENTS}
+
+        source_spec = specs["knowledge_sources"]
+
+        self.assertEqual(source_spec.comment, "知识源目录表，维护来源编码、显示名称和启停状态")
+        column_comments = {column.name: column.comment for column in source_spec.columns}
+        self.assertEqual(column_comments["source_code"], "知识源编码，权限、上传、检索统一使用该稳定编码")
+        self.assertEqual(column_comments["display_name"], "知识源展示名称，可用于前端中文显示")
+        self.assertEqual(column_comments["is_active"], "知识源是否启用，1启用，0停用")
 
 
 if __name__ == "__main__":
