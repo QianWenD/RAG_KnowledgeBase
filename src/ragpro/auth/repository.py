@@ -5,6 +5,7 @@ import json
 import pymysql
 
 from ragpro.config import get_logger, get_settings
+from ragpro.database.schema_comments import apply_schema_comments, specs_for_tables
 
 from .models import (
     AuditLogRecord,
@@ -180,6 +181,19 @@ class AuthMySQLRepository:
                 INDEX idx_auth_menu_role_items_item (menu_item_id)
             )
             """
+        )
+        apply_schema_comments(
+            self.cursor,
+            specs_for_tables(
+                "users",
+                "auth_sessions",
+                "auth_audit_logs",
+                "auth_org_units",
+                "auth_menu_items",
+                "auth_menu_roles",
+                "auth_user_menu_roles",
+                "auth_menu_role_items",
+            ),
         )
         self.connection.commit()
         self._seed_defaults()

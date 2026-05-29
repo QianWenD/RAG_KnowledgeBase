@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import pymysql
 
 from ragpro.config import get_logger, get_settings
+from ragpro.database.schema_comments import apply_schema_comments, specs_for_tables
 
 logger = get_logger("ragpro.conversation.repository")
 
@@ -68,6 +69,7 @@ class ConversationMySQLRepository:
         if self.cursor.fetchone() is None:
             self.cursor.execute("ALTER TABLE conversations ADD COLUMN user_id INT NULL AFTER session_id")
             self.cursor.execute("CREATE INDEX idx_user_session ON conversations (user_id, session_id)")
+        apply_schema_comments(self.cursor, specs_for_tables("conversations"))
         self.connection.commit()
 
     def fetch_recent_history(

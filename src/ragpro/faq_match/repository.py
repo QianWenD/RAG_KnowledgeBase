@@ -7,6 +7,7 @@ import pandas as pd
 import pymysql
 
 from ragpro.config import get_logger, get_settings
+from ragpro.database.schema_comments import apply_schema_comments, specs_for_tables
 
 logger = get_logger("ragpro.faq.repository")
 
@@ -30,6 +31,7 @@ class FAQMySQLRepository:
             charset="utf8mb4",
         )
         self.cursor = self.connection.cursor()
+        self.ensure_table()
         logger.info("MySQL connection established.")
 
     def _ensure_database(self) -> None:
@@ -60,6 +62,7 @@ class FAQMySQLRepository:
             )
             """
         )
+        apply_schema_comments(self.cursor, specs_for_tables("jpkb"))
         self.connection.commit()
 
     def import_csv(self, csv_path: str) -> int:
