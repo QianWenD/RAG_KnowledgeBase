@@ -225,7 +225,7 @@ function applyAuthState() {
   const isAdmin = user?.role === "admin";
   elements.authBadge.textContent = isAdmin ? "管理员" : "已登录";
   elements.authSummary.innerHTML = isAdmin
-    ? '<p class="note">当前账号已进入业务控制台。管理员可以上传文档、重建索引，并为不同成员分配来源权限。</p>'
+    ? '<p class="note">当前账号已进入业务控制台。管理员可以上传文档、进行索引修复，并为不同成员分配来源权限。</p>'
     : '<p class="note">当前账号已进入业务控制台。你只能访问被授权的来源，如需扩容请联系管理员。</p>';
   elements.authUserCard.classList.remove("hidden");
   elements.authUsername.textContent = user.username;

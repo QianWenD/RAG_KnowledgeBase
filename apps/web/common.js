@@ -24,7 +24,6 @@
       links: [
         { label: "问答工作台", icon: "问", href: "/qa", nav: "qa" },
         { label: "上传入库", icon: "传", href: "/knowledge", module: "knowledge-upload" },
-        { label: "重建索引", icon: "索", href: "/knowledge/reindex", module: "knowledge-reindex" },
       ],
     },
     {
@@ -45,6 +44,15 @@
       label: "数据管理",
       icon: "数",
       links: [{ label: "数据源管理", icon: "源", href: "/knowledge/sources", module: "knowledge-sources" }],
+    },
+    {
+      id: "ops",
+      label: "高级运维",
+      icon: "维",
+      adminOnly: true,
+      links: [
+        { label: "索引修复", icon: "索", href: "/knowledge/reindex", module: "knowledge-reindex", adminOnly: true },
+      ],
     },
   ];
 
@@ -326,6 +334,9 @@
   function getActiveSidebarSection() {
     if (state.currentPageView === "knowledge-sources") {
       return "data";
+    }
+    if (state.currentPageView === "knowledge-reindex") {
+      return "ops";
     }
     if (state.currentPage === "knowledge" || state.currentPage === "qa") {
       return "knowledge";

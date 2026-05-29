@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RAGPro 知识运营 · 重建索引</title>
+  <title>RAGPro 高级运维 · 索引修复</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css?v=20260528-topbar-cleanup">
 </head>
-<body class="console-page" data-page="knowledge" data-page-view="knowledge-reindex" data-page-label="重建索引">
+<body class="console-page" data-page="knowledge" data-page-view="knowledge-reindex" data-page-label="索引修复">
   <div class="scene-grid" aria-hidden="true"></div>
   <div class="scene-glow" aria-hidden="true"></div>
 
@@ -65,15 +65,15 @@
         <section class="panel" id="reindex-panel">
           <div class="panel-head">
             <div>
-              <p class="panel-kicker">索引任务</p>
-              <h2>重建来源</h2>
+              <p class="panel-kicker">高级运维</p>
+              <h2>索引修复</h2>
             </div>
             <span class="status-chip">管理员可用</span>
           </div>
 
           <div id="reindex-access-note" class="section-banner hidden">
             <strong>当前无权限</strong>
-            <p>你可以查看这一页的说明，但没有重建索引权限。如需操作，请使用管理员账号。</p>
+            <p>你可以查看这一页的说明，但没有索引修复权限。如需操作，请使用管理员账号。</p>
           </div>
 
           <form id="reindex-form" class="upload-form">
@@ -98,32 +98,32 @@
             <div class="state-banner compact-banner">
               <div class="state-banner-copy">
                 <span class="state-banner-label">执行模式</span>
-                <strong>覆盖重建会先清理同来源旧索引</strong>
+                <strong>修复模式会先清理同来源旧索引</strong>
                 <p>只是补充少量资料时，优先回到上传入库页。</p>
               </div>
             </div>
 
             <div class="upload-actions">
-              <button id="reindex-submit-btn" class="send-btn" type="submit">开始重建</button>
+              <button id="reindex-submit-btn" class="send-btn" type="submit">开始修复</button>
               <p class="hint">支持从来源页带入 `?source=ai`。</p>
             </div>
           </form>
 
-          <div id="reindex-result" class="upload-result note">暂时还没有重建结果。</div>
+          <div id="reindex-result" class="upload-result note">暂时还没有修复结果。</div>
         </section>
 
-        <aside class="knowledge-side" aria-label="重建辅助信息">
+        <aside class="knowledge-side" aria-label="索引修复辅助信息">
           <section class="panel guide-panel" id="reindex-guide">
             <div class="panel-head">
               <div>
-                <p class="panel-kicker">重建判断</p>
+                <p class="panel-kicker">修复判断</p>
                 <h2>什么时候用它</h2>
               </div>
             </div>
             <div class="guide-list knowledge-ops-list">
               <div class="guide-item">
                 <strong>整批资料替换</strong>
-                <p>章节结构或资料集合大改时，重建比增量更稳。</p>
+                <p>章节结构或资料集合大改时，索引修复比增量更稳。</p>
               </div>
               <div class="guide-item">
                 <strong>目录迁移</strong>
@@ -131,7 +131,7 @@
               </div>
               <div class="guide-item">
                 <strong>演示前校准</strong>
-                <p>正式回测前重建一次，可减少旧索引残留干扰。</p>
+                <p>正式回测前修复一次，可减少旧索引残留干扰。</p>
               </div>
             </div>
           </section>
@@ -140,11 +140,11 @@
             <div class="panel-head">
               <div>
                 <p class="panel-kicker">任务记录</p>
-                <h2>最近重建任务</h2>
+                <h2>最近修复任务</h2>
               </div>
             </div>
             <div id="reindex-history-list" class="upload-history-list">
-              <div class="note">最近重建任务会显示在这里。</div>
+              <div class="note">最近索引修复任务会显示在这里。</div>
             </div>
           </section>
         </aside>

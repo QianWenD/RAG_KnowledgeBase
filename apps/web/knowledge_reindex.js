@@ -28,7 +28,7 @@ window.RagProPage = {
 
     if (!helpers.isAdmin()) {
       disableView();
-      helpers.setStatus("当前账号不是管理员，只能查看重建索引说明。", true);
+      helpers.setStatus("当前账号不是管理员，只能查看索引修复说明。", true);
       return;
     }
 
@@ -37,7 +37,7 @@ window.RagProPage = {
       helpers.setSourceSelectValue(elements.reindexSource, preferredSource);
     }
     bindEvents();
-    helpers.setStatus("重建索引页已就绪，可以按来源执行重建任务。");
+    helpers.setStatus("索引修复页已就绪，可以按来源执行高级运维任务。");
 
     function bindEvents() {
       elements.reindexForm?.addEventListener("submit", (event) => {
@@ -51,7 +51,7 @@ window.RagProPage = {
       elements.accessNote?.classList.remove("hidden");
       elements.reindexForm?.classList.add("hidden");
       if (elements.reindexResult) {
-        elements.reindexResult.textContent = "当前账号没有重建索引权限。";
+        elements.reindexResult.textContent = "当前账号没有索引修复权限。";
       }
       renderSummary();
     }
@@ -78,7 +78,7 @@ window.RagProPage = {
 
       pageState.pending = true;
       elements.reindexSubmitBtn.disabled = true;
-      helpers.setStatus("正在执行重建索引任务...");
+      helpers.setStatus("正在执行索引修复任务...");
 
       try {
         const payload = {
@@ -107,13 +107,13 @@ window.RagProPage = {
         persistHistory();
         renderHistory();
         renderResult(
-          `重建完成：来源 ${record.source}，切块 ${record.document_chunks}，${record.replaced_existing_source ? "已替换旧索引" : "以追加模式写入"}`,
+          `修复完成：来源 ${record.source}，切块 ${record.document_chunks}，${record.replaced_existing_source ? "已替换旧索引" : "以追加模式写入"}`,
           false,
         );
-        helpers.setStatus("重建索引完成。");
+        helpers.setStatus("索引修复完成。");
       } catch (error) {
-        renderResult(`重建失败：${error.message}`, true);
-        helpers.setStatus("重建索引失败，请检查目录或服务状态后重试。", true);
+        renderResult(`修复失败：${error.message}`, true);
+        helpers.setStatus("索引修复失败，请检查目录或服务状态后重试。", true);
       } finally {
         pageState.pending = false;
         elements.reindexSubmitBtn.disabled = false;
@@ -129,8 +129,8 @@ window.RagProPage = {
     function renderHistory() {
       if (!pageState.history.length) {
         elements.reindexHistoryList.innerHTML = helpers.renderEmptyState(
-          "还没有重建任务",
-          "第一次执行重建后，这里会保留最近任务的来源、切块数和是否替换旧索引。",
+          "还没有索引修复任务",
+          "第一次执行修复后，这里会保留最近任务的来源、切块数和是否替换旧索引。",
           "soft",
         );
         renderSummary();
@@ -140,7 +140,7 @@ window.RagProPage = {
         <article class="upload-history-item">
           <strong>${helpers.escapeHtml(item.source)}</strong>
           <p class="upload-history-meta">${item.document_chunks} 个切块 / 删除旧索引 ${item.deleted_before_index}</p>
-          <p class="upload-history-files">${item.replaced_existing_source ? "覆盖重建" : "追加写入"} · ${helpers.escapeHtml(item.created_at || "")}</p>
+          <p class="upload-history-files">${item.replaced_existing_source ? "索引修复" : "追加写入"} · ${helpers.escapeHtml(item.created_at || "")}</p>
         </article>
       `).join("");
       renderSummary();
@@ -170,7 +170,7 @@ window.RagProPage = {
         elements.summaryHistoryCount.textContent = String(pageState.history.length || 0);
       }
       if (elements.summaryMode) {
-        elements.summaryMode.textContent = elements.reindexAppend?.checked ? "追加模式" : "覆盖重建";
+        elements.summaryMode.textContent = elements.reindexAppend?.checked ? "追加模式" : "索引修复";
       }
     }
   },
