@@ -201,7 +201,7 @@ window.RagProPage = {
       elements.documentFileTableBody.innerHTML = files.map((file) => `
         <tr>
           <td><strong>${helpers.escapeHtml(file.filename || "-")}</strong></td>
-          <td>${helpers.escapeHtml(file.source || "-")}</td>
+          <td>${helpers.escapeHtml(helpers.formatSourceLabel(file.source || "-"))}</td>
           <td>${helpers.escapeHtml(getDocumentFileUploader(file))}</td>
           <td>${helpers.formatBytes(Number(file.size_bytes || 0))}</td>
           <td>${Number(file.document_chunks || 0)}</td>

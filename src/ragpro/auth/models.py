@@ -98,3 +98,16 @@ class MenuItemRecord:
     sort_order: int = 100
     created_at: str | None = None
     updated_at: str | None = None
+
+
+@dataclass(frozen=True)
+class KnowledgeSourceRecord:
+    id: int
+    source_code: str
+    display_name: str
+    description: str | None = None
+    is_active: bool = True
+    sort_order: int = 100
+    created_by: int | None = None
+    created_at: str | None = None
+    updated_at: str | None = None

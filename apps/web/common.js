@@ -59,6 +59,7 @@
   const state = {
     user: null,
     sources: [],
+    sourceCatalog: [],
     currentPage: document.body.dataset.page || "dashboard",
     currentPageLabel: document.body.dataset.pageLabel || "",
     currentPageView: document.body.dataset.pageView || "",
@@ -107,6 +108,8 @@
     setSourceSelectValue,
     isValidSourceName,
     mergeSourceValues,
+    getSourceDisplayName,
+    formatSourceLabel,
     renderAdminCreateSourceSelector,
     collectAdminCreateUserPayload,
     createAdminUser,
@@ -249,14 +252,18 @@
   async function loadSources() {
     if (!state.user) {
       state.sources = [];
+      state.sourceCatalog = [];
       return [];
     }
     try {
       const payload = await apiJson("/sources");
       state.sources = payload.sources || [];
+      state.sourceCatalog = payload.source_catalog || [];
+      renderSourceTags(state.user?.allowed_sources || []);
       return state.sources;
     } catch (error) {
       state.sources = [];
+      state.sourceCatalog = [];
       setStatus(`加载来源失败：${error.message}`, true);
       return [];
     }
@@ -609,7 +616,9 @@
       elements.authSourceTags.innerHTML = '<span class="tag muted">暂无来源</span>';
       return;
     }
-    elements.authSourceTags.innerHTML = sources.map((source) => `<span class="tag">${escapeHtml(source)}</span>`).join("");
+    elements.authSourceTags.innerHTML = sources
+      .map((source) => `<span class="tag">${escapeHtml(formatSourceLabel(source))}</span>`)
+      .join("");
   }
 
   function setStatus(message, isError = false) {
@@ -680,7 +689,7 @@
     for (const source of uniqueSources) {
       const option = document.createElement("option");
       option.value = source;
-      option.textContent = source;
+      option.textContent = formatSourceLabel(source);
       select.appendChild(option);
     }
     const customOption = document.createElement("option");
@@ -780,6 +789,24 @@
     return merged;
   }
 
+  function getSourceDisplayName(sourceCode) {
+    const normalized = String(sourceCode || "").trim();
+    if (!normalized) {
+      return "";
+    }
+    const matched = (state.sourceCatalog || []).find((item) => item.code === normalized);
+    return String(matched?.display_name || matched?.name || normalized).trim();
+  }
+
+  function formatSourceLabel(sourceCode) {
+    const normalized = String(sourceCode || "").trim();
+    if (!normalized) {
+      return "";
+    }
+    const displayName = getSourceDisplayName(normalized);
+    return displayName && displayName !== normalized ? `${displayName}（${normalized}）` : normalized;
+  }
+
   function renderAdminCreateSourceSelector({
     container,
     sources = [],
@@ -805,7 +832,7 @@
     container.innerHTML = sourceList.map((source) => `
       <label class="source-checkbox">
         <input type="checkbox" ${checkboxAttribute}="${escapeHtml(source)}">
-        <span>${escapeHtml(source)}</span>
+        <span>${escapeHtml(formatSourceLabel(source))}</span>
       </label>
     `).join("") + customField;
   }

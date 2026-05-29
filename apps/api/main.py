@@ -279,6 +279,50 @@ def _merge_known_sources(*groups: list[str] | tuple[str, ...]) -> list[str]:
     return merged
 
 
+DEFAULT_SOURCE_DISPLAY_NAMES = {
+    "ai": "AI资料库",
+    "java": "Java规范库",
+    "test": "测试资料库",
+    "ops": "运维资料库",
+    "bigdata": "大数据资料库",
+}
+
+
+def _record_value(record, *names: str):
+    for name in names:
+        if isinstance(record, dict) and name in record:
+            return record.get(name)
+        if hasattr(record, name):
+            return getattr(record, name)
+    return None
+
+
+def _default_source_display_name(source_code: str) -> str:
+    normalized = str(source_code or "").strip()
+    return DEFAULT_SOURCE_DISPLAY_NAMES.get(normalized, normalized)
+
+
+def _serialize_source_catalog_record(record, *, fallback_code: str | None = None) -> dict:
+    code = str(_record_value(record, "source_code", "code") or fallback_code or "").strip()
+    display_name = str(_record_value(record, "display_name", "name") or _default_source_display_name(code)).strip()
+    return {
+        "code": code,
+        "display_name": display_name,
+        "name": display_name,
+        "description": _record_value(record, "description"),
+        "is_active": bool(_record_value(record, "is_active") if _record_value(record, "is_active") is not None else True),
+    }
+
+
+def _list_knowledge_source_records(repository) -> list:
+    if repository is None or not hasattr(repository, "list_knowledge_sources"):
+        return []
+    try:
+        return list(repository.list_knowledge_sources())
+    except TypeError:
+        return list(repository.list_knowledge_sources(include_inactive=False))
+
+
 def _available_sources_for_user(user: "AuthenticatedUser", auth_repository=None) -> list[str]:
     if not user.is_admin:
         return filter_sources_for_user(settings.valid_sources, user)
@@ -291,6 +335,15 @@ def _available_sources_for_user(user: "AuthenticatedUser", auth_repository=None)
         if not hasattr(repository, "list_users"):
             return filter_sources_for_user(settings.valid_sources, user)
         known_sources = _merge_known_sources(settings.valid_sources)
+        source_records = _list_knowledge_source_records(repository)
+        known_sources = _merge_known_sources(
+            known_sources,
+            tuple(
+                str(_record_value(record, "source_code", "code") or "").strip()
+                for record in source_records
+                if str(_record_value(record, "source_code", "code") or "").strip()
+            ),
+        )
         for known_user in repository.list_users():
             known_sources = _merge_known_sources(known_sources, known_user.allowed_sources)
         return filter_sources_for_user(known_sources, user)
@@ -300,6 +353,66 @@ def _available_sources_for_user(user: "AuthenticatedUser", auth_repository=None)
     finally:
         if owns_repository and repository is not None:
             repository.close()
+
+
+def _source_catalog_for_user(user: "AuthenticatedUser", auth_repository=None) -> list[dict]:
+    repository = auth_repository
+    owns_repository = repository is None
+    try:
+        if repository is None:
+            repository = _create_auth_repository()
+        available_codes = _available_sources_for_user(user, auth_repository=repository)
+        record_map: dict[str, dict] = {}
+        for record in _list_knowledge_source_records(repository):
+            serialized = _serialize_source_catalog_record(record)
+            if serialized["code"]:
+                record_map[serialized["code"]] = serialized
+        catalog: list[dict] = []
+        for code in available_codes:
+            catalog.append(
+                record_map.get(
+                    code,
+                    _serialize_source_catalog_record(
+                        {
+                            "source_code": code,
+                            "display_name": _default_source_display_name(code),
+                            "description": None,
+                            "is_active": True,
+                        }
+                    ),
+                )
+            )
+        return catalog
+    except Exception:  # pragma: no cover - defensive fallback
+        logger.exception("Failed to build source catalog; falling back to source codes.")
+        return [
+            _serialize_source_catalog_record(
+                {
+                    "source_code": code,
+                    "display_name": _default_source_display_name(code),
+                    "description": None,
+                    "is_active": True,
+                }
+            )
+            for code in filter_sources_for_user(settings.valid_sources, user)
+        ]
+    finally:
+        if owns_repository and repository is not None:
+            repository.close()
+
+
+def _fallback_source_catalog_for_codes(codes: list[str] | tuple[str, ...]) -> list[dict]:
+    return [
+        _serialize_source_catalog_record(
+            {
+                "source_code": code,
+                "display_name": _default_source_display_name(code),
+                "description": None,
+                "is_active": True,
+            }
+        )
+        for code in codes
+    ]
 
 
 def _normalize_audit_action(action: str | None) -> str | None:
@@ -689,6 +802,8 @@ class ReindexRequest(BaseModel):
 
 class SourceRegistrationRequest(BaseModel):
     source: str = Field(..., min_length=1, max_length=50, description="Custom knowledge source to register")
+    display_name: str | None = Field(default=None, max_length=100, description="Knowledge source display name")
+    description: str | None = Field(default=None, max_length=255, description="Knowledge source description")
 
 
 class RegisterRequest(BaseModel):
@@ -1601,7 +1716,24 @@ def list_sessions(request: Request) -> dict:
 @app.get("/sources")
 def get_sources(request: Request) -> dict:
     user = _require_authenticated_user(request)
-    return {"sources": _available_sources_for_user(user)}
+    auth_repository = None
+    fallback_sources = _available_sources_for_user(user)
+    try:
+        auth_repository = _create_auth_repository()
+        sources = _available_sources_for_user(user, auth_repository=auth_repository)
+        return {
+            "sources": sources,
+            "source_catalog": _source_catalog_for_user(user, auth_repository=auth_repository),
+        }
+    except Exception:
+        logger.exception("Failed to load source catalog; falling back to source codes.")
+        return {
+            "sources": fallback_sources,
+            "source_catalog": _fallback_source_catalog_for_codes(fallback_sources),
+        }
+    finally:
+        if auth_repository is not None:
+            auth_repository.close()
 
 
 @app.post("/sources")
@@ -1613,6 +1745,13 @@ def register_source(payload: SourceRegistrationRequest, request: Request) -> dic
     auth_repository = None
     try:
         auth_repository = _create_auth_repository()
+        if hasattr(auth_repository, "upsert_knowledge_source"):
+            auth_repository.upsert_knowledge_source(
+                source_code=source,
+                display_name=(payload.display_name or "").strip() or source,
+                description=(payload.description or "").strip() or None,
+                created_by=admin_user.id,
+            )
         auth_service = _auth_service_from_repository(auth_repository)
         allowed_sources = _validate_allowed_sources([*admin_user.allowed_sources, source])
         updated = auth_service.update_user_access(
@@ -1630,6 +1769,7 @@ def register_source(payload: SourceRegistrationRequest, request: Request) -> dic
         return {
             "source": source,
             "sources": _available_sources_for_user(updated, auth_repository=auth_repository),
+            "source_catalog": _source_catalog_for_user(updated, auth_repository=auth_repository),
             "user": _serialize_user(updated),
         }
     except ValueError as exc:

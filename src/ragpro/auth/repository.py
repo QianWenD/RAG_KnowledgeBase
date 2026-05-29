@@ -10,6 +10,7 @@ from ragpro.database.schema_comments import apply_schema_comments, specs_for_tab
 from .models import (
     AuditLogRecord,
     AuthenticatedUser,
+    KnowledgeSourceRecord,
     MenuItemRecord,
     MenuRoleRecord,
     OrgUnitRecord,
@@ -18,6 +19,14 @@ from .models import (
 )
 
 logger = get_logger("ragpro.auth.repository")
+
+DEFAULT_SOURCE_DISPLAY_NAMES = {
+    "ai": "AI资料库",
+    "java": "Java规范库",
+    "test": "测试资料库",
+    "ops": "运维资料库",
+    "bigdata": "大数据资料库",
+}
 
 
 class AuthMySQLRepository:
@@ -182,6 +191,23 @@ class AuthMySQLRepository:
             )
             """
         )
+        self.cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS knowledge_sources (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                source_code VARCHAR(50) NOT NULL UNIQUE,
+                display_name VARCHAR(100) NOT NULL,
+                description VARCHAR(255) NULL,
+                is_active TINYINT(1) NOT NULL DEFAULT 1,
+                sort_order INT NOT NULL DEFAULT 100,
+                created_by INT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_knowledge_sources_active_sort (is_active, sort_order),
+                INDEX idx_knowledge_sources_created_by (created_by)
+            )
+            """
+        )
         apply_schema_comments(
             self.cursor,
             specs_for_tables(
@@ -193,6 +219,7 @@ class AuthMySQLRepository:
                 "auth_menu_roles",
                 "auth_user_menu_roles",
                 "auth_menu_role_items",
+                "knowledge_sources",
             ),
         )
         self.connection.commit()
@@ -1050,6 +1077,100 @@ class AuthMySQLRepository:
         self.connection.commit()
         return item
 
+    def list_knowledge_sources(self, *, include_inactive: bool = False) -> list[KnowledgeSourceRecord]:
+        where_clause = "" if include_inactive else "WHERE is_active = 1"
+        self.cursor.execute(
+            f"""
+            SELECT
+                id,
+                source_code,
+                display_name,
+                description,
+                is_active,
+                sort_order,
+                created_by,
+                DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
+                DATE_FORMAT(updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+            FROM knowledge_sources
+            {where_clause}
+            ORDER BY sort_order ASC, id ASC
+            """
+        )
+        return [
+            source
+            for source in (self._row_to_knowledge_source(row) for row in self.cursor.fetchall())
+            if source is not None
+        ]
+
+    def get_knowledge_source(self, source_code: str) -> KnowledgeSourceRecord | None:
+        self.cursor.execute(
+            """
+            SELECT
+                id,
+                source_code,
+                display_name,
+                description,
+                is_active,
+                sort_order,
+                created_by,
+                DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
+                DATE_FORMAT(updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+            FROM knowledge_sources
+            WHERE source_code = %s
+            LIMIT 1
+            """,
+            (source_code,),
+        )
+        return self._row_to_knowledge_source(self.cursor.fetchone())
+
+    def upsert_knowledge_source(
+        self,
+        *,
+        source_code: str,
+        display_name: str | None = None,
+        description: str | None = None,
+        is_active: bool = True,
+        sort_order: int = 100,
+        created_by: int | None = None,
+        commit: bool = True,
+    ) -> KnowledgeSourceRecord:
+        normalized_code = str(source_code or "").strip()
+        normalized_name = (display_name or "").strip() or self._default_source_display_name(normalized_code)
+        normalized_description = (description or "").strip() or None
+        self.cursor.execute(
+            """
+            INSERT INTO knowledge_sources (
+                source_code,
+                display_name,
+                description,
+                is_active,
+                sort_order,
+                created_by
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                display_name = VALUES(display_name),
+                description = VALUES(description),
+                is_active = VALUES(is_active),
+                sort_order = VALUES(sort_order),
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                normalized_code,
+                normalized_name[:100],
+                normalized_description[:255] if normalized_description else None,
+                1 if is_active else 0,
+                max(0, int(sort_order)),
+                created_by,
+            ),
+        )
+        if commit:
+            self.connection.commit()
+        record = self.get_knowledge_source(normalized_code)
+        if record is None:  # pragma: no cover - defensive guard for failed writes
+            raise RuntimeError(f"Failed to persist knowledge source: {normalized_code}")
+        return record
+
     def close(self) -> None:
         self.connection.close()
         logger.info("Auth MySQL connection closed.")
@@ -1073,11 +1194,28 @@ class AuthMySQLRepository:
         return self.cursor.fetchone() is not None
 
     def _seed_defaults(self) -> None:
+        self._seed_default_knowledge_sources()
         self._seed_default_org_units()
         self._seed_default_menu_items()
         self._seed_default_menu_roles()
         self._seed_default_user_assignments()
         self.connection.commit()
+
+    def _seed_default_knowledge_sources(self) -> None:
+        for index, source_code in enumerate(self.settings.valid_sources):
+            source = str(source_code).strip()
+            if not source:
+                continue
+            if self.get_knowledge_source(source) is not None:
+                continue
+            self.upsert_knowledge_source(
+                source_code=source,
+                display_name=self._default_source_display_name(source),
+                description="系统默认知识源，可用于权限授权、上传入库和问答检索。",
+                is_active=True,
+                sort_order=(index + 1) * 10,
+                commit=False,
+            )
 
     def _seed_default_org_units(self) -> None:
         defaults = [
@@ -1553,6 +1691,29 @@ class AuthMySQLRepository:
             menu_role_names=self._parse_concat_strings(row.get("menu_role_names")),
             password_hash=str(row["password_hash"]) if row.get("password_hash") is not None else "",
         )
+
+    @staticmethod
+    def _row_to_knowledge_source(row: dict | None) -> KnowledgeSourceRecord | None:
+        if not row:
+            return None
+        source_code = str(row["source_code"])
+        display_name = str(row.get("display_name") or source_code)
+        return KnowledgeSourceRecord(
+            id=int(row["id"]),
+            source_code=source_code,
+            display_name=display_name,
+            description=str(row["description"]) if row.get("description") is not None else None,
+            is_active=bool(row.get("is_active")),
+            sort_order=int(row.get("sort_order") or 100),
+            created_by=int(row["created_by"]) if row.get("created_by") is not None else None,
+            created_at=str(row["created_at"]) if row.get("created_at") is not None else None,
+            updated_at=str(row["updated_at"]) if row.get("updated_at") is not None else None,
+        )
+
+    @staticmethod
+    def _default_source_display_name(source_code: str) -> str:
+        normalized = str(source_code or "").strip()
+        return DEFAULT_SOURCE_DISPLAY_NAMES.get(normalized, normalized)
 
     @staticmethod
     def _row_to_org_unit(row: dict | None) -> OrgUnitRecord | None:

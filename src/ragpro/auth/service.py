@@ -9,7 +9,14 @@ from datetime import datetime, timedelta, timezone
 
 from ragpro.config import get_settings
 
-from .models import AuthResult, AuthenticatedUser, MenuItemRecord, MenuRoleRecord, OrgUnitRecord
+from .models import (
+    AuthResult,
+    AuthenticatedUser,
+    KnowledgeSourceRecord,
+    MenuItemRecord,
+    MenuRoleRecord,
+    OrgUnitRecord,
+)
 from .repository import AuthMySQLRepository
 
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -566,6 +573,10 @@ class AuthService:
         return deleted
 
     def get_permission_bootstrap(self) -> dict:
+        source_catalog = [
+            self.serialize_knowledge_source(source)
+            for source in getattr(self.repository, "list_knowledge_sources", lambda: [])()
+        ]
         return {
             "org_units": self.list_org_unit_tree(),
             "menu_roles": [self.serialize_menu_role(item) for item in self.list_menu_roles()],
@@ -573,6 +584,7 @@ class AuthService:
             "system_roles": [{"value": "admin", "label": "管理员"}, {"value": "user", "label": "普通用户"}],
             "status_options": [{"value": True, "label": "启用"}, {"value": False, "label": "停用"}],
             "valid_sources": list(self.settings.valid_sources),
+            "source_catalog": source_catalog,
         }
 
     @staticmethod
@@ -588,6 +600,16 @@ class AuthService:
             "assigned_user_count": role.assigned_user_count,
             "created_at": role.created_at,
             "updated_at": role.updated_at,
+        }
+
+    @staticmethod
+    def serialize_knowledge_source(source: KnowledgeSourceRecord) -> dict:
+        return {
+            "code": source.source_code,
+            "display_name": source.display_name,
+            "name": source.display_name,
+            "description": source.description,
+            "is_active": source.is_active,
         }
 
     @staticmethod

@@ -364,8 +364,8 @@ class AuthAPITests(unittest.TestCase):
         )
         payload = response.json()
         self.assertEqual(payload["source"], "policy_2026")
-        self.assertEqual(payload["source_catalog"][1]["code"], "policy_2026")
-        self.assertEqual(payload["source_catalog"][1]["display_name"], "政策资料库")
+        catalog_by_code = {item["code"]: item for item in payload["source_catalog"]}
+        self.assertEqual(catalog_by_code["policy_2026"]["display_name"], "政策资料库")
 
     def test_admin_can_create_user(self) -> None:
         repository = FakeAuditRepository()

@@ -590,8 +590,11 @@ window.RagProPage = {
       const selectedSource = payload.source_filter
         || helpers.getSourceSelectValue(elements.sourceFilter)
         || AUTO_SOURCE_PLACEHOLDER;
+      const selectedSourceLabel = selectedSource === AUTO_SOURCE_PLACEHOLDER
+        ? selectedSource
+        : helpers.formatSourceLabel(selectedSource);
       const details = [
-        ["目标来源", selectedSource],
+        ["目标来源", selectedSourceLabel],
         ["检索问题", payload.retrieval_query || payload.normalized_query || "未返回"],
         ["置信度", formatConfidence(payload.confidence)],
         ["引用数量", `${citations.length} 条`],
@@ -638,7 +641,7 @@ window.RagProPage = {
           : "";
         node.innerHTML = `
           <div class="citation-head">
-            <strong>${helpers.escapeHtml(item.source || "unknown")}</strong>
+            <strong>${helpers.escapeHtml(helpers.formatSourceLabel(item.source || "unknown"))}</strong>
             <span class="subtle">${helpers.escapeHtml(item.timestamp || "")}</span>
           </div>
           <p class="citation-excerpt">${helpers.escapeHtml(item.excerpt || "")}</p>
@@ -821,7 +824,7 @@ window.RagProPage = {
         const source = helpers.getSourceSelectValue(elements.sourceFilter);
         if (source) {
           elements.querySourceHint.hidden = false;
-          elements.querySourceHint.textContent = `来源：${source}`;
+          elements.querySourceHint.textContent = `来源：${helpers.formatSourceLabel(source)}`;
         } else if (pageState.hasAsked || pageState.pending) {
           elements.querySourceHint.hidden = false;
           elements.querySourceHint.textContent = "未选择时将按权限范围自动检索";

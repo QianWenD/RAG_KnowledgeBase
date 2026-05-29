@@ -14,7 +14,7 @@ window.RagProPage = {
     }
     if (sourceScopeNode) {
       sourceScopeNode.textContent = state.user?.allowed_sources?.length
-        ? state.user.allowed_sources.join("、")
+        ? state.user.allowed_sources.map((source) => helpers.formatSourceLabel(source)).join("、")
         : "暂无可见来源";
     }
     if (adminHintNode) {

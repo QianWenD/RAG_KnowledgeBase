@@ -320,7 +320,7 @@ window.RagProPage = {
       if (!sources.length) {
         return '<span class="table-muted">未分配来源</span>';
       }
-      return `<div class="tag-list compact-source-tags">${sources.map((item) => `<span class="tag">${helpers.escapeHtml(item)}</span>`).join("")}</div>`;
+      return `<div class="tag-list compact-source-tags">${sources.map((item) => `<span class="tag">${helpers.escapeHtml(helpers.formatSourceLabel(item))}</span>`).join("")}</div>`;
     }
 
     async function handleRowAction(action, user, control) {
@@ -399,7 +399,11 @@ window.RagProPage = {
         renderEditorSources(user.allowed_sources || []);
         setEditorFeedback("修改后点击保存，系统会自动刷新列表。");
       }
-      window.requestAnimationFrame(() => elements.editorUsername?.focus());
+      window.requestAnimationFrame(() => {
+        if (!elements.editorModal?.contains(document.activeElement)) {
+          elements.editorUsername?.focus();
+        }
+      });
     }
 
     function closeEditor({ restoreFocus = true } = {}) {

@@ -150,6 +150,25 @@ RAGPRO_SCHEMA_COMMENTS: tuple[TableCommentSpec, ...] = (
         ),
     ),
     TableCommentSpec(
+        table="knowledge_sources",
+        comment="知识源目录表，维护来源编码、显示名称和启停状态",
+        columns=(
+            ColumnCommentSpec("id", "INT NOT NULL AUTO_INCREMENT", "知识源主键ID"),
+            ColumnCommentSpec("source_code", "VARCHAR(50) NOT NULL", "知识源编码，权限、上传、检索统一使用该稳定编码"),
+            ColumnCommentSpec("display_name", "VARCHAR(100) NOT NULL", "知识源展示名称，可用于前端中文显示"),
+            ColumnCommentSpec("description", "VARCHAR(255) NULL", "知识源说明"),
+            ColumnCommentSpec("is_active", "TINYINT(1) NOT NULL DEFAULT 1", "知识源是否启用，1启用，0停用"),
+            ColumnCommentSpec("sort_order", "INT NOT NULL DEFAULT 100", "排序号，数值越小越靠前"),
+            ColumnCommentSpec("created_by", "INT NULL", "创建人用户ID，对应users.id"),
+            ColumnCommentSpec("created_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", "知识源创建时间"),
+            ColumnCommentSpec(
+                "updated_at",
+                "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                "知识源最近更新时间",
+            ),
+        ),
+    ),
+    TableCommentSpec(
         table="jpkb",
         comment="FAQ知识问答表，保存传统问答库中的标准问题和答案",
         columns=(

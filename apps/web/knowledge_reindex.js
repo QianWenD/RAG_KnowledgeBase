@@ -107,7 +107,7 @@ window.RagProPage = {
         persistHistory();
         renderHistory();
         renderResult(
-          `修复完成：来源 ${record.source}，切块 ${record.document_chunks}，${record.replaced_existing_source ? "已替换旧索引" : "以追加模式写入"}`,
+          `修复完成：来源 ${helpers.formatSourceLabel(record.source)}，切块 ${record.document_chunks}，${record.replaced_existing_source ? "已替换旧索引" : "以追加模式写入"}`,
           false,
         );
         helpers.setStatus("索引修复完成。");
@@ -138,7 +138,7 @@ window.RagProPage = {
       }
       elements.reindexHistoryList.innerHTML = pageState.history.map((item) => `
         <article class="upload-history-item">
-          <strong>${helpers.escapeHtml(item.source)}</strong>
+          <strong>${helpers.escapeHtml(helpers.formatSourceLabel(item.source))}</strong>
           <p class="upload-history-meta">${item.document_chunks} 个切块 / 删除旧索引 ${item.deleted_before_index}</p>
           <p class="upload-history-files">${item.replaced_existing_source ? "索引修复" : "追加写入"} · ${helpers.escapeHtml(item.created_at || "")}</p>
         </article>

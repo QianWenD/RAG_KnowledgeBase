@@ -1007,7 +1007,7 @@ window.RagProPage = {
         return `
           <article class="batch-job-item is-${helpers.escapeHtml(status)}">
             <div class="batch-job-head">
-              <strong>${helpers.escapeHtml(job.source || "-")}</strong>
+              <strong>${helpers.escapeHtml(helpers.formatSourceLabel(job.source || "-"))}</strong>
               <span class="status-chip">${formatBatchJobStatus(status)}</span>
             </div>
             <div class="batch-job-meter" aria-hidden="true">
@@ -1068,7 +1068,7 @@ window.RagProPage = {
       }
       elements.uploadHistoryList.innerHTML = pageState.uploadHistory.map((item) => `
         <article class="upload-history-item">
-          <strong>${helpers.escapeHtml(item.source)}</strong>
+          <strong>${helpers.escapeHtml(helpers.formatSourceLabel(item.source))}</strong>
           <p class="upload-history-meta">${item.file_count} 个文件 / ${item.document_chunks} 个切块 / ${helpers.escapeHtml(item.retrieval_backend || "unknown")}</p>
           <p class="upload-history-files">${item.replace_source ? "覆盖重建" : "增量补充"} · ${helpers.escapeHtml(item.created_at || "")}</p>
         </article>
