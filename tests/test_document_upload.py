@@ -86,6 +86,41 @@ class DocumentUploadServiceTests(unittest.TestCase):
         self.assertEqual(records[0]["document_chunks"], result["document_chunks"])
         self.assertTrue(stored_path_exists)
 
+    def test_upload_service_reports_real_processing_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            retrieval = FakeRetrievalService()
+            events: list[dict] = []
+            service = DocumentUploadService(
+                upload_root=Path(tmpdir),
+                retrieval_service_factory=lambda: retrieval,
+                max_file_size_bytes=1024 * 1024,
+            )
+
+            result = service.upload_documents(
+                source="ai",
+                files=[
+                    IncomingDocument(
+                        filename="notes.txt",
+                        content=b"RAG progress should reflect parsing and indexing stages.",
+                        content_type="text/plain",
+                    )
+                ],
+                progress_callback=lambda event: events.append(dict(event)),
+            )
+
+        stages = [event["stage"] for event in events]
+        self.assertEqual(result["file_count"], 1)
+        self.assertEqual(stages[0], "prepare")
+        for expected_stage in ["save", "parse", "chunk", "index", "registry"]:
+            self.assertIn(expected_stage, stages)
+        self.assertEqual(events[-1]["stage"], "registry")
+        self.assertEqual(events[-1]["progress"], 95)
+        self.assertEqual(
+            [event["progress"] for event in events],
+            sorted(event["progress"] for event in events),
+        )
+        self.assertTrue(all(1 <= int(event["progress"]) <= 99 for event in events))
+
     def test_document_file_service_deletes_vectors_file_and_registry_record(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             upload_root = Path(tmpdir)
