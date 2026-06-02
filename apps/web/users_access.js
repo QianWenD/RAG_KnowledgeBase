@@ -186,11 +186,11 @@ window.RagProPage = {
         <tr class="access-user-card">
           <td class="strong-cell">${helpers.escapeHtml(role.role_name)}</td>
           <td>${helpers.escapeHtml(role.role_code)}</td>
-          <td>${helpers.escapeHtml(role.role_desc || "-")}</td>
-          <td>${helpers.escapeHtml(String((role.menu_ids || []).length))}</td>
-          <td>${helpers.escapeHtml(String(role.assigned_user_count || 0))}</td>
-          <td>${renderMenuSummary(role.menu_names || [])}</td>
-          <td class="date-cell">${helpers.formatDateTime(role.created_at)}</td>
+          <td class="role-desc-cell" title="${helpers.escapeHtml(role.role_desc || "-")}">${helpers.escapeHtml(role.role_desc || "-")}</td>
+          <td class="metric-cell">${helpers.escapeHtml(String((role.menu_ids || []).length))}</td>
+          <td class="metric-cell">${helpers.escapeHtml(String(role.assigned_user_count || 0))}</td>
+          <td class="menu-summary-cell">${renderMenuSummary(role.menu_names || [])}</td>
+          <td class="date-cell" title="${helpers.escapeHtml(helpers.formatDateTime(role.created_at))}">${formatCompactDateTime(role.created_at)}</td>
           <td>
             <div class="permission-inline-actions">
               <button class="legacy-inline-link" type="button" data-role-action="edit" data-role-id="${helpers.escapeHtml(String(role.id))}">编辑</button>
@@ -217,6 +217,19 @@ window.RagProPage = {
         return '<span class="table-muted">未分配菜单</span>';
       }
       return `<div class="tag-list compact-source-tags">${names.slice(0, 4).map((item) => `<span class="tag muted">${helpers.escapeHtml(item)}</span>`).join("")}${names.length > 4 ? `<span class="source-count-chip">+${names.length - 4}</span>` : ""}</div>`;
+    }
+
+    function formatCompactDateTime(value) {
+      if (!value) {
+        return "-";
+      }
+      const normalized = String(value).trim();
+      const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2}))?/);
+      if (match) {
+        return match[4] ? `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}` : `${match[1]}-${match[2]}-${match[3]}`;
+      }
+      const fallback = helpers.formatDateTime(value);
+      return fallback.length > 16 ? fallback.slice(0, 16) : fallback;
     }
 
     function openEditor(mode, role = null, trigger = null) {
