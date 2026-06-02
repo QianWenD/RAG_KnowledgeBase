@@ -65,6 +65,7 @@ const permissionBootstrap = {
       menu_ids: [1, 2, 3, 4],
       menu_names: ["总览", "用户信息", "菜单角色", "菜单管理"],
       assigned_user_count: 1,
+      created_at: "2026-04-24T10:00:30",
     },
     {
       id: 2,
@@ -74,6 +75,7 @@ const permissionBootstrap = {
       menu_ids: [1, 2],
       menu_names: ["总览", "用户信息"],
       assigned_user_count: 2,
+      created_at: "2026-04-24T11:30:45",
     },
   ],
   menu_items: [
@@ -1770,8 +1772,17 @@ test.describe("RAGPro frontend smoke", () => {
 
     await page.goto(`${baseURL}/users/access`);
     await expect(page.locator("#access-role-list")).toContainText("知识运营");
+    await expect(page.locator("#access-role-list .date-cell").first()).toHaveText("2026-04-24 10:00");
+    const tableMinWidth = await page.locator(".permission-data-table").evaluate((node) => {
+      return Number.parseFloat(window.getComputedStyle(node).minWidth);
+    });
+    expect(tableMinWidth).toBeLessThanOrEqual(1000);
+
     await page.locator('[data-role-action="edit"][data-role-id="2"]').click();
     await expect(page.locator("#role-editor-modal")).toBeVisible();
+    const basicStepBox = await page.locator(".permission-editor-card-role").boundingBox();
+    expect(basicStepBox).not.toBeNull();
+    expect(basicStepBox.width).toBeLessThanOrEqual(940);
     await expect(page.locator("#role-editor-preview-name")).toContainText("知识运营");
     await expect(page.locator("#role-editor-preview-users")).toContainText("2 个账号");
     await page.locator("#role-editor-name").fill("知识运营升级版");
@@ -1779,6 +1790,10 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator("#role-editor-preview-code")).toContainText("knowledge_operator");
     await page.locator("#role-editor-next").click();
     await expect(page.locator('[data-role-step="1"]')).toHaveClass(/is-active/);
+    const accessStepBox = await page.locator(".permission-editor-card-role").boundingBox();
+    expect(accessStepBox).not.toBeNull();
+    expect(accessStepBox.width).toBeLessThanOrEqual(940);
+    expect(accessStepBox.height).toBeLessThanOrEqual(basicStepBox.height + 24);
     await page.locator('[data-menu-id="3"]').check();
     await expect(page.locator("#role-editor-preview-count")).toContainText("3 项菜单");
     await expect(page.locator("#role-editor-selection-preview")).toContainText("总览");
