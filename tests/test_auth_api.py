@@ -604,6 +604,7 @@ class AuthAPITests(unittest.TestCase):
                 self,
                 *,
                 limit: int = 100,
+                offset: int = 0,
                 action: str | None = None,
                 search: str | None = None,
                 sensitive_only: bool = False,
@@ -613,6 +614,7 @@ class AuthAPITests(unittest.TestCase):
                 captured.update(
                     {
                         "limit": limit,
+                        "offset": offset,
                         "action": action,
                         "search": search,
                         "sensitive_only": sensitive_only,
@@ -646,7 +648,8 @@ class AuthAPITests(unittest.TestCase):
         ):
             response = self.client.get(
                 "/auth/audit-logs"
-                "?limit=10"
+                "?page=3"
+                "&page_size=10"
                 "&action=reset_password"
                 "&search=member"
                 "&sensitive_only=true"
@@ -665,14 +668,21 @@ class AuthAPITests(unittest.TestCase):
                 "search": "member",
                 "sensitive_only": True,
                 "limit": 10,
+                "offset": 20,
+                "page": 3,
+                "page_size": 10,
                 "start_at": "2026-04-10T08:00:00",
                 "end_at": "2026-04-10T18:30:00",
             },
         )
+        self.assertEqual(payload["pagination"]["page"], 3)
+        self.assertEqual(payload["pagination"]["page_size"], 10)
+        self.assertEqual(payload["pagination"]["offset"], 20)
         self.assertEqual(
             captured,
             {
                 "limit": 10,
+                "offset": 20,
                 "action": "reset_password",
                 "search": "member",
                 "sensitive_only": True,

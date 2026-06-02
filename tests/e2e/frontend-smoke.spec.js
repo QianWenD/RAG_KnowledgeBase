@@ -1268,6 +1268,10 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(page.locator(".app-header")).toBeVisible();
     await expect(page.locator(".overview-card")).toHaveCount(3);
     await expect(page.locator(".link-panel")).toHaveCount(4);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const headerBox = await page.locator(".app-header").boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect(headerBox.y).toBeLessThanOrEqual(1);
   });
 
   test("audit quick range presets write time filters into request and URL", async ({ page }) => {
@@ -1302,6 +1306,73 @@ test.describe("RAGPro frontend smoke", () => {
     await page.locator('[data-audit-range="clear"]').click();
     await expect(page.locator("#audit-start-at")).toHaveValue("");
     await expect(page.locator("#audit-end-at")).toHaveValue("");
+  });
+
+  test("audit logs use server pagination instead of one large request", async ({ page }) => {
+    const auditRequests = [];
+    await page.route("**/auth/audit-logs**", async (route) => {
+      const url = new URL(route.request().url());
+      const pageNumber = Number(url.searchParams.get("page") || "1");
+      const pageSize = Number(url.searchParams.get("page_size") || "20");
+      auditRequests.push(url.search);
+      const logs = Array.from({ length: Math.min(pageSize, 3) }, (_, index) => {
+        const rowNumber = (pageNumber - 1) * pageSize + index + 1;
+        return {
+          id: rowNumber,
+          action: pageNumber === 1 ? "login" : "reset_password",
+          actor_username: `admin_page_${pageNumber}`,
+          actor_role: "admin",
+          target_username: `target_${rowNumber}`,
+          target_role: "user",
+          metadata: { row: rowNumber },
+          created_at: `2026-04-24T10:${String(index).padStart(2, "0")}:00`,
+        };
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          logs,
+          count: logs.length,
+          filters: {
+            page: pageNumber,
+            page_size: pageSize,
+            limit: pageSize,
+            offset: (pageNumber - 1) * pageSize,
+            action: null,
+            search: null,
+            sensitive_only: false,
+            start_at: null,
+            end_at: null,
+          },
+          pagination: {
+            page: pageNumber,
+            page_size: pageSize,
+            offset: (pageNumber - 1) * pageSize,
+            total: 45,
+            total_pages: 3,
+            has_prev: pageNumber > 1,
+            has_next: pageNumber < 3,
+          },
+        }),
+      });
+    });
+
+    await page.goto(`${baseURL}/users/audit`);
+    await expect.poll(() => auditRequests.at(-1) || "").toContain("page=1");
+    await expect.poll(() => auditRequests.at(-1) || "").toContain("page_size=20");
+    await expect(page.locator("#audit-page-state")).toContainText("第 1 / 3 页");
+    await expect(page.locator("#audit-log-list")).toContainText("admin_page_1");
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const headerBox = await page.locator(".app-header").boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect(headerBox.y).toBeLessThanOrEqual(1);
+
+    await page.locator("#audit-next-page").click();
+    await expect.poll(() => auditRequests.at(-1) || "").toContain("page=2");
+    await expect(page.locator("#audit-page-state")).toContainText("第 2 / 3 页");
+    await expect(page.locator("#audit-log-list")).toContainText("admin_page_2");
+    await expect(page.locator("#audit-prev-page")).toBeEnabled();
   });
 
   test("users overview refreshes and creates accounts from the modal", async ({ page }) => {
