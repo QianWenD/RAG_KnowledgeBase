@@ -812,27 +812,62 @@ test.describe("RAGPro frontend smoke", () => {
     await expect.poll(() => latestUploadBody).toContain('"file_count":2');
   });
 
-  test("knowledge upload shows moving progress while request is pending", async ({ page }) => {
+  test("knowledge upload waits for backend job progress instead of estimating pending request", async ({ page }) => {
     let releaseUpload;
+    let requestReached = false;
     const uploadCanResolve = new Promise((resolve) => {
       releaseUpload = resolve;
     });
     await page.route("**/documents/batch-upload", async (route) => {
+      requestReached = true;
       await uploadCanResolve;
       await route.fulfill({
         status: 202,
         contentType: "application/json",
         body: JSON.stringify({
+          batch_id: "batch_pending_progress",
+          status: "running",
+          progress: 42,
+          message: "Parsing file 1/1",
+          job_count: 1,
+          completed_count: 0,
+          failed_count: 0,
+          poll_url: "/documents/batch-upload-jobs/batch_pending_progress",
+          jobs: [
+            {
+              job_id: "upload_job_pending_progress",
+              source: "ai",
+              status: "running",
+              stage: "parse",
+              progress: 42,
+              file_count: 1,
+              message: "Parsing file 1/1",
+            },
+          ],
+        }),
+      });
+    });
+    await page.route("**/documents/batch-upload-jobs/batch_pending_progress", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          batch_id: "batch_pending_progress",
           status: "succeeded",
           progress: 100,
+          message: "Batch upload complete",
           job_count: 1,
           completed_count: 1,
           failed_count: 0,
           jobs: [
             {
+              job_id: "upload_job_pending_progress",
               source: "ai",
               status: "succeeded",
+              stage: "done",
               progress: 100,
+              file_count: 1,
+              message: "Upload complete",
               result: {
                 source: "ai",
                 replace_source: false,
@@ -855,14 +890,15 @@ test.describe("RAGPro frontend smoke", () => {
 
     await expect(page.locator(".batch-upload-progress")).toHaveAttribute("aria-busy", "true");
     await expect(page.locator("#batch-progress-fill")).toHaveClass(/is-moving/);
-    await expect
-      .poll(async () => {
-        const progressText = await page.locator("#batch-progress-value").textContent();
-        return Number.parseInt(progressText || "0", 10);
-      })
-      .toBeGreaterThan(0);
+    await expect.poll(() => requestReached).toBe(true);
+    await page.waitForTimeout(250);
+    const pendingProgressText = await page.locator("#batch-progress-value").textContent();
+    await page.waitForTimeout(650);
+    await expect(page.locator("#batch-progress-value")).toHaveText(pendingProgressText || "0%");
 
     releaseUpload();
+    await expect(page.locator("#batch-progress-label")).toContainText("Parsing file 1/1");
+    await expect(page.locator("#batch-progress-value")).toHaveText("42%");
     await expect(page.locator("#batch-progress-value")).toHaveText("100%");
     await expect(page.locator(".batch-upload-progress")).toHaveAttribute("aria-busy", "false");
   });

@@ -1971,16 +1971,26 @@ def _run_upload_job(
     try:
         _upload_job_registry.mark_running(
             job_id,
-            stage="process",
-            progress=45,
-            message="正在解析、切块并写入向量库...",
+            stage="prepare",
+            progress=8,
+            message="正在准备入库任务...",
         )
+
+        def report_progress(event: dict) -> None:
+            _upload_job_registry.mark_running(
+                job_id,
+                stage=str(event.get("stage") or "process"),
+                progress=int(event.get("progress") or 1),
+                message=str(event.get("message") or "正在处理入库任务..."),
+            )
+
         service = _build_document_upload_service()
         result = service.upload_documents(
             source=source,
             files=files,
             replace_source=replace_source,
             uploaded_by=uploaded_by,
+            progress_callback=report_progress,
         )
         _upload_job_registry.mark_succeeded(job_id, result)
     except DocumentUploadError as exc:

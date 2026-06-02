@@ -229,7 +229,7 @@ window.RagProPage = {
       elements.uploadSubmitBtn.disabled = true;
       setUploadProgress(0, "正在准备上传");
       setUploadStage("prepare");
-      startUploadProgressLoop();
+      activateUploadProgressBusy();
       helpers.setStatus("正在上传并入库...");
 
       const formData = new FormData();
@@ -356,7 +356,7 @@ window.RagProPage = {
       pageState.batchPending = true;
       setBatchBusy(true);
       setBatchProgress(0, formatUploadFileProgressLabel("正在准备入库", plan.fileCount));
-      startBatchProgressLoop();
+      activateBatchProgressBusy();
       helpers.setStatus(formatUploadFileProgressLabel("正在提交入库任务", plan.fileCount));
 
       const formData = new FormData();
@@ -497,8 +497,8 @@ window.RagProPage = {
       }
       const activeJob = (batch.jobs || []).find((job) => job.status === "running") || (batch.jobs || [])[0];
       const activeMessage = activeJob?.message || batch.message || "入库任务正在处理...";
-      if (String(activeMessage).includes("解析") || String(activeMessage).includes("切块")) {
-        return `${fileSubject}正在解析、切块并写入向量库...`;
+      if (activeMessage) {
+        return `${fileSubject}：${activeMessage}`;
       }
       if (batch.status === "queued") {
         return `${fileSubject}已接收，等待入库。`;
@@ -525,11 +525,18 @@ window.RagProPage = {
       if (job.status === "failed") {
         return "error";
       }
-      if (job.stage === "queued") {
+      const rawStage = String(job.stage || "");
+      if (rawStage === "queued" || rawStage === "prepare") {
         return "prepare";
       }
-      if (job.stage === "process" || job.stage === "done" || job.stage === "upload") {
-        return job.stage;
+      if (rawStage === "save" || rawStage === "upload") {
+        return "upload";
+      }
+      if (rawStage === "done") {
+        return "done";
+      }
+      if (["parse", "chunk", "cleanup", "index", "registry", "process"].includes(rawStage)) {
+        return "process";
       }
       return "process";
     }

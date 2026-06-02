@@ -36,6 +36,9 @@ class IncomingDocument:
     path: Path | None = None
 
 
+ProgressCallback = Callable[[dict], None]
+
+
 class DocumentUploadService:
     def __init__(
         self,
@@ -58,23 +61,43 @@ class DocumentUploadService:
         files: list[IncomingDocument],
         replace_source: bool = False,
         uploaded_by: dict | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> dict:
         normalized_source = self._sanitize_source(source)
         if not files:
             raise DocumentUploadError("No files were uploaded.")
         uploader = self._normalize_uploaded_by(uploaded_by)
+        total_files = len(files)
+        self._report_progress(
+            progress_callback,
+            stage="prepare",
+            progress=10,
+            message="正在校验入库参数...",
+        )
 
         request_dir = self._build_request_dir(normalized_source)
         request_dir.mkdir(parents=True, exist_ok=True)
 
         saved_files = []
         try:
-            for item in files:
+            for index, item in enumerate(files, start=1):
                 saved_files.append(self._save_file(request_dir, item))
+                self._report_progress(
+                    progress_callback,
+                    stage="save",
+                    progress=self._progress_for_items(15, 25, index, total_files),
+                    message=f"正在保存第 {index}/{total_files} 个文件...",
+                )
 
             raw_documents = []
             unreadable_files: list[str] = []
-            for item in saved_files:
+            for index, item in enumerate(saved_files, start=1):
+                self._report_progress(
+                    progress_callback,
+                    stage="parse",
+                    progress=self._progress_for_items(30, 55, index, total_files),
+                    message=f"正在解析第 {index}/{total_files} 个文件：{item['filename']}",
+                )
                 loaded_documents = load_file(item["path"], source=normalized_source)
                 if not loaded_documents:
                     unreadable_files.append(item["filename"])
@@ -89,6 +112,12 @@ class DocumentUploadService:
                 joined = ", ".join(unreadable_files)
                 raise DocumentUploadError(f"No readable content extracted from: {joined}")
 
+            self._report_progress(
+                progress_callback,
+                stage="chunk",
+                progress=65,
+                message="正在切分文档内容...",
+            )
             child_chunks = process_loaded_documents(raw_documents)
             if not child_chunks:
                 raise DocumentUploadError("No chunkable content was produced from the uploaded files.")
@@ -100,9 +129,27 @@ class DocumentUploadService:
         deleted = 0
         deleted_file_records = 0
         if replace_source:
+            self._report_progress(
+                progress_callback,
+                stage="cleanup",
+                progress=72,
+                message="正在清理该来源的旧索引...",
+            )
             deleted = retrieval_service.delete_source(normalized_source)
             deleted_file_records = self._delete_registered_source_files(normalized_source)
+        self._report_progress(
+            progress_callback,
+            stage="index",
+            progress=85,
+            message=f"正在写入向量库（{len(child_chunks)} 个切块）...",
+        )
         retrieval_service.add_documents(child_chunks)
+        self._report_progress(
+            progress_callback,
+            stage="registry",
+            progress=95,
+            message="正在登记入库文件...",
+        )
         self.file_registry.add_files(
             self._build_file_records(
                 source=normalized_source,
@@ -141,6 +188,34 @@ class DocumentUploadService:
                 for item in saved_files
             ],
         }
+
+    @staticmethod
+    def _report_progress(
+        progress_callback: ProgressCallback | None,
+        *,
+        stage: str,
+        progress: int,
+        message: str,
+    ) -> None:
+        if progress_callback is None:
+            return
+        try:
+            progress_callback(
+                {
+                    "stage": stage,
+                    "progress": max(1, min(int(progress), 99)),
+                    "message": message,
+                }
+            )
+        except Exception:
+            logger.warning("Document upload progress callback failed.", exc_info=True)
+
+    @staticmethod
+    def _progress_for_items(start: int, end: int, index: int, total: int) -> int:
+        if total <= 0:
+            return end
+        bounded_index = max(1, min(index, total))
+        return round(start + ((end - start) * bounded_index / total))
 
     @staticmethod
     def _default_retrieval_service_factory() -> RetrievalService:

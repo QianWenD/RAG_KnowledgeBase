@@ -916,6 +916,56 @@ class AuthAPITests(unittest.TestCase):
         self.assertEqual(response.json()["status"], "succeeded")
         self.assertEqual(response.json()["result"]["document_chunks"], 3)
 
+    def test_upload_job_runner_publishes_service_progress(self) -> None:
+        from apps.api import main as api_main
+        from ragpro.ingestion.upload_jobs import UploadJobRegistry
+
+        class CapturingUploadJobRegistry(UploadJobRegistry):
+            def __init__(self) -> None:
+                super().__init__()
+                self.running_events: list[dict] = []
+
+            def mark_running(self, job_id: str, *, stage: str, progress: int, message: str) -> dict | None:
+                self.running_events.append({"stage": stage, "progress": progress, "message": message})
+                return super().mark_running(job_id, stage=stage, progress=progress, message=message)
+
+        class FakeUploadService:
+            def upload_documents(
+                self,
+                *,
+                source,
+                files,
+                replace_source,
+                uploaded_by=None,
+                progress_callback=None,
+            ):
+                progress_callback({"stage": "parse", "progress": 55, "message": "Parsing file"})
+                progress_callback({"stage": "index", "progress": 85, "message": "Indexing chunks"})
+                return {
+                    "source": source,
+                    "replace_source": replace_source,
+                    "file_count": 1,
+                    "document_chunks": 3,
+                    "retrieval_backend": "local",
+                }
+
+        registry = CapturingUploadJobRegistry()
+        job = registry.create(source="ai", replace_source=False, file_count=1)
+
+        with (
+            patch.object(api_main, "_upload_job_registry", registry),
+            patch.object(api_main, "_build_document_upload_service", return_value=FakeUploadService()),
+        ):
+            api_main._run_upload_job(job["job_id"], "ai", [], False, {"username": "admin"}, None)
+
+        stages = [event["stage"] for event in registry.running_events]
+        payload = registry.get(job["job_id"])
+        self.assertIn("parse", stages)
+        self.assertIn("index", stages)
+        self.assertEqual(payload["status"], "succeeded")
+        self.assertEqual(payload["progress"], 100)
+        self.assertEqual(payload["result"]["document_chunks"], 3)
+
     def test_admin_batch_upload_documents_returns_batch_job(self) -> None:
         admin = AuthenticatedUser(
             id=1,
