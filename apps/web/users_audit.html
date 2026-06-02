@@ -163,6 +163,24 @@
               </tbody>
             </table>
           </div>
+          <div id="audit-table-pager" class="users-table-pager audit-table-pager" aria-label="审计日志分页">
+            <div class="users-pager-left">
+              <span id="audit-page-state">第 1 / 1 页</span>
+              <span id="audit-page-total" class="table-muted">共 0 条</span>
+            </div>
+            <div class="users-pager-right">
+              <button id="audit-prev-page" class="legacy-plain-btn" type="button">上一页</button>
+              <button id="audit-next-page" class="legacy-plain-btn" type="button">下一页</button>
+              <label class="compact-field" for="audit-page-size">
+                <span>每页</span>
+                <select id="audit-page-size">
+                  <option value="20">20 条</option>
+                  <option value="50">50 条</option>
+                  <option value="100">100 条</option>
+                </select>
+              </label>
+            </div>
+          </div>
         </section>
       </section>
     </main>

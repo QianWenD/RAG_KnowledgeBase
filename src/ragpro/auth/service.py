@@ -104,6 +104,7 @@ class AuthService:
         self,
         *,
         limit: int = 100,
+        offset: int = 0,
         action: str | None = None,
         search: str | None = None,
         sensitive_only: bool = False,
@@ -112,6 +113,24 @@ class AuthService:
     ):
         return self.repository.list_audit_logs(
             limit=limit,
+            offset=offset,
+            action=action,
+            search=search,
+            sensitive_only=sensitive_only,
+            start_at=start_at,
+            end_at=end_at,
+        )
+
+    def count_audit_logs(
+        self,
+        *,
+        action: str | None = None,
+        search: str | None = None,
+        sensitive_only: bool = False,
+        start_at: str | None = None,
+        end_at: str | None = None,
+    ) -> int:
+        return self.repository.count_audit_logs(
             action=action,
             search=search,
             sensitive_only=sensitive_only,

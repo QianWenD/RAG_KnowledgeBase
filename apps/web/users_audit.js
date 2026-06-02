@@ -33,6 +33,14 @@ window.RagProPage = {
     const pageState = {
       logs: [],
       filters: parseFiltersFromLocation(),
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        total: 0,
+        totalPages: 1,
+        hasPrev: false,
+        hasNext: false,
+      },
     };
 
     const elements = {
@@ -49,10 +57,18 @@ window.RagProPage = {
       auditHighlights: document.getElementById("audit-highlights"),
       auditLogList: document.getElementById("audit-log-list"),
       auditNote: document.getElementById("users-audit-note"),
+      pageState: document.getElementById("audit-page-state"),
+      pageTotal: document.getElementById("audit-page-total"),
+      prevPage: document.getElementById("audit-prev-page"),
+      nextPage: document.getElementById("audit-next-page"),
+      pageSize: document.getElementById("audit-page-size"),
     };
 
+    pageState.pagination.page = pageState.filters.page;
+    pageState.pagination.pageSize = pageState.filters.pageSize;
     syncFilterControls();
     renderFilterState();
+    renderPagination();
 
     if (!helpers.isAdmin()) {
       elements.auditNote?.classList.remove("hidden");
@@ -70,6 +86,15 @@ window.RagProPage = {
     elements.filterForm?.addEventListener("submit", handleFilterSubmit);
     elements.resetBtn?.addEventListener("click", resetFilters);
     elements.auditLogList?.addEventListener("click", handleAuditLogClick);
+    elements.prevPage?.addEventListener("click", () => goToAuditPage(pageState.pagination.page - 1));
+    elements.nextPage?.addEventListener("click", () => goToAuditPage(pageState.pagination.page + 1));
+    elements.pageSize?.addEventListener("change", () => {
+      pageState.pagination.pageSize = Number(elements.pageSize.value || 20);
+      pageState.filters.pageSize = pageState.pagination.pageSize;
+      pageState.filters.page = 1;
+      pageState.pagination.page = 1;
+      loadAuditLogs({ preserveStatus: false });
+    });
     elements.presetButtons.forEach((button) => {
       button.addEventListener("click", () => applyTimePreset(button.dataset.auditRange || ""));
     });
@@ -82,12 +107,14 @@ window.RagProPage = {
         const query = buildAuditQuery();
         const payload = await helpers.apiJson(`/auth/audit-logs?${query}`);
         pageState.logs = payload.logs || [];
+        updatePagination(payload.pagination);
         syncUrl();
         renderFilterState();
         renderHighlights();
         renderLogList();
+        renderPagination();
         if (!preserveStatus) {
-          helpers.setStatus(`审计日志已刷新，共 ${pageState.logs.length} 条结果。`, false);
+          helpers.setStatus(`审计日志已刷新，第 ${pageState.pagination.page} 页，共 ${pageState.pagination.total} 条。`, false);
         }
       } catch (error) {
         helpers.setStatus(`加载审计日志失败：${error.message}`, true);
@@ -101,11 +128,22 @@ window.RagProPage = {
       pageState.filters.startAt = elements.startAtInput?.value || "";
       pageState.filters.endAt = elements.endAtInput?.value || "";
       pageState.filters.sensitiveOnly = Boolean(elements.sensitiveOnly?.checked);
+      pageState.filters.page = 1;
+      pageState.pagination.page = 1;
       loadAuditLogs({ preserveStatus: false });
     }
 
     function resetFilters() {
-      pageState.filters = { action: "", search: "", startAt: "", endAt: "", sensitiveOnly: false, limit: 80 };
+      pageState.filters = {
+        action: "",
+        search: "",
+        startAt: "",
+        endAt: "",
+        sensitiveOnly: false,
+        page: 1,
+        pageSize: pageState.pagination.pageSize,
+      };
+      pageState.pagination.page = 1;
       syncFilterControls();
       loadAuditLogs({ preserveStatus: false });
     }
@@ -115,6 +153,8 @@ window.RagProPage = {
         pageState.filters.startAt = "";
         pageState.filters.endAt = "";
         syncFilterControls();
+        pageState.filters.page = 1;
+        pageState.pagination.page = 1;
         loadAuditLogs({ preserveStatus: false });
         return;
       }
@@ -128,6 +168,8 @@ window.RagProPage = {
       }
       pageState.filters.startAt = toDateTimeLocal(start);
       pageState.filters.endAt = toDateTimeLocal(now);
+      pageState.filters.page = 1;
+      pageState.pagination.page = 1;
       syncFilterControls();
       loadAuditLogs({ preserveStatus: false });
     }
@@ -274,7 +316,8 @@ window.RagProPage = {
 
     function buildAuditQuery() {
       const params = new URLSearchParams();
-      params.set("limit", String(pageState.filters.limit || 80));
+      params.set("page", String(pageState.filters.page || pageState.pagination.page || 1));
+      params.set("page_size", String(pageState.filters.pageSize || pageState.pagination.pageSize || 20));
       if (pageState.filters.action) {
         params.set("action", pageState.filters.action);
       }
@@ -293,6 +336,51 @@ window.RagProPage = {
       return params.toString();
     }
 
+    function updatePagination(pagination = {}) {
+      const pageSize = Number(pagination.page_size || pageState.filters.pageSize || pageState.pagination.pageSize || 20);
+      const total = Number(pagination.total || 0);
+      const totalPages = Math.max(1, Number(pagination.total_pages || Math.ceil(total / pageSize) || 1));
+      const currentPage = Math.min(Math.max(1, Number(pagination.page || pageState.filters.page || 1)), totalPages);
+      pageState.pagination = {
+        page: currentPage,
+        pageSize,
+        total,
+        totalPages,
+        hasPrev: Boolean(pagination.has_prev ?? currentPage > 1),
+        hasNext: Boolean(pagination.has_next ?? currentPage < totalPages),
+      };
+      pageState.filters.page = currentPage;
+      pageState.filters.pageSize = pageSize;
+    }
+
+    function renderPagination() {
+      if (elements.pageState) {
+        elements.pageState.textContent = `第 ${pageState.pagination.page} / ${pageState.pagination.totalPages} 页`;
+      }
+      if (elements.pageTotal) {
+        elements.pageTotal.textContent = `共 ${pageState.pagination.total} 条`;
+      }
+      if (elements.prevPage) {
+        elements.prevPage.disabled = !pageState.pagination.hasPrev;
+      }
+      if (elements.nextPage) {
+        elements.nextPage.disabled = !pageState.pagination.hasNext;
+      }
+      if (elements.pageSize) {
+        elements.pageSize.value = String(pageState.pagination.pageSize);
+      }
+    }
+
+    function goToAuditPage(page) {
+      const nextPage = Math.min(Math.max(1, Number(page) || 1), pageState.pagination.totalPages);
+      if (nextPage === pageState.pagination.page) {
+        return;
+      }
+      pageState.filters.page = nextPage;
+      pageState.pagination.page = nextPage;
+      loadAuditLogs({ preserveStatus: false });
+    }
+
     function syncFilterControls() {
       if (elements.actionFilter) {
         elements.actionFilter.value = pageState.filters.action || "";
@@ -308,6 +396,9 @@ window.RagProPage = {
       }
       if (elements.sensitiveOnly) {
         elements.sensitiveOnly.checked = Boolean(pageState.filters.sensitiveOnly);
+      }
+      if (elements.pageSize) {
+        elements.pageSize.value = String(pageState.filters.pageSize || pageState.pagination.pageSize || 20);
       }
     }
 
@@ -328,6 +419,12 @@ window.RagProPage = {
       if (pageState.filters.sensitiveOnly) {
         params.set("sensitive_only", "true");
       }
+      if (pageState.filters.page && pageState.filters.page > 1) {
+        params.set("page", String(pageState.filters.page));
+      }
+      if (pageState.filters.pageSize && pageState.filters.pageSize !== 20) {
+        params.set("page_size", String(pageState.filters.pageSize));
+      }
       const query = params.toString();
       const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
       window.history.replaceState({}, "", nextUrl);
@@ -341,7 +438,8 @@ window.RagProPage = {
         startAt: params.get("start_at") || "",
         endAt: params.get("end_at") || "",
         sensitiveOnly: params.get("sensitive_only") === "true",
-        limit: 80,
+        page: Math.max(1, Number(params.get("page") || 1)),
+        pageSize: Math.max(1, Math.min(Number(params.get("page_size") || 20), 100)),
       };
     }
 

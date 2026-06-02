@@ -1493,6 +1493,8 @@ def delete_menu_item(menu_item_id: int, request: Request) -> dict:
 def list_audit_logs(
     request: Request,
     limit: int = 50,
+    page: int = 1,
+    page_size: int | None = None,
     action: str | None = None,
     search: str | None = None,
     sensitive_only: bool = False,
@@ -1508,18 +1510,33 @@ def list_audit_logs(
         raise HTTPException(status_code=400, detail="Audit start_at must be earlier than or equal to end_at.")
     normalized_start_at = _format_audit_datetime(parsed_start_at)
     normalized_end_at = _format_audit_datetime(parsed_end_at)
+    normalized_page = max(1, int(page))
+    normalized_page_size = max(1, min(int(page_size if page_size is not None else limit), 200))
+    offset = (normalized_page - 1) * normalized_page_size
     auth_repository = None
     try:
         auth_repository = _create_auth_repository()
         auth_service = _auth_service_from_repository(auth_repository)
         logs = auth_service.list_audit_logs(
-            limit=limit,
+            limit=normalized_page_size,
+            offset=offset,
             action=normalized_action,
             search=normalized_search,
             sensitive_only=sensitive_only,
             start_at=normalized_start_at,
             end_at=normalized_end_at,
         )
+        if hasattr(auth_service, "count_audit_logs"):
+            total = auth_service.count_audit_logs(
+                action=normalized_action,
+                search=normalized_search,
+                sensitive_only=sensitive_only,
+                start_at=normalized_start_at,
+                end_at=normalized_end_at,
+            )
+        else:
+            total = offset + len(logs)
+        total_pages = max(1, (total + normalized_page_size - 1) // normalized_page_size)
         return {
             "logs": [_serialize_audit_log(log) for log in logs],
             "count": len(logs),
@@ -1529,7 +1546,19 @@ def list_audit_logs(
                 "sensitive_only": sensitive_only,
                 "start_at": normalized_start_at,
                 "end_at": normalized_end_at,
-                "limit": max(1, min(int(limit), 200)),
+                "limit": normalized_page_size,
+                "offset": offset,
+                "page": normalized_page,
+                "page_size": normalized_page_size,
+            },
+            "pagination": {
+                "page": normalized_page,
+                "page_size": normalized_page_size,
+                "offset": offset,
+                "total": total,
+                "total_pages": total_pages,
+                "has_prev": normalized_page > 1,
+                "has_next": normalized_page < total_pages,
             },
             "available_actions": list(AUDIT_ACTIONS),
             "sensitive_actions": list(SENSITIVE_AUDIT_ACTIONS),

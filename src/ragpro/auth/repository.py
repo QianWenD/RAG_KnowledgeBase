@@ -561,6 +561,7 @@ class AuthMySQLRepository:
         self,
         *,
         limit: int = 100,
+        offset: int = 0,
         action: str | None = None,
         search: str | None = None,
         sensitive_only: bool = False,
@@ -568,6 +569,7 @@ class AuthMySQLRepository:
         end_at: str | None = None,
     ) -> list[AuditLogRecord]:
         safe_limit = max(1, min(int(limit), 200))
+        safe_offset = max(0, int(offset))
         sensitive_actions = (
             "reset_password",
             "delete_user",
@@ -612,11 +614,54 @@ class AuthMySQLRepository:
             FROM auth_audit_logs
             {where_sql}
             ORDER BY id DESC
-            LIMIT %s
+            LIMIT %s OFFSET %s
             """
         values.append(safe_limit)
+        values.append(safe_offset)
         self.cursor.execute(query, tuple(values))
         return [log for log in (self._row_to_audit_log(row) for row in self.cursor.fetchall()) if log is not None]
+
+    def count_audit_logs(
+        self,
+        *,
+        action: str | None = None,
+        search: str | None = None,
+        sensitive_only: bool = False,
+        start_at: str | None = None,
+        end_at: str | None = None,
+    ) -> int:
+        sensitive_actions = (
+            "reset_password",
+            "delete_user",
+            "change_password",
+            "update_user_access",
+            "update_user_profile",
+            "delete_menu_role",
+            "delete_menu_item",
+        )
+        where_clauses: list[str] = []
+        values: list[object] = []
+        if action:
+            where_clauses.append("action = %s")
+            values.append(action)
+        if search:
+            keyword = f"%{search}%"
+            where_clauses.append("(actor_username LIKE %s OR target_username LIKE %s)")
+            values.extend([keyword, keyword])
+        if start_at:
+            where_clauses.append("created_at >= %s")
+            values.append(start_at.replace("T", " "))
+        if end_at:
+            where_clauses.append("created_at <= %s")
+            values.append(end_at.replace("T", " "))
+        if sensitive_only:
+            placeholders = ", ".join(["%s"] * len(sensitive_actions))
+            where_clauses.append(f"action IN ({placeholders})")
+            values.extend(sensitive_actions)
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        self.cursor.execute(f"SELECT COUNT(*) AS total FROM auth_audit_logs {where_sql}", tuple(values))
+        row = self.cursor.fetchone() or {}
+        return int(row.get("total") or 0)
 
     def list_org_units(self) -> list[OrgUnitRecord]:
         self.cursor.execute(

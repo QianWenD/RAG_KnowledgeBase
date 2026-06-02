@@ -8702,7 +8702,12 @@ body.console-page .scene-glow {
     radial-gradient(circle at 88% 16%, rgba(255, 250, 240, 0.38), transparent 20%);
 }
 
-body.console-page .app-header,
+body.console-page .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 70;
+}
+
 body.console-page .shell {
   position: relative;
   z-index: 1;
