@@ -1458,6 +1458,7 @@ test.describe("RAGPro frontend smoke", () => {
     await expect(statusToast).toBeVisible();
     await expect(statusToast).toContainText("已创建用户 ops_user。");
     await expect(statusToast).toHaveClass(/is-success/);
+    await expect(statusToast).toHaveClass(/is-leaving/, { timeout: 3600 });
     await expect(statusToast).toBeHidden({ timeout: 4000 });
   });
 
@@ -2071,6 +2072,7 @@ test.describe("RAGPro auth pages", () => {
     await expect(toast).not.toContainText("string_too_short");
     await expect(page.locator("#auth-status")).toHaveText("");
 
+    await expect(toast).toHaveClass(/is-leaving/, { timeout: 3600 });
     await expect(toast).toBeHidden({ timeout: 4000 });
   });
 
