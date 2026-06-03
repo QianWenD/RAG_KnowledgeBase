@@ -66,6 +66,7 @@
   };
   let bodyScrollLockDepth = 0;
   let bodyScrollInlinePaddingRight = "";
+  let statusToastTimer = 0;
   const sidebarMenuTimers = new WeakMap();
 
   ensureAppChrome();
@@ -627,6 +628,88 @@
     }
     elements.pageStatus.textContent = message;
     elements.pageStatus.classList.toggle("is-error", Boolean(isError));
+    if (shouldShowStatusToast(message, isError)) {
+      showStatusToast(message, isError);
+    }
+  }
+
+  function shouldShowStatusToast(message, isError) {
+    const text = String(message || "").trim();
+    if (!text) {
+      return false;
+    }
+    if (isError) {
+      return true;
+    }
+    if (/正在|已就绪|路由|第\s*\d+\s*\/|检查中/.test(text)) {
+      return false;
+    }
+    return /(成功|完成|已创建|已更新|已刷新|已删除|已重置|已退出|已复制|已清空|已恢复|已修改|已保存|已同步)/.test(text);
+  }
+
+  function showStatusToast(message, isError) {
+    const toast = ensureStatusToast();
+    const titleNode = toast.querySelector("#app-status-toast-title");
+    const messageNode = toast.querySelector("#app-status-toast-message");
+    const iconNode = toast.querySelector(".app-status-toast-icon");
+    const feedback = formatStatusToastMessage(message, isError);
+    toast.classList.toggle("is-error", Boolean(isError));
+    toast.classList.toggle("is-success", !isError);
+    if (titleNode) {
+      titleNode.textContent = feedback.title;
+    }
+    if (messageNode) {
+      messageNode.textContent = feedback.message;
+    }
+    if (iconNode) {
+      iconNode.textContent = isError ? "!" : "✓";
+    }
+    window.clearTimeout(statusToastTimer);
+    toast.classList.remove("hidden");
+    statusToastTimer = window.setTimeout(hideStatusToast, 2800);
+  }
+
+  function hideStatusToast() {
+    const toast = document.getElementById("app-status-toast");
+    if (!toast) {
+      return;
+    }
+    toast.classList.add("hidden");
+  }
+
+  function ensureStatusToast() {
+    let toast = document.getElementById("app-status-toast");
+    if (toast) {
+      return toast;
+    }
+    toast = document.createElement("div");
+    toast.id = "app-status-toast";
+    toast.className = "app-status-toast hidden";
+    toast.setAttribute("role", "alert");
+    toast.setAttribute("aria-live", "assertive");
+    toast.innerHTML = `
+      <span class="app-status-toast-icon" aria-hidden="true">✓</span>
+      <strong id="app-status-toast-title">操作完成</strong>
+      <span id="app-status-toast-message"></span>
+    `;
+    toast.addEventListener("click", hideStatusToast);
+    document.body.appendChild(toast);
+    return toast;
+  }
+
+  function formatStatusToastMessage(message, isError) {
+    const text = String(message || "").trim();
+    if (isError) {
+      const separatorIndex = text.search(/[：:]/);
+      if (separatorIndex >= 0) {
+        return {
+          title: text.slice(0, separatorIndex).trim() || "操作失败",
+          message: text.slice(separatorIndex + 1).trim() || "请稍后重试。",
+        };
+      }
+      return { title: "操作失败", message: text };
+    }
+    return { title: "操作完成", message: text };
   }
 
   function setActionBusy(control, busy) {
