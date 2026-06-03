@@ -441,7 +441,7 @@ class AuthMySQLRepository:
             SELECT
                 user_id,
                 token_hash,
-                DATE_FORMAT(expires_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS expires_at
+                expires_at AS expires_at
             FROM auth_sessions
             WHERE token_hash = %s
             LIMIT 1
@@ -545,7 +545,7 @@ class AuthMySQLRepository:
                 target_username,
                 target_role,
                 metadata_json,
-                DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at
+                created_at AS created_at
             FROM auth_audit_logs
             WHERE id = %s
             LIMIT 1
@@ -610,7 +610,7 @@ class AuthMySQLRepository:
                 target_username,
                 target_role,
                 metadata_json,
-                DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at
+                created_at AS created_at
             FROM auth_audit_logs
             {where_sql}
             ORDER BY id DESC
@@ -794,8 +794,8 @@ class AuthMySQLRepository:
                 GROUP_CONCAT(DISTINCT mi.menu_code ORDER BY mi.menu_code SEPARATOR '||') AS menu_codes,
                 GROUP_CONCAT(DISTINCT mi.name ORDER BY mi.name SEPARATOR '||') AS menu_names,
                 COUNT(DISTINCT umr.user_id) AS assigned_user_count,
-                DATE_FORMAT(mr.created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
-                DATE_FORMAT(mr.updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+                mr.created_at AS created_at,
+                mr.updated_at AS updated_at
             FROM auth_menu_roles mr
             LEFT JOIN auth_menu_role_items mri ON mri.menu_role_id = mr.id
             LEFT JOIN auth_menu_items mi ON mi.id = mri.menu_item_id
@@ -818,8 +818,8 @@ class AuthMySQLRepository:
                 GROUP_CONCAT(DISTINCT mi.menu_code ORDER BY mi.menu_code SEPARATOR '||') AS menu_codes,
                 GROUP_CONCAT(DISTINCT mi.name ORDER BY mi.name SEPARATOR '||') AS menu_names,
                 COUNT(DISTINCT umr.user_id) AS assigned_user_count,
-                DATE_FORMAT(mr.created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
-                DATE_FORMAT(mr.updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+                mr.created_at AS created_at,
+                mr.updated_at AS updated_at
             FROM auth_menu_roles mr
             LEFT JOIN auth_menu_role_items mri ON mri.menu_role_id = mr.id
             LEFT JOIN auth_menu_items mi ON mi.id = mri.menu_item_id
@@ -844,8 +844,8 @@ class AuthMySQLRepository:
                 GROUP_CONCAT(DISTINCT mi.menu_code ORDER BY mi.menu_code SEPARATOR '||') AS menu_codes,
                 GROUP_CONCAT(DISTINCT mi.name ORDER BY mi.name SEPARATOR '||') AS menu_names,
                 COUNT(DISTINCT umr.user_id) AS assigned_user_count,
-                DATE_FORMAT(mr.created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
-                DATE_FORMAT(mr.updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+                mr.created_at AS created_at,
+                mr.updated_at AS updated_at
             FROM auth_menu_roles mr
             LEFT JOIN auth_menu_role_items mri ON mri.menu_role_id = mr.id
             LEFT JOIN auth_menu_items mi ON mi.id = mri.menu_item_id
@@ -938,8 +938,8 @@ class AuthMySQLRepository:
                 is_visible,
                 remark,
                 sort_order,
-                DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
-                DATE_FORMAT(updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+                created_at AS created_at,
+                updated_at AS updated_at
             FROM auth_menu_items
             ORDER BY COALESCE(parent_id, 0) ASC, sort_order ASC, id ASC
             """
@@ -961,8 +961,8 @@ class AuthMySQLRepository:
                 is_visible,
                 remark,
                 sort_order,
-                DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
-                DATE_FORMAT(updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+                created_at AS created_at,
+                updated_at AS updated_at
             FROM auth_menu_items
             WHERE id = %s
             LIMIT 1
@@ -986,8 +986,8 @@ class AuthMySQLRepository:
                 is_visible,
                 remark,
                 sort_order,
-                DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
-                DATE_FORMAT(updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+                created_at AS created_at,
+                updated_at AS updated_at
             FROM auth_menu_items
             WHERE menu_code = %s
             LIMIT 1
@@ -1134,8 +1134,8 @@ class AuthMySQLRepository:
                 is_active,
                 sort_order,
                 created_by,
-                DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
-                DATE_FORMAT(updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+                created_at AS created_at,
+                updated_at AS updated_at
             FROM knowledge_sources
             {where_clause}
             ORDER BY sort_order ASC, id ASC
@@ -1158,8 +1158,8 @@ class AuthMySQLRepository:
                 is_active,
                 sort_order,
                 created_by,
-                DATE_FORMAT(created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
-                DATE_FORMAT(updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+                created_at AS created_at,
+                updated_at AS updated_at
             FROM knowledge_sources
             WHERE source_code = %s
             LIMIT 1
@@ -1650,8 +1650,8 @@ class AuthMySQLRepository:
                 ou.org_desc,
                 ou.sort_order,
                 COALESCE(user_stats.assigned_user_count, 0) AS assigned_user_count,
-                DATE_FORMAT(ou.created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at,
-                DATE_FORMAT(ou.updated_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS updated_at
+                ou.created_at AS created_at,
+                ou.updated_at AS updated_at
             FROM auth_org_units ou
             LEFT JOIN (
                 SELECT org_unit_id, COUNT(*) AS assigned_user_count
@@ -1680,7 +1680,7 @@ class AuthMySQLRepository:
                 GROUP_CONCAT(DISTINCT umr.menu_role_id ORDER BY umr.menu_role_id SEPARATOR ',') AS menu_role_ids,
                 GROUP_CONCAT(DISTINCT mr.role_name ORDER BY mr.role_name SEPARATOR '||') AS menu_role_names,
                 {password_sql}
-                DATE_FORMAT(u.created_at, '%%Y-%%m-%%dT%%H:%%i:%%s') AS created_at
+                u.created_at AS created_at
             FROM users u
             LEFT JOIN auth_org_units ou ON ou.id = u.org_unit_id
             LEFT JOIN auth_user_menu_roles umr ON umr.user_id = u.id
