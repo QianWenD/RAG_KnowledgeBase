@@ -1425,6 +1425,10 @@ test.describe("RAGPro frontend smoke", () => {
     await page.locator("#users-overview-refresh").click();
     await expect.poll(() => getUsersRequests).toBeGreaterThan(requestsBeforeRefresh);
     await expect(page.locator("#page-status")).toContainText("用户信息已刷新。");
+    const statusToast = page.locator("#app-status-toast");
+    await expect(statusToast).toBeVisible();
+    await expect(statusToast).toContainText("用户信息已刷新。");
+    await expect(statusToast).toHaveClass(/is-success/);
 
     await page.locator("#users-create-toggle").click();
     await expect(page.locator("#user-editor-modal")).toBeVisible();
@@ -1451,6 +1455,10 @@ test.describe("RAGPro frontend smoke", () => {
       is_active: true,
     });
     await expect(page.locator("#users-table-body")).toContainText("ops_user");
+    await expect(statusToast).toBeVisible();
+    await expect(statusToast).toContainText("已创建用户 ops_user。");
+    await expect(statusToast).toHaveClass(/is-success/);
+    await expect(statusToast).toBeHidden({ timeout: 4000 });
   });
 
   test("opening users dialogs keeps the shell layout stable", async ({ page }) => {
@@ -1665,6 +1673,11 @@ test.describe("RAGPro frontend smoke", () => {
     await page.locator("#user-editor-source-custom").fill("policy_2026");
     await page.locator("#user-editor-submit").click();
     await expect(page.locator("#user-editor-feedback")).toContainText("用户名已存在，请换一个账号名。");
+    const statusToast = page.locator("#app-status-toast");
+    await expect(statusToast).toBeVisible();
+    await expect(statusToast).toContainText("创建用户失败");
+    await expect(statusToast).toContainText("用户名已存在");
+    await expect(statusToast).toHaveClass(/is-error/);
     expect(createRequests).toBe(1);
   });
 
