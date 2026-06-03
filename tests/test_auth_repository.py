@@ -16,12 +16,16 @@ class FakeCursor:
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple[object, ...]]] = []
 
-    def execute(self, query: str, params: tuple[object, ...]) -> None:
+    def execute(self, query: str, params: tuple[object, ...] = ()) -> None:
         self.calls.append((query, params))
 
     @staticmethod
     def fetchone():
         return None
+
+    @staticmethod
+    def fetchall():
+        return []
 
 
 class AuthRepositoryQueryTests(unittest.TestCase):
@@ -50,6 +54,20 @@ class AuthRepositoryQueryTests(unittest.TestCase):
         self.assertIn("WHERE u.id = %s", query)
         self.assertNotIn("WHERE u.id = %s LIMIT 1", query)
         self.assertRegex(query, r"GROUP BY[\s\S]+LIMIT 1\s*$")
+
+    def test_list_menu_roles_selects_raw_timestamps_without_literal_format_tokens(self) -> None:
+        repository = AuthMySQLRepository.__new__(AuthMySQLRepository)
+        repository.cursor = FakeCursor()
+        repository._row_to_menu_role = lambda row: row
+
+        repository.list_menu_roles()
+
+        query, params = repository.cursor.calls[0]
+        self.assertEqual(params, ())
+        self.assertNotIn("DATE_FORMAT(mr.created_at", query)
+        self.assertNotIn("%%Y", query)
+        self.assertIn("mr.created_at AS created_at", query)
+        self.assertIn("mr.updated_at AS updated_at", query)
 
 
 if __name__ == "__main__":
