@@ -2027,7 +2027,7 @@ test.describe("RAGPro auth pages", () => {
     await expect(page).toHaveURL(`${baseURL}/`);
   });
 
-  test("login failure shows a localized error dialog instead of raw validation json", async ({ page }) => {
+  test("login failure shows a localized auto-dismiss toast instead of inline raw errors", async ({ page }) => {
     await page.route("**/auth/login", async (route) => {
       await route.fulfill({
         status: 422,
@@ -2051,15 +2051,14 @@ test.describe("RAGPro auth pages", () => {
     await page.locator("#login-password").fill("123456");
     await page.locator("#login-submit-btn").click();
 
-    const dialog = page.locator("#auth-error-dialog");
-    await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText("登录失败");
-    await expect(dialog).toContainText("密码至少需要 8 位");
-    await expect(dialog).not.toContainText("string_too_short");
-    await expect(page.locator("#auth-status")).not.toContainText("string_too_short");
+    const toast = page.locator("#auth-error-toast");
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText("登录失败");
+    await expect(toast).toContainText("密码至少需要 8 位");
+    await expect(toast).not.toContainText("string_too_short");
+    await expect(page.locator("#auth-status")).toHaveText("");
 
-    await page.locator("#auth-error-close").click();
-    await expect(dialog).toBeHidden();
+    await expect(toast).toBeHidden({ timeout: 4000 });
   });
 
   test("register form posts credentials and redirects to dashboard", async ({ page }) => {
