@@ -12,7 +12,7 @@ const elements = {
   registerSubmitBtn: document.getElementById("register-submit-btn"),
 };
 
-let authDialogReturnFocus = null;
+let authErrorToastTimer = 0;
 
 async function init() {
   bindEvents();
@@ -32,7 +32,7 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      closeErrorDialog();
+      hideErrorToast();
     }
   });
 }
@@ -110,9 +110,9 @@ function setStatus(message, isError = false) {
   }
   if (isError) {
     const feedback = normalizeAuthErrorFeedback(message);
-    elements.authStatus.textContent = `${feedback.title}，请查看弹框提示。`;
-    elements.authStatus.classList.add("is-error");
-    showErrorDialog(feedback.title, feedback.message);
+    elements.authStatus.textContent = "";
+    elements.authStatus.classList.remove("is-error");
+    showErrorToast(feedback.title, feedback.message);
     return;
   }
   elements.authStatus.textContent = message;
@@ -130,11 +130,10 @@ function normalizeAuthErrorFeedback(message) {
   };
 }
 
-function showErrorDialog(title, message) {
-  const dialog = ensureErrorDialog();
-  const titleNode = dialog.querySelector("#auth-error-title");
-  const messageNode = dialog.querySelector("#auth-error-message");
-  const closeButton = dialog.querySelector("#auth-error-close");
+function showErrorToast(title, message) {
+  const toast = ensureErrorToast();
+  const titleNode = toast.querySelector("#auth-error-toast-title");
+  const messageNode = toast.querySelector("#auth-error-toast-message");
 
   if (titleNode) {
     titleNode.textContent = title;
@@ -143,54 +142,38 @@ function showErrorDialog(title, message) {
     messageNode.textContent = message || "服务暂时不可用，请稍后重试。";
   }
 
-  authDialogReturnFocus = document.activeElement;
-  document.body.classList.add("auth-error-dialog-open");
-  dialog.classList.remove("hidden");
-  closeButton?.focus();
+  window.clearTimeout(authErrorToastTimer);
+  toast.classList.remove("hidden");
+  authErrorToastTimer = window.setTimeout(hideErrorToast, 2800);
 }
 
-function closeErrorDialog() {
-  const dialog = document.getElementById("auth-error-dialog");
-  if (!dialog || dialog.classList.contains("hidden")) {
+function hideErrorToast() {
+  const toast = document.getElementById("auth-error-toast");
+  if (!toast || toast.classList.contains("hidden")) {
     return;
   }
-  dialog.classList.add("hidden");
-  document.body.classList.remove("auth-error-dialog-open");
-  authDialogReturnFocus?.focus?.();
-  authDialogReturnFocus = null;
+  toast.classList.add("hidden");
 }
 
-function ensureErrorDialog() {
-  let dialog = document.getElementById("auth-error-dialog");
-  if (dialog) {
-    return dialog;
+function ensureErrorToast() {
+  let toast = document.getElementById("auth-error-toast");
+  if (toast) {
+    return toast;
   }
 
-  dialog = document.createElement("div");
-  dialog.id = "auth-error-dialog";
-  dialog.className = "auth-error-dialog hidden";
-  dialog.setAttribute("role", "dialog");
-  dialog.setAttribute("aria-modal", "true");
-  dialog.setAttribute("aria-labelledby", "auth-error-title");
-  dialog.innerHTML = `
-    <div class="auth-error-card">
-      <div class="auth-error-mark" aria-hidden="true">!</div>
-      <div class="auth-error-copy">
-        <p class="auth-error-kicker">登录提示</p>
-        <h2 id="auth-error-title">登录失败</h2>
-        <p id="auth-error-message"></p>
-      </div>
-      <button id="auth-error-close" class="auth-error-close" type="button">我知道了</button>
-    </div>
+  toast = document.createElement("div");
+  toast.id = "auth-error-toast";
+  toast.className = "auth-error-toast hidden";
+  toast.setAttribute("role", "alert");
+  toast.setAttribute("aria-live", "assertive");
+  toast.innerHTML = `
+    <span class="auth-error-toast-icon" aria-hidden="true">!</span>
+    <strong id="auth-error-toast-title">登录失败</strong>
+    <span id="auth-error-toast-message"></span>
   `;
-  dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) {
-      closeErrorDialog();
-    }
-  });
-  dialog.querySelector("#auth-error-close")?.addEventListener("click", closeErrorDialog);
-  document.body.appendChild(dialog);
-  return dialog;
+  toast.addEventListener("click", hideErrorToast);
+  document.body.appendChild(toast);
+  return toast;
 }
 
 async function apiJson(url, options = {}) {

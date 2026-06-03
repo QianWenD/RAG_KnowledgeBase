@@ -8491,109 +8491,65 @@ body.login-page .auth-notice {
   background: rgba(236, 247, 244, 0.78);
 }
 
-body.auth-error-dialog-open {
-  overflow: hidden;
-}
-
-body.auth-page .auth-error-dialog {
+body.auth-page .auth-error-toast {
   position: fixed;
-  inset: 0;
+  top: clamp(18px, 4vh, 30px);
+  left: 50%;
   z-index: 120;
-  display: grid;
-  place-items: center;
-  padding: clamp(18px, 4vw, 48px);
-  background:
-    radial-gradient(circle at 54% 32%, rgba(27, 119, 109, 0.2), transparent 34%),
-    linear-gradient(135deg, rgba(7, 23, 36, 0.68), rgba(25, 43, 58, 0.38));
-  backdrop-filter: blur(10px);
-}
-
-body.auth-page .auth-error-card {
-  width: min(440px, 100%);
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 16px;
-  padding: 24px;
-  color: var(--login-ink);
-  border: 1px solid rgba(255, 255, 255, 0.74);
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(250, 246, 237, 0.94)),
-    var(--login-panel);
+  width: min(460px, calc(100vw - 32px));
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  color: #c34842;
+  border: 1px solid rgba(255, 112, 101, 0.24);
+  border-radius: 7px;
+  background: rgba(255, 239, 240, 0.96);
   box-shadow:
-    0 34px 90px rgba(7, 23, 36, 0.32),
+    0 18px 42px rgba(7, 23, 36, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.86);
-  animation: auth-error-dialog-in 180ms ease-out both;
+  transform: translateX(-50%);
+  animation: auth-error-toast-in 160ms ease-out both;
+  cursor: default;
 }
 
-body.auth-page .auth-error-mark {
-  width: 42px;
-  height: 42px;
+body.auth-page .auth-error-toast-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
-  color: #fff7ec;
-  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  font-size: 22px;
-  font-weight: 700;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #b4513c, var(--login-brass));
-  box-shadow: 0 14px 28px rgba(180, 81, 60, 0.24);
-}
-
-body.auth-page .auth-error-copy {
-  min-width: 0;
-}
-
-body.auth-page .auth-error-kicker {
-  margin: 0 0 6px;
-  color: var(--login-teal);
+  color: #ffffff;
   font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  border-radius: 999px;
+  background: #ff6d64;
 }
 
-body.auth-page .auth-error-copy h2 {
-  margin: 0 0 10px;
-  font-size: clamp(1.45rem, 4vw, 1.9rem);
-  letter-spacing: -0.05em;
+body.auth-page .auth-error-toast strong {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 700;
 }
 
-body.auth-page .auth-error-copy p {
-  margin: 0;
-  color: #5c6f82;
-  font-size: 15px;
-  line-height: 1.75;
-  white-space: pre-line;
+body.auth-page .auth-error-toast span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-body.auth-page .auth-error-close {
-  grid-column: 1 / -1;
-  min-height: 46px;
-  color: #fff;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  border: 0;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #075466, var(--login-teal) 58%, var(--login-brass));
-  box-shadow: 0 16px 32px rgba(27, 119, 109, 0.22);
-  cursor: pointer;
-}
-
-body.auth-page .auth-error-close:focus-visible {
-  outline: 3px solid rgba(27, 119, 109, 0.28);
-  outline-offset: 3px;
-}
-
-@keyframes auth-error-dialog-in {
+@keyframes auth-error-toast-in {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
+    transform: translate(-50%, -10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate(-50%, 0);
   }
 }
 
