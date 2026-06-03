@@ -13,6 +13,7 @@ const elements = {
 };
 
 let authErrorToastTimer = 0;
+let authErrorToastExitTimer = 0;
 
 async function init() {
   bindEvents();
@@ -143,16 +144,23 @@ function showErrorToast(title, message) {
   }
 
   window.clearTimeout(authErrorToastTimer);
+  window.clearTimeout(authErrorToastExitTimer);
+  toast.classList.remove("is-leaving");
   toast.classList.remove("hidden");
   authErrorToastTimer = window.setTimeout(hideErrorToast, 2800);
 }
 
 function hideErrorToast() {
   const toast = document.getElementById("auth-error-toast");
-  if (!toast || toast.classList.contains("hidden")) {
+  if (!toast || toast.classList.contains("hidden") || toast.classList.contains("is-leaving")) {
     return;
   }
-  toast.classList.add("hidden");
+  toast.classList.add("is-leaving");
+  window.clearTimeout(authErrorToastExitTimer);
+  authErrorToastExitTimer = window.setTimeout(() => {
+    toast.classList.add("hidden");
+    toast.classList.remove("is-leaving");
+  }, 520);
 }
 
 function ensureErrorToast() {

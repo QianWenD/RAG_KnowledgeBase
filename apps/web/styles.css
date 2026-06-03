@@ -8514,6 +8514,11 @@ body.auth-page .auth-error-toast {
   cursor: default;
 }
 
+body.auth-page .auth-error-toast.is-leaving {
+  pointer-events: none;
+  animation: auth-toast-out 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 body.auth-page .auth-error-toast-icon {
   width: 16px;
   height: 16px;
@@ -8561,6 +8566,11 @@ body.console-page .app-status-toast {
   transform: translateX(-50%);
   animation: auth-error-toast-in 160ms ease-out both;
   cursor: default;
+}
+
+body.console-page .app-status-toast.is-leaving {
+  pointer-events: none;
+  animation: auth-toast-out 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 body.console-page .app-status-toast.is-success {
@@ -8618,6 +8628,19 @@ body.console-page .app-status-toast span:last-child {
   to {
     opacity: 1;
     transform: translate(-50%, 0);
+  }
+}
+
+@keyframes auth-toast-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+    filter: blur(1px);
   }
 }
 

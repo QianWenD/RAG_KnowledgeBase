@@ -67,6 +67,7 @@
   let bodyScrollLockDepth = 0;
   let bodyScrollInlinePaddingRight = "";
   let statusToastTimer = 0;
+  let statusToastExitTimer = 0;
   const sidebarMenuTimers = new WeakMap();
 
   ensureAppChrome();
@@ -665,16 +666,23 @@
       iconNode.textContent = isError ? "!" : "✓";
     }
     window.clearTimeout(statusToastTimer);
+    window.clearTimeout(statusToastExitTimer);
+    toast.classList.remove("is-leaving");
     toast.classList.remove("hidden");
     statusToastTimer = window.setTimeout(hideStatusToast, 2800);
   }
 
   function hideStatusToast() {
     const toast = document.getElementById("app-status-toast");
-    if (!toast) {
+    if (!toast || toast.classList.contains("hidden") || toast.classList.contains("is-leaving")) {
       return;
     }
-    toast.classList.add("hidden");
+    toast.classList.add("is-leaving");
+    window.clearTimeout(statusToastExitTimer);
+    statusToastExitTimer = window.setTimeout(() => {
+      toast.classList.add("hidden");
+      toast.classList.remove("is-leaving");
+    }, 520);
   }
 
   function ensureStatusToast() {
