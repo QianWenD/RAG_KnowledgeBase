@@ -2000,7 +2000,7 @@ test.describe("RAGPro auth pages", () => {
   });
 
   test.afterEach(() => {
-    expect(consoleErrors.filter((message) => !message.includes("401"))).toEqual([]);
+    expect(consoleErrors.filter((message) => !message.includes("401") && !message.includes("422"))).toEqual([]);
   });
 
   test("login form posts credentials and redirects to dashboard", async ({ page }) => {
@@ -2025,6 +2025,41 @@ test.describe("RAGPro auth pages", () => {
       password: "Password123",
     });
     await expect(page).toHaveURL(`${baseURL}/`);
+  });
+
+  test("login failure shows a localized error dialog instead of raw validation json", async ({ page }) => {
+    await page.route("**/auth/login", async (route) => {
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: [
+            {
+              type: "string_too_short",
+              loc: ["body", "password"],
+              msg: "String should have at least 8 characters",
+              input: "123456",
+              ctx: { min_length: 8 },
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto(`${baseURL}/login`);
+    await page.locator("#login-username").fill("user_1775726460");
+    await page.locator("#login-password").fill("123456");
+    await page.locator("#login-submit-btn").click();
+
+    const dialog = page.locator("#auth-error-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("登录失败");
+    await expect(dialog).toContainText("密码至少需要 8 位");
+    await expect(dialog).not.toContainText("string_too_short");
+    await expect(page.locator("#auth-status")).not.toContainText("string_too_short");
+
+    await page.locator("#auth-error-close").click();
+    await expect(dialog).toBeHidden();
   });
 
   test("register form posts credentials and redirects to dashboard", async ({ page }) => {
