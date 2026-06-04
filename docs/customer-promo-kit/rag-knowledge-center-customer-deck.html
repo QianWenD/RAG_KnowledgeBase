@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RAG知识中心平台客户讲解版</title>
+  <style>
+    :root {
+      --deep: #051c2a;
+      --ink: #0f2435;
+      --teal: #0e7e76;
+      --mint: #d2f1e8;
+      --gold: #b07b2d;
+      --paper: #f8f5ec;
+      --line: #dae1db;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #d8d3c5;
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "DengXian", "Noto Sans CJK SC", sans-serif;
+    }
+    .deck {
+      display: grid;
+      gap: 28px;
+      padding: 28px;
+      justify-items: center;
+    }
+    .slide {
+      position: relative;
+      width: min(1280px, 96vw);
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      border-radius: 24px;
+      padding: 72px 96px 64px 152px;
+      background:
+        radial-gradient(circle at 78% 18%, rgba(210, 241, 232, .95), transparent 23%),
+        linear-gradient(135deg, #fffdf7 0%, var(--paper) 60%, #ece5d6 100%);
+      box-shadow: 0 28px 80px rgba(5, 28, 42, .18);
+    }
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 96px;
+      background: var(--deep);
+    }
+    .slide::after {
+      content: "";
+      position: absolute;
+      left: 96px;
+      right: 0;
+      bottom: 28px;
+      height: 6px;
+      background: linear-gradient(90deg, var(--teal), var(--gold));
+      border-radius: 999px;
+    }
+    .cover {
+      padding-left: 112px;
+      background:
+        linear-gradient(112deg, var(--deep) 0%, var(--deep) 52%, transparent 52.2%),
+        radial-gradient(circle at 78% 35%, var(--mint), transparent 22%),
+        linear-gradient(135deg, #fffdf7, #e9dfca);
+    }
+    .cover::before { display: none; }
+    .brand {
+      position: absolute;
+      right: 92px;
+      top: 54px;
+      color: var(--teal);
+      font-weight: 800;
+      letter-spacing: .12em;
+      font-size: 15px;
+    }
+    .index {
+      position: absolute;
+      left: 25px;
+      bottom: 44px;
+      z-index: 1;
+      color: white;
+      font-weight: 800;
+      letter-spacing: .1em;
+    }
+    h1 {
+      margin: 0;
+      max-width: 760px;
+      font-size: clamp(36px, 5vw, 62px);
+      line-height: 1.08;
+      letter-spacing: -.04em;
+      font-family: "DengXian", "Microsoft YaHei", sans-serif;
+    }
+    .cover h1, .cover .subtitle {
+      color: white;
+      max-width: 560px;
+    }
+    .subtitle {
+      margin: 18px 0 30px;
+      max-width: 780px;
+      color: #60727e;
+      font-size: clamp(18px, 2vw, 24px);
+      line-height: 1.55;
+    }
+    ul {
+      width: min(720px, 64%);
+      margin: 0;
+      padding: 28px 36px 28px 54px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, .86);
+      font-size: clamp(18px, 2vw, 25px);
+      line-height: 1.72;
+    }
+    li::marker { color: var(--teal); }
+    aside {
+      position: absolute;
+      right: 84px;
+      top: 258px;
+      width: 300px;
+      min-height: 210px;
+      padding: 26px;
+      border-radius: 24px;
+      background: var(--mint);
+      color: var(--ink);
+      font-size: 20px;
+      line-height: 1.7;
+      box-shadow: inset 0 0 0 1px rgba(14, 126, 118, .12);
+    }
+    .cover aside { display: none; }
+    .cover ul {
+      position: absolute;
+      right: 88px;
+      top: 220px;
+      width: 380px;
+      color: var(--ink);
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      width: 740px;
+      margin-top: 24px;
+    }
+    .flow span {
+      display: grid;
+      place-items: center;
+      min-height: 74px;
+      border-radius: 20px;
+      background: white;
+      border: 2px solid var(--teal);
+      font-size: 22px;
+      font-weight: 800;
+    }
+    .flow + ul { display: none; }
+    @media print {
+      body { background: white; }
+      .deck { padding: 0; gap: 0; }
+      .slide { width: 100vw; border-radius: 0; box-shadow: none; page-break-after: always; }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck">
+    
+            <section class="slide cover">
+              <div class="index">01</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>RAG知识中心平台</h1>
+              <p class="subtitle">让企业资料变成可权限管控、可追溯、可运营的智能问答能力</p>
+              
+              <ul><li>这不是单纯的聊天机器人，而是面向企业知识资产管理的内部知识中心。</li>
+<li>系统重点解决“资料找不到、答案不统一、权限不好控、结果不可追溯”的问题。</li></ul>
+              <aside>这不是单纯的聊天机器人，而是面向企业知识资产管理的内部知识中心。；系统重点解决“资料找不到、答案不统一、权限不好控、结果不可追溯”的问题。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">02</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>客户常见痛点</h1>
+              <p class="subtitle">企业知识通常不是缺资料，而是缺少可用的知识入口。</p>
+              
+              <ul><li>资料散落在网盘、群文件、个人电脑、业务系统中。</li>
+<li>新员工和一线人员经常重复询问同类问题。</li>
+<li>文件版本更新后，旧口径仍在流转。</li>
+<li>普通AI工具无法区分不同人员能看什么资料。</li>
+<li>回答没有来源，业务部门和客户都不敢直接采用。</li></ul>
+              <aside>先让客户代入日常场景，不急着介绍技术。；可以举例：“制度更新了，但大家仍然拿旧文件回答客户。”</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">03</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>系统定位</h1>
+              <p class="subtitle">RAG知识中心平台定位为企业内部知识问答和资料运营平台。</p>
+              
+              <ul><li>把企业资料统一入库，形成可运营的知识资产。</li>
+<li>按用户、角色、来源范围控制可访问内容。</li>
+<li>让员工用自然语言提问，并查看回答依据。</li>
+<li>找答案更快。</li>
+<li>回答口径更统一。</li></ul>
+              <aside>客户要记住：可部署、可授权、可追溯、可运营。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">04</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>整体业务流程</h1>
+              <p class="subtitle"></p>
+              <div class="flow"><span>资料准备</span><span>上传入库</span><span>解析切片</span><span>向量索引</span><span>权限绑定</span><span>用户提问</span><span>检索授权知识</span><span>生成回答</span><span>引用追溯</span></div>
+              <ul><li>客户只需要理解“资料进入系统后，系统会解析、索引、授权，然后用于问答”。</li>
+<li>技术细节可以放到后面的部署和安全说明，不要在这一页展开太深。</li></ul>
+              <aside>客户只需要理解“资料进入系统后，系统会解析、索引、授权，然后用于问答”。；技术细节可以放到后面的部署和安全说明，不要在这一页展开太深。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">05</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>角色与权限</h1>
+              <p class="subtitle">系统支持按人员角色分工使用。</p>
+              
+              <ul><li>平台管理员：管理用户、组织、菜单角色、权限和系统配置。</li>
+<li>知识运营人员：上传资料、维护知识来源、查看入库结果、处理知识更新。</li>
+<li>普通问答用户：在授权范围内提问和查看历史。</li>
+<li>审计查看人员：查看系统操作记录和访问留痕。</li>
+<li>不是所有人都能看到所有资料。</li></ul>
+              <aside>客户要记住：可部署、可授权、可追溯、可运营。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">06</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>问答工作台</h1>
+              <p class="subtitle">问答工作台是用户日常使用入口。</p>
+              
+              <ul><li>用户直接输入业务问题。</li>
+<li>系统基于授权知识范围进行检索和回答。</li>
+<li>右侧保留路由、引用和历史记录，方便核验。</li>
+<li>对话历史可回看，便于复盘常见问题。</li>
+<li>强调“回答不是凭空生成，而是围绕入库资料和权限范围生成”。</li></ul>
+              <aside>先问一个客户熟悉的问题。；展示回答后，再展示引用来源。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">07</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>上传入库与文件管理</h1>
+              <p class="subtitle">知识运营人员可以把企业资料上传到系统。</p>
+              
+              <ul><li>支持单文件和批量资料入库。</li>
+<li>上传后可以查看处理进度和入库结果。</li>
+<li>文件管理支持按文件、来源、入库人员、上传时间范围查询。</li>
+<li>已入库文件支持查看原文、下载原文、删除文件。</li>
+<li>资料入库过程可管理。</li></ul>
+              <aside>客户要记住：可部署、可授权、可追溯、可运营。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">08</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>来源管理与知识边界</h1>
+              <p class="subtitle">来源可以理解为一组资料的业务归属或知识空间。</p>
+              
+              <ul><li>产品资料来源。</li>
+<li>售后知识来源。</li>
+<li>制度规范来源。</li>
+<li>项目资料来源。</li>
+<li>部门专属知识来源。</li></ul>
+              <aside>来源名称建议由客户业务部门统一规划，避免后期频繁改名。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">09</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>权限系统与审计日志</h1>
+              <p class="subtitle">系统不是只做问答，也提供后台治理能力。</p>
+              
+              <ul><li>用户信息。</li>
+<li>组织机构。</li>
+<li>菜单角色。</li>
+<li>菜单管理。</li>
+<li>审计日志。</li></ul>
+              <aside>客户要记住：可部署、可授权、可追溯、可运营。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">10</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>部署与安全边界</h1>
+              <p class="subtitle"></p>
+              
+              <ul><li>前端页面。</li>
+<li>FastAPI后端服务。</li>
+<li>MySQL数据库。</li>
+<li>Redis缓存。</li>
+<li>Milvus向量库。</li></ul>
+              <aside>对IT客户可以展示部署说明。；对业务客户只需要强调“能在企业可控环境中运行”。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">11</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>试点落地路径</h1>
+              <p class="subtitle">建议先做小范围试点，再逐步推广。</p>
+              
+              <ul><li>选择1个业务部门。</li>
+<li>准备2到3个知识来源。</li>
+<li>入库30到50份代表性资料。</li>
+<li>准备20到50个真实业务问题作为验收问题。</li>
+<li>邀请5到20名试点用户体验。</li></ul>
+              <aside>客户要记住：可部署、可授权、可追溯、可运营。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">12</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>上线前客户配合清单</h1>
+              <p class="subtitle"></p>
+              
+              <ul><li>部署服务器或云资源。</li>
+<li>数据库、缓存、向量库、模型服务运行环境。</li>
+<li>试点资料和来源分类。</li>
+<li>试点用户清单和角色权限规则。</li>
+<li>验收问题清单。</li></ul>
+              <aside>客户要记住：可部署、可授权、可追溯、可运营。</aside>
+            </section>
+            
+            <section class="slide ">
+              <div class="index">13</div>
+              <div class="brand">RAG知识中心平台</div>
+              <h1>结尾页</h1>
+              <p class="subtitle">RAG知识中心平台的目标不是让AI替代业务人员，而是让企业已有资料真正被用起来。</p>
+              
+              <ul><li>资料统一入库，知识资产可运营。</li>
+<li>问答有权限边界，结果有来源依据。</li>
+<li>系统可部署、可维护、可审计，适合企业长期使用。</li></ul>
+              <aside>客户要记住：可部署、可授权、可追溯、可运营。</aside>
+            </section>
+            
+  </main>
+</body>
+</html>

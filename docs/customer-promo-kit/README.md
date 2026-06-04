@@ -10,6 +10,18 @@
 - `pilot-rollout-plan.md`：客户试点落地计划，适合项目启动会使用。
 - `sales-faq.md`：客户常见问题与回答口径，适合售前、实施、项目负责人统一话术。
 - `promotion-content.md`：官网、公众号、朋友圈、销售私信等推广文案素材。
+- `rag-knowledge-center-customer-deck.pptx`：正式客户讲解PPT，可用于会议演示。
+- `rag-knowledge-center-customer-deck.html`：浏览器预览版，可用于快速检查版式和中文显示。
+
+## 生成演示文件
+
+如需重新生成PPT和HTML预览，可以在项目根目录执行：
+
+```powershell
+python scripts\build_customer_promo_deck.py
+```
+
+脚本会从 `customer-demo-deck.md` 读取 UTF-8 中文内容，并生成同目录下的 PPTX 和 HTML 文件。不要把中文内容直接塞进 PowerShell 命令里生成PPT，容易受控制台编码影响变成问号。
 
 ## 推荐使用方式
 
@@ -44,4 +56,3 @@
 ## 当前版本说明
 
 当前资料适合用于上线前后的客户介绍和试点沟通。若后续前端页面、菜单名称、权限模型或部署架构有变化，需要同步更新本目录内容。
-
