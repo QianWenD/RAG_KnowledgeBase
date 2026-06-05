@@ -1628,6 +1628,73 @@ test.describe("RAGPro frontend smoke", () => {
     expect(Math.abs(securityAfter.width - securityBefore.width)).toBeLessThan(0.5);
   });
 
+  test("role dialog keeps menu authorization to a single scroll area", async ({ page }) => {
+    const menuItems = Array.from({ length: 22 }, (_, index) => ({
+      id: index + 1,
+      parent_id: index === 0 ? null : 1,
+      menu_code: `menu_${index + 1}`,
+      name: `测试菜单 ${index + 1}`,
+      href: `/menu-${index + 1}`,
+      router_name: `menu_${index + 1}`,
+      router_path: `/menu-${index + 1}`,
+      is_visible: true,
+      sort_order: (index + 1) * 10,
+    }));
+
+    await mockAuthenticatedShell(page, {
+      bootstrap: {
+        ...permissionBootstrap,
+        menu_items: menuItems,
+      },
+    });
+    await page.route("**/auth/menu-roles**", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname !== "/auth/menu-roles") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: permissionBootstrap.menu_roles }),
+      });
+    });
+
+    await page.setViewportSize({ width: 1420, height: 760 });
+    await page.goto(`${baseURL}/users/access`);
+    await page.locator("#access-create-btn").click();
+    await page.locator("#role-editor-name").fill("测试角色");
+    await page.locator("#role-editor-code").fill("test_role");
+    await page.locator("#role-editor-next").click();
+    await expect(page.locator('[data-role-step-panel="1"]')).toBeVisible();
+
+    const metrics = await page.evaluate(() => {
+      const card = document.querySelector(".permission-editor-card-role");
+      const section = document.querySelector('.permission-editor-card-role [data-role-step-panel="1"]');
+      const fieldset = document.querySelector(".permission-editor-card-role .permission-form-fieldset");
+      const tree = document.querySelector("#role-editor-menu-tree");
+      const isScrollable = (node) => Boolean(node && node.scrollHeight - node.clientHeight > 1);
+      return {
+        cardScrollable: isScrollable(card),
+        sectionOverflowY: section ? getComputedStyle(section).overflowY : "",
+        sectionScrollable: isScrollable(section),
+        fieldsetScrollable: isScrollable(fieldset),
+        treeOverflowY: tree ? getComputedStyle(tree).overflowY : "",
+        treeScrollable: isScrollable(tree),
+        treeClientHeight: tree?.clientHeight || 0,
+        treeScrollHeight: tree?.scrollHeight || 0,
+      };
+    });
+
+    expect(metrics.cardScrollable).toBe(false);
+    expect(metrics.sectionOverflowY).toBe("hidden");
+    expect(metrics.sectionScrollable).toBe(false);
+    expect(metrics.fieldsetScrollable).toBe(false);
+    expect(metrics.treeOverflowY).toBe("auto");
+    expect(metrics.treeScrollable).toBe(true);
+    expect(metrics.treeScrollHeight).toBeGreaterThan(metrics.treeClientHeight);
+  });
+
   test("users overview shows Chinese validation and localized backend errors", async ({ page }) => {
     let createRequests = 0;
 

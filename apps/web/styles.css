@@ -7834,7 +7834,9 @@ body.console-page[data-page-view="users-access"] .permission-editor-card-role .p
 
 body.console-page[data-page-view="users-access"] .permission-editor-card-role .permission-editor-section {
   min-height: 0;
-  overflow: auto;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
   padding: 12px 14px;
   border-radius: 16px;
 }
@@ -7850,16 +7852,34 @@ body.console-page[data-page-view="users-access"] .permission-editor-card-role #r
 body.console-page[data-page-view="users-access"] .permission-editor-card-role .permission-editor-tree-grid {
   grid-template-columns: minmax(0, 1fr) 190px;
   gap: 10px;
+  min-height: 0;
+  align-items: stretch;
 }
 
 body.console-page[data-page-view="users-access"] .permission-editor-card-role .permission-form-fieldset,
 body.console-page[data-page-view="users-access"] .permission-editor-card-role .permission-editor-aside {
   padding: 10px 12px;
   border-radius: 14px;
+  min-height: 0;
+}
+
+body.console-page[data-page-view="users-access"] .permission-editor-card-role .permission-form-fieldset {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+body.console-page[data-page-view="users-access"] .permission-editor-card-role .permission-editor-aside {
+  align-content: start;
+  overflow: hidden;
 }
 
 body.console-page[data-page-view="users-access"] .permission-editor-card-role .permission-tree-list {
-  max-height: 238px;
+  max-height: none;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
   gap: 6px;
 }
 
