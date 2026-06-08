@@ -7914,6 +7914,14 @@ body.console-page[data-page-view="users-access"] .permission-editor-card-role .p
   body.console-page[data-page="users"] .permission-step-panel-grid {
     grid-template-columns: 1fr;
   }
+
+  body.console-page[data-page-view="users-access"] .permission-editor-card-role .permission-editor-tree-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.console-page[data-page-view="users-access"] .permission-editor-card-role .permission-form-fieldset {
+    grid-template-rows: auto auto minmax(160px, 1fr);
+  }
 }
 
 body.login-page {
@@ -10310,12 +10318,12 @@ body.console-page[data-page-view="knowledge-sources"] .document-file-filter-row 
 body.console-page .document-file-filter-form {
   display: grid;
   grid-template-columns:
-    minmax(170px, 1fr)
-    minmax(120px, 0.72fr)
-    minmax(150px, 0.86fr)
-    minmax(520px, 2.35fr)
-    auto;
-  column-gap: 16px;
+    minmax(150px, 1fr)
+    minmax(110px, 0.72fr)
+    minmax(130px, 0.86fr)
+    minmax(410px, 1.65fr)
+    minmax(132px, auto);
+  column-gap: 14px;
   row-gap: 12px;
   width: 100%;
   align-items: end;
@@ -10373,12 +10381,13 @@ body.console-page .document-file-time-controls {
 
 body.console-page .document-file-time-presets {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   min-height: 46px;
   min-width: 0;
   gap: 7px;
   padding: 5px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid rgba(var(--component-accent-rgb), 0.18);
   border-radius: 16px;
   background:
