@@ -5,6 +5,9 @@
 ## 文件清单
 
 - `customer-demo-deck.md`：客户讲解PPT稿，可直接转为演示文稿。
+- `customer-facing-introduction.md`：客户可直接阅读的系统介绍说明，适合会前发送或随方案交付。
+- `customer-facing-introduction.html`：客户介绍说明的浏览器/打印版，适合直接打开、截图或转 PDF。
+- `customer-facing-introduction.pdf`：客户介绍说明的 PDF 阅读版，适合直接转发客户。
 - `demo-script.md`：现场演示讲稿，包含15分钟快讲版和30分钟详细版。
 - `product-one-pager.md`：产品一页纸，适合发给客户或放到方案首页。
 - `pilot-rollout-plan.md`：客户试点落地计划，适合项目启动会使用。

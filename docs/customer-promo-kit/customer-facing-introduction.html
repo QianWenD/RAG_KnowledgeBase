@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RAG知识中心平台介绍说明</title>
+  <style>
+    :root {
+      --ink: #132536;
+      --muted: #5b6b78;
+      --deep: #062432;
+      --teal: #157b70;
+      --gold: #b48738;
+      --paper: #fbf8f0;
+      --line: rgba(19, 37, 54, 0.14);
+      --card: rgba(255, 255, 255, 0.82);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+      line-height: 1.78;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(21, 123, 112, 0.22), transparent 28rem),
+        radial-gradient(circle at 88% 2%, rgba(180, 135, 56, 0.18), transparent 30rem),
+        linear-gradient(135deg, #f8f4e9 0%, #eef5ef 48%, #f8f3e7 100%);
+    }
+
+    .page {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 48px 24px 72px;
+    }
+
+    .hero {
+      overflow: hidden;
+      position: relative;
+      padding: 48px;
+      color: white;
+      border-radius: 34px;
+      background:
+        linear-gradient(132deg, rgba(6, 36, 50, 0.98), rgba(9, 82, 83, 0.92) 58%, rgba(180, 135, 56, 0.86));
+      box-shadow: 0 26px 70px rgba(6, 36, 50, 0.22);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -120px;
+      top: -140px;
+      width: 360px;
+      height: 360px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .eyebrow {
+      margin: 0 0 18px;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      position: relative;
+      margin: 0;
+      max-width: 760px;
+      font-family: "Noto Serif SC", "SimSun", serif;
+      font-size: clamp(42px, 7vw, 76px);
+      line-height: 1.06;
+      letter-spacing: -0.04em;
+    }
+
+    .lead {
+      position: relative;
+      max-width: 760px;
+      margin: 24px 0 0;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 20px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.86);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    main {
+      display: grid;
+      gap: 22px;
+      margin-top: 28px;
+    }
+
+    section {
+      padding: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      border-radius: 28px;
+      background: var(--card);
+      box-shadow: 0 18px 46px rgba(32, 47, 42, 0.09);
+      backdrop-filter: blur(14px);
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      color: var(--deep);
+      font-family: "Noto Serif SC", "SimSun", serif;
+      font-size: 30px;
+      line-height: 1.25;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      color: #0d5e58;
+      font-size: 18px;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    ul,
+    ol {
+      margin: 0;
+      padding-left: 1.3em;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    blockquote {
+      margin: 20px 0;
+      padding: 18px 20px;
+      border-left: 5px solid var(--gold);
+      border-radius: 18px;
+      background: rgba(180, 135, 56, 0.11);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .mini-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.64);
+    }
+
+    .mini-card h3 {
+      margin-top: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    th,
+    td {
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--deep);
+      background: rgba(21, 123, 112, 0.1);
+      font-weight: 800;
+    }
+
+    .summary {
+      border-color: rgba(21, 123, 112, 0.2);
+      background:
+        linear-gradient(135deg, rgba(21, 123, 112, 0.12), rgba(180, 135, 56, 0.12)),
+        rgba(255, 255, 255, 0.82);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        padding: 22px 14px 44px;
+      }
+
+      .hero,
+      section {
+        padding: 24px;
+        border-radius: 24px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      .page {
+        max-width: none;
+        padding: 0;
+      }
+
+      .hero,
+      section {
+        break-inside: avoid;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <p class="eyebrow">RAGPro Customer Introduction</p>
+      <h1>RAG知识中心平台介绍说明</h1>
+      <p class="lead">把企业资料变成可权限管控、可追溯、可运营的智能问答能力。</p>
+      <div class="meta">
+        <span class="pill">版本日期：2026-06-10</span>
+        <span class="pill">适用对象：业务负责人 / IT负责人 / 知识管理员</span>
+        <span class="pill">用途：客户直接阅读、试点沟通、上线说明</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>系统简介</h2>
+        <p>RAG知识中心平台是一套面向企业内部知识资料的智能问答与知识运营系统。</p>
+        <p>它不是普通聊天机器人，而是把企业已有的制度文件、产品资料、操作手册、项目文档、培训资料等内容统一入库，并结合用户权限、知识来源和引用追溯能力，为员工提供可信、可控、可维护的问答入口。</p>
+        <blockquote>一句话概括：把企业资料变成可权限管控、可追溯、可运营的智能问答能力。</blockquote>
+      </section>
+
+      <section>
+        <h2>适合解决的问题</h2>
+        <ul>
+          <li>资料分散在网盘、群文件、个人电脑或不同业务系统中，员工查找成本高。</li>
+          <li>新员工、一线人员、客服或项目人员经常重复询问同类问题。</li>
+          <li>文档版本更新后，旧文件和旧口径仍然在流转。</li>
+          <li>传统搜索只能找到文件，不能直接形成可读答案。</li>
+          <li>通用 AI 工具不了解企业内部资料，也无法自然区分资料权限。</li>
+          <li>回答缺少引用来源，业务人员不敢直接采用。</li>
+          <li>系统上线后缺少文件治理、权限控制和审计留痕，难以长期维护。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>核心价值</h2>
+        <div class="grid">
+          <article class="mini-card">
+            <h3>员工找答案更快</h3>
+            <p>员工可以直接输入自然语言问题，不需要先判断资料在哪个文件夹、哪个版本、哪个系统中。</p>
+          </article>
+          <article class="mini-card">
+            <h3>回答更有依据</h3>
+            <p>回答可以结合引用来源、知识片段和会话记录，帮助用户判断答案来自哪里。</p>
+          </article>
+          <article class="mini-card">
+            <h3>权限边界更清晰</h3>
+            <p>不同用户、角色、部门可以访问不同知识来源，避免资料被过度暴露。</p>
+          </article>
+          <article class="mini-card">
+            <h3>上线后可运营</h3>
+            <p>系统提供文件治理、用户管理、权限管理和审计日志，支撑长期维护。</p>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h2>主要功能</h2>
+        <h3>智能问答工作台</h3>
+        <p>用户进入问答页面后，可以直接输入业务问题。系统会结合授权知识范围进行检索和回答，并保留会话、引用、路由和历史记录。</p>
+
+        <h3>资料上传与入库</h3>
+        <p>知识运营人员可以上传企业资料，系统会进行解析、切片、索引等处理，使资料可以被问答检索使用。常见文档包括 PDF、Word、PPT、TXT、Markdown、HTML 等。</p>
+
+        <h3>文件管理</h3>
+        <p>已入库文件可以按文件名、来源、入库人员、上传时间范围查询，并支持查看源文件内容、下载原文和删除不再需要的文件。</p>
+
+        <h3>来源管理</h3>
+        <p>来源可以理解为一组资料的业务归属或知识空间，例如产品资料、售后知识、制度规范、项目资料或部门资料。来源可以和用户权限关联，决定不同人员能问哪些资料。</p>
+
+        <h3>用户、角色与权限</h3>
+        <p>系统支持用户信息、组织机构、菜单角色、菜单管理和来源权限管理，可以控制不同用户能进入哪些页面、能管理哪些功能、能问答哪些来源。</p>
+
+        <h3>审计日志</h3>
+        <p>审计日志记录关键操作，便于上线后排查问题、追踪操作来源和满足客户内部管理要求。</p>
+
+        <h3>私有化部署</h3>
+        <p>系统支持部署在客户指定服务器或内网环境中。正式上线时建议配置 HTTPS、访问控制、账号安全、数据库备份、日志留存和服务器监控。</p>
+      </section>
+
+      <section>
+        <h2>典型使用流程</h2>
+        <div class="grid">
+          <article class="mini-card">
+            <h3>管理员和知识运营人员</h3>
+            <ol>
+              <li>规划知识来源。</li>
+              <li>创建用户、角色和权限规则。</li>
+              <li>上传资料并查看入库进度。</li>
+              <li>核验资料是否正确入库。</li>
+              <li>使用验收问题测试问答效果。</li>
+              <li>根据反馈更新资料、删除过期文件或调整权限。</li>
+            </ol>
+          </article>
+          <article class="mini-card">
+            <h3>普通问答用户</h3>
+            <ol>
+              <li>登录系统。</li>
+              <li>进入问答工作台。</li>
+              <li>输入业务问题。</li>
+              <li>查看系统回答。</li>
+              <li>查看引用来源或历史记录。</li>
+              <li>继续追问或反馈给知识管理员。</li>
+            </ol>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h2>推荐试点方式</h2>
+        <p>建议先选择一个部门或一个业务场景进行小范围试点，不建议一开始导入所有历史资料。</p>
+        <table>
+          <thead>
+            <tr>
+              <th>试点项</th>
+              <th>建议范围</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>试点部门</td><td>1个业务部门</td></tr>
+            <tr><td>知识来源</td><td>2到3个</td></tr>
+            <tr><td>入库资料</td><td>30到50份代表性资料</td></tr>
+            <tr><td>验收问题</td><td>20到50个真实业务问题</td></tr>
+            <tr><td>试点用户</td><td>5到20人</td></tr>
+            <tr><td>试点周期</td><td>2到4周</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>上线前客户需要准备</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>准备事项</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>部署环境</td><td>服务器、网络、域名或访问地址、安全策略</td></tr>
+            <tr><td>业务资料</td><td>试点文档、制度、手册、FAQ、培训资料等</td></tr>
+            <tr><td>来源分类</td><td>按部门、业务线、项目或资料类型规划知识来源</td></tr>
+            <tr><td>用户清单</td><td>管理员、知识运营人员、普通用户、审计查看人员</td></tr>
+            <tr><td>权限规则</td><td>哪些用户可以访问哪些来源和菜单</td></tr>
+            <tr><td>验收问题</td><td>真实业务问题，用于验证问答质量</td></tr>
+            <tr><td>业务负责人</td><td>确认资料、答案口径和试点反馈</td></tr>
+            <tr><td>IT负责人</td><td>协助部署、安全、备份、网络和运维</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>验收建议</h2>
+        <ul>
+          <li>登录、菜单和角色权限是否符合预期。</li>
+          <li>试点资料是否可以成功上传、解析和检索。</li>
+          <li>高频问题是否能得到稳定、可核验的回答。</li>
+          <li>回答引用是否来自正确资料。</li>
+          <li>普通用户是否只能访问授权知识来源。</li>
+          <li>文件查看、下载、删除是否符合管理要求。</li>
+          <li>审计日志是否可以查询关键操作。</li>
+          <li>系统健康检查、备份和运维流程是否明确。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>使用边界说明</h2>
+        <ul>
+          <li>系统回答基于已入库资料和模型生成，不应承诺百分百准确。</li>
+          <li>关键业务结论仍建议结合引用资料和业务负责人确认。</li>
+          <li>扫描件、图片型 PDF、复杂表格或低质量文档可能影响解析效果。</li>
+          <li>资料质量、来源规划和权限配置会直接影响问答效果。</li>
+          <li>系统不能替代客户内部制度审批、法律审核或最终业务决策。</li>
+          <li>生产环境上线必须配置安全策略、备份机制和运维责任人。</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>推荐演示顺序</h2>
+        <ol>
+          <li>管理员登录，展示系统整体导航和后台能力。</li>
+          <li>展示知识来源和文件管理。</li>
+          <li>上传一份演示资料，查看处理进度。</li>
+          <li>使用普通用户进入问答工作台。</li>
+          <li>提出一个资料中能找到依据的问题。</li>
+          <li>展示回答、引用来源和历史记录。</li>
+          <li>展示用户权限、来源权限和审计日志。</li>
+          <li>说明试点准备事项和上线配合清单。</li>
+        </ol>
+      </section>
+
+      <section class="summary">
+        <h2>总结</h2>
+        <p>RAG知识中心平台的核心价值，不是简单把 AI 放进系统，而是帮助企业建立一套可上线、可管理、可维护的知识问答体系。</p>
+        <ul>
+          <li>资料统一入库，知识资产可运营。</li>
+          <li>员工自然语言提问，获取更快答案。</li>
+          <li>回答带来源依据，降低盲目信任风险。</li>
+          <li>权限按用户和来源控制，保护资料边界。</li>
+          <li>文件、用户、角色和审计可管理，支撑长期运行。</li>
+        </ul>
+        <p class="muted">建议客户从一个高频、清晰、资料质量较好的业务场景开始试点，跑通资料入库、权限配置、问答验收和运营维护流程后，再逐步扩展到更多部门和知识来源。</p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
