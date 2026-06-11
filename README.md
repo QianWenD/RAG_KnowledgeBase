@@ -7,20 +7,20 @@ RAGPro 是一个中文 RAG 问答和知识库运维系统。当前项目已经�
 如果你是第一次接手这个项目，建议按下面顺序看：
 
 1. `PROJECT_MAP.md`：项目总览，说明主线代码、运行依赖、启动方式和维护规则。
-2. `docs/project-file-inventory.md`：项目文件整理清单，说明每个目录该怎么看、哪些是主线、哪些是历史参考。
-3. `docs/local-startup-runbook.md`：本地启动手册。
-4. `docs/production-deployment-guide.md`：新服务器上线部署说明。
-5. `docs/project-owner-handbook.md`：项目负责人管理规则草案。
-6. `docs/project-roadmap.md`：路线图和风险清单。
-7. `docs/README.md`：文档索引。
+2. `docs/项目文件整理清单.md`：项目文件整理清单，说明每个目录该怎么看、哪些是主线、哪些是历史参考。
+3. `docs/本地启动手册.md`：本地启动手册。
+4. `docs/新服务器部署说明.md`：新服务器上线部署说明。
+5. `docs/项目负责人手册.md`：项目负责人管理规则草案。
+6. `docs/项目路线图.md`：路线图和风险清单。
+7. `docs/文档索引.md`：文档索引。
 
 几个常用目录也有自己的中文说明：
 
-- `apps/README.md`
-- `src/ragpro/README.md`
-- `packages/README.md`
-- `tests/README.md`
-- `scripts/README.md`
+- `apps/应用入口层说明.md`
+- `src/ragpro/Python包说明.md`
+- `packages/数据资产与历史原型说明.md`
+- `tests/测试目录说明.md`
+- `scripts/运维脚本说明.md`
 
 ## 当前主线目录
 

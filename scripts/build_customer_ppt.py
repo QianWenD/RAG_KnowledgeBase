@@ -22,8 +22,8 @@ from pptx.util import Inches, Pt
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "docs" / "customer-presentation.md"
-OUTPUT = ROOT / "docs" / "customer-presentation.pptx"
+SOURCE = ROOT / "docs" / "客户讲解PPT文稿.md"
+OUTPUT = ROOT / "docs" / "客户讲解PPT草稿.pptx"
 
 FONT_NAME = "Microsoft YaHei"
 

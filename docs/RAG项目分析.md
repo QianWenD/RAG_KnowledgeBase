@@ -518,7 +518,7 @@ RAGPro/
     processed/            # 清洗后的中间产物
     eval/                 # 测试问答集
   docs/
-    rag-project-analysis.md
+    RAG项目分析.md
 ```
 
 ## 10. 非目标
@@ -865,7 +865,7 @@ RAGPro/
       datasets/
       benchmarks/
   docs/
-    rag-project-analysis.md
+    RAG项目分析.md
 ```
 
 ### 14.13 基于新增设计图的最终判断

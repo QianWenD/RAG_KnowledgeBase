@@ -360,8 +360,8 @@ RAGPro/
       datasets/
       benchmarks/
   docs/
-    rag-project-analysis.md
-    planning-design.md
+    RAG项目分析.md
+    RAG问答系统规划设计.md
 ```
 
 ## 10. 模块职责说明

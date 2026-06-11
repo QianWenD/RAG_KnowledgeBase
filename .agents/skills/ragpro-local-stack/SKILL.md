@@ -99,7 +99,7 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8001/qa
 
 若不确定细节，优先参考：
 
-- `docs/local-startup-runbook.md`
+- `docs/本地启动手册.md`
 - `scripts/start-local-stack.ps1`
 - `scripts/start-milvus-wsl.ps1`
 

@@ -145,7 +145,7 @@ Milvus Lite 更适合做轻量开发验证，但官方支持平台是 `Ubuntu` �
 
 当前这一步已经在本机完成，详情见：
 
-- `docs/milvus-lite-wsl-setup.md`
+- `docs/MilvusLiteWSL安装记录.md`
 
 ### 方案 B：直接上服务器
 

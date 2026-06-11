@@ -24,7 +24,7 @@ from pptx.util import Inches, Pt
 
 
 ROOT = Path(__file__).resolve().parents[1]
-KIT_DIR = ROOT / "docs" / "customer-promo-kit"
+KIT_DIR = ROOT / "docs" / "客户推广资料包"
 SOURCE = KIT_DIR / "客户讲解PPT稿.md"
 PPTX_OUTPUT = KIT_DIR / "RAG知识中心平台客户讲解PPT.pptx"
 HTML_OUTPUT = KIT_DIR / "RAG知识中心平台客户讲解PPT预览.html"
