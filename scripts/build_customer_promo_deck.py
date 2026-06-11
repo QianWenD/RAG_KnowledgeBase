@@ -25,9 +25,9 @@ from pptx.util import Inches, Pt
 
 ROOT = Path(__file__).resolve().parents[1]
 KIT_DIR = ROOT / "docs" / "customer-promo-kit"
-SOURCE = KIT_DIR / "customer-demo-deck.md"
-PPTX_OUTPUT = KIT_DIR / "rag-knowledge-center-customer-deck.pptx"
-HTML_OUTPUT = KIT_DIR / "rag-knowledge-center-customer-deck.html"
+SOURCE = KIT_DIR / "客户讲解PPT稿.md"
+PPTX_OUTPUT = KIT_DIR / "RAG知识中心平台客户讲解PPT.pptx"
+HTML_OUTPUT = KIT_DIR / "RAG知识中心平台客户讲解PPT预览.html"
 
 FONT_CN = "Microsoft YaHei"
 FONT_TITLE = "DengXian"
